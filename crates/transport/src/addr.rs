@@ -38,7 +38,19 @@ pub(crate) fn from_dto(
     Ok(EndpointAddr::from_parts(id, addrs))
 }
 
-/// Classifies a direct path by the peer's IP: private/link-local ranges are LAN.
+/// Classifies a direct path. Private/link-local peers are LAN; so is a global IPv6
+/// peer inside the same /64 as the local address (typical home/office IPv6, where
+/// LAN hosts talk over their global addresses).
+pub fn classify_path(remote: IpAddr, local: Option<IpAddr>) -> TransportKind {
+    if let (IpAddr::V6(r), Some(IpAddr::V6(l))) = (remote, local)
+        && r.segments()[..4] == l.segments()[..4]
+    {
+        return TransportKind::Lan;
+    }
+    classify_ip(remote)
+}
+
+/// Classifies a direct path by the peer's IP alone: private/link-local ranges are LAN.
 pub fn classify_ip(ip: IpAddr) -> TransportKind {
     let lan = match ip {
         IpAddr::V4(v4) => v4.is_private() || v4.is_link_local() || v4.is_loopback(),
@@ -46,10 +58,16 @@ pub fn classify_ip(ip: IpAddr) -> TransportKind {
             v6.is_loopback()
                 || v6.is_unique_local()
                 || v6.is_unicast_link_local()
-                || v6.to_ipv4_mapped().is_some_and(|v4| v4.is_private() || v4.is_link_local())
+                || v6
+                    .to_ipv4_mapped()
+                    .is_some_and(|v4| v4.is_private() || v4.is_link_local())
         }
     };
-    if lan { TransportKind::Lan } else { TransportKind::Direct }
+    if lan {
+        TransportKind::Lan
+    } else {
+        TransportKind::Direct
+    }
 }
 
 #[cfg(test)]
@@ -58,13 +76,38 @@ mod tests {
 
     #[test]
     fn classifies_private_ranges_as_lan() {
-        for ip in ["192.168.0.10", "10.1.2.3", "172.16.5.4", "169.254.1.1", "127.0.0.1", "fd00::1", "fe80::1"] {
+        for ip in [
+            "192.168.0.10",
+            "10.1.2.3",
+            "172.16.5.4",
+            "169.254.1.1",
+            "127.0.0.1",
+            "fd00::1",
+            "fe80::1",
+        ] {
             assert_eq!(classify_ip(ip.parse().unwrap()), TransportKind::Lan, "{ip}");
         }
         // CGNAT shared space and public addresses are not LAN.
         for ip in ["100.64.1.1", "8.8.8.8", "2001:4860::8888"] {
-            assert_eq!(classify_ip(ip.parse().unwrap()), TransportKind::Direct, "{ip}");
+            assert_eq!(
+                classify_ip(ip.parse().unwrap()),
+                TransportKind::Direct,
+                "{ip}"
+            );
         }
+    }
+
+    #[test]
+    fn same_ipv6_prefix_is_lan() {
+        let local = Some("2804:20c0:5b42:2::1".parse().unwrap());
+        let same = "2804:20c0:5b42:2:25b5:c320:6fc3:dda7".parse().unwrap();
+        let other = "2804:20c0:5b42:9::1".parse().unwrap();
+        assert_eq!(classify_path(same, local), TransportKind::Lan);
+        assert_eq!(classify_path(other, local), TransportKind::Direct);
+        assert_eq!(
+            classify_path("8.8.8.8".parse().unwrap(), None),
+            TransportKind::Direct
+        );
     }
 
     #[test]
@@ -78,6 +121,15 @@ mod tests {
         let back = to_dto(&addr);
         assert_eq!(back.direct_addrs.len(), 2);
         assert_eq!(back.relay_urls.len(), 1);
-        assert!(from_dto(key, &EndpointAddrDto { relay_urls: vec![], direct_addrs: vec!["nope".into()] }).is_err());
+        assert!(
+            from_dto(
+                key,
+                &EndpointAddrDto {
+                    relay_urls: vec![],
+                    direct_addrs: vec!["nope".into()]
+                }
+            )
+            .is_err()
+        );
     }
 }

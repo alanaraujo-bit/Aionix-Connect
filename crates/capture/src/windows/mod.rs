@@ -88,15 +88,20 @@ pub enum ScreenCapturer {
 impl ScreenCapturer {
     /// Opens the best available backend for `display_id`. `preferred` skips backends
     /// before it (useful after a backend failed repeatedly).
-    pub fn open(display_id: u32, preferred: Option<Backend>) -> Result<(Self, DisplayInfo), CaptureError> {
+    pub fn open(
+        display_id: u32,
+        preferred: Option<Backend>,
+    ) -> Result<(Self, DisplayInfo), CaptureError> {
         let display = displays::enumerate_dxgi()?
             .into_iter()
             .find(|d| d.info.id == display_id)
             .ok_or(CaptureError::DisplayNotFound(display_id))?;
         let order: &[Backend] = match preferred {
-            None | Some(Backend::DesktopDuplication) => {
-                &[Backend::DesktopDuplication, Backend::GraphicsCapture, Backend::Gdi]
-            }
+            None | Some(Backend::DesktopDuplication) => &[
+                Backend::DesktopDuplication,
+                Backend::GraphicsCapture,
+                Backend::Gdi,
+            ],
             Some(Backend::GraphicsCapture) => &[Backend::GraphicsCapture, Backend::Gdi],
             Some(Backend::Gdi) => &[Backend::Gdi],
         };

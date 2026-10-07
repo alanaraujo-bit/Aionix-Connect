@@ -1,0 +1,10 @@
+[package]
+name = "aionix-remote-core"
+description = "Remote session engine components (currently: adaptive quality controller)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+aionix-shared = { workspace = true }

@@ -17,7 +17,7 @@ mod addr;
 mod connection;
 mod endpoint;
 
-pub use addr::{classify_ip, to_dto};
+pub use addr::{classify_ip, classify_path, to_dto};
 pub use connection::{PathSnapshot, PeerConnection, RecvStream, SendStream, StreamError};
 pub use endpoint::{Incoming, RelayEndpoint, Transport, TransportConfig};
 

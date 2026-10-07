@@ -56,7 +56,9 @@ pub fn data_dir(scope: DataScope, component: &str) -> Result<PathBuf, PlatformEr
             .or_else(|| Some(PathBuf::from("/var/lib"))),
     }
     .ok_or_else(|| PlatformError::Os("no data directory".into()))?;
-    let dir = base.join(&aionix_brand::brand().identifiers.data_dir_name).join(component);
+    let dir = base
+        .join(&aionix_brand::brand().identifiers.data_dir_name)
+        .join(component);
     std::fs::create_dir_all(&dir).map_err(|e| PlatformError::Os(e.to_string()))?;
     Ok(dir)
 }

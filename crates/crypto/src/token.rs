@@ -95,7 +95,12 @@ impl TokenIssuer {
         self.issue_at(claims, ttl, OffsetDateTime::now_utc())
     }
 
-    pub fn issue_at<T: TokenClaims>(&self, claims: &T, ttl: Duration, now: OffsetDateTime) -> Issued {
+    pub fn issue_at<T: TokenClaims>(
+        &self,
+        claims: &T,
+        ttl: Duration,
+        now: OffsetDateTime,
+    ) -> Issued {
         let jti = crate::random_token(16);
         let expires_at = now + ttl;
         let env = Envelope {
@@ -126,7 +131,10 @@ pub struct TokenVerifier {
 
 impl TokenVerifier {
     pub fn new() -> Self {
-        Self { keys: HashMap::new(), leeway: DEFAULT_LEEWAY }
+        Self {
+            keys: HashMap::new(),
+            leeway: DEFAULT_LEEWAY,
+        }
     }
 
     pub fn with_key(mut self, key: PublicKey) -> Self {
@@ -167,7 +175,8 @@ impl TokenVerifier {
         }
         let key = self.keys.get(kid).ok_or(TokenError::UnknownKey)?;
         let sig = B64.decode(sig_b64).map_err(|_| TokenError::Malformed)?;
-        key.verify(&signing_message(signed_part), &sig).map_err(|_| TokenError::BadSignature)?;
+        key.verify(&signing_message(signed_part), &sig)
+            .map_err(|_| TokenError::BadSignature)?;
 
         // Signature is valid: payload was produced by a trusted issuer.
         let raw = B64.decode(payload).map_err(|_| TokenError::Malformed)?;
@@ -187,7 +196,12 @@ impl TokenVerifier {
             return Err(TokenError::NotYetValid);
         }
         let claims: T = serde_json::from_value(typed.claims).map_err(|_| TokenError::Malformed)?;
-        Ok(Verified { claims, jti: typed.jti, issued_at, expires_at })
+        Ok(Verified {
+            claims,
+            jti: typed.jti,
+            issued_at,
+            expires_at,
+        })
     }
 }
 
@@ -237,19 +251,40 @@ mod tests {
     fn rejects_wrong_type() {
         let (iss, ver) = setup();
         let t = iss.issue(&Access { sub: "u1".into() }, Duration::minutes(5));
-        assert_eq!(ver.verify::<Other>(&t.token).unwrap_err(), TokenError::WrongType);
+        assert_eq!(
+            ver.verify::<Other>(&t.token).unwrap_err(),
+            TokenError::WrongType
+        );
     }
 
     #[test]
     fn rejects_expired_and_future() {
         let (iss, ver) = setup();
         let now = OffsetDateTime::now_utc();
-        let old = iss.issue_at(&Access { sub: "u".into() }, Duration::minutes(1), now - Duration::hours(1));
-        assert_eq!(ver.verify::<Access>(&old.token).unwrap_err(), TokenError::Expired);
-        let future = iss.issue_at(&Access { sub: "u".into() }, Duration::minutes(1), now + Duration::hours(1));
-        assert_eq!(ver.verify::<Access>(&future.token).unwrap_err(), TokenError::NotYetValid);
+        let old = iss.issue_at(
+            &Access { sub: "u".into() },
+            Duration::minutes(1),
+            now - Duration::hours(1),
+        );
+        assert_eq!(
+            ver.verify::<Access>(&old.token).unwrap_err(),
+            TokenError::Expired
+        );
+        let future = iss.issue_at(
+            &Access { sub: "u".into() },
+            Duration::minutes(1),
+            now + Duration::hours(1),
+        );
+        assert_eq!(
+            ver.verify::<Access>(&future.token).unwrap_err(),
+            TokenError::NotYetValid
+        );
         // Within leeway is accepted.
-        let skewed = iss.issue_at(&Access { sub: "u".into() }, Duration::minutes(1), now + Duration::seconds(10));
+        let skewed = iss.issue_at(
+            &Access { sub: "u".into() },
+            Duration::minutes(1),
+            now + Duration::seconds(10),
+        );
         assert!(ver.verify::<Access>(&skewed.token).is_ok());
     }
 
@@ -258,7 +293,10 @@ mod tests {
         let (iss, ver) = setup();
         let (other_iss, _) = setup();
         let t = other_iss.issue(&Access { sub: "u".into() }, Duration::minutes(5));
-        assert_eq!(ver.verify::<Access>(&t.token).unwrap_err(), TokenError::UnknownKey);
+        assert_eq!(
+            ver.verify::<Access>(&t.token).unwrap_err(),
+            TokenError::UnknownKey
+        );
 
         let t = iss.issue(&Access { sub: "user".into() }, Duration::minutes(5));
         let parts: Vec<&str> = t.token.split('.').collect();
@@ -270,9 +308,19 @@ mod tests {
             .unwrap(),
         );
         let forged = format!("{}.{}.{}.{}", parts[0], parts[1], forged_payload, parts[3]);
-        assert_eq!(ver.verify::<Access>(&forged).unwrap_err(), TokenError::BadSignature);
-        assert_eq!(ver.verify::<Access>("garbage").unwrap_err(), TokenError::Malformed);
-        assert_eq!(ver.verify::<Access>(&"a".repeat(MAX_TOKEN_LEN + 1)).unwrap_err(), TokenError::Malformed);
+        assert_eq!(
+            ver.verify::<Access>(&forged).unwrap_err(),
+            TokenError::BadSignature
+        );
+        assert_eq!(
+            ver.verify::<Access>("garbage").unwrap_err(),
+            TokenError::Malformed
+        );
+        assert_eq!(
+            ver.verify::<Access>(&"a".repeat(MAX_TOKEN_LEN + 1))
+                .unwrap_err(),
+            TokenError::Malformed
+        );
     }
 
     #[test]

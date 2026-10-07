@@ -47,8 +47,11 @@ impl std::fmt::Debug for GpuDevice {
 
 impl GpuDevice {
     pub fn create(adapter: &IDXGIAdapter) -> Result<Self, CaptureError> {
-        let levels: [D3D_FEATURE_LEVEL; 3] =
-            [D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_0];
+        let levels: [D3D_FEATURE_LEVEL; 3] = [
+            D3D_FEATURE_LEVEL_11_1,
+            D3D_FEATURE_LEVEL_11_0,
+            D3D_FEATURE_LEVEL_10_0,
+        ];
         let mut device = None;
         let mut context = None;
         unsafe {
@@ -83,14 +86,21 @@ impl GpuDevice {
     }
 
     /// BGRA texture usable as copy destination, shader input and render target.
-    pub fn create_bgra_texture(&self, width: u32, height: u32) -> Result<ID3D11Texture2D, CaptureError> {
+    pub fn create_bgra_texture(
+        &self,
+        width: u32,
+        height: u32,
+    ) -> Result<ID3D11Texture2D, CaptureError> {
         let desc = D3D11_TEXTURE2D_DESC {
             Width: width,
             Height: height,
             MipLevels: 1,
             ArraySize: 1,
             Format: DXGI_FORMAT_B8G8R8A8_UNORM,
-            SampleDesc: DXGI_SAMPLE_DESC { Count: 1, Quality: 0 },
+            SampleDesc: DXGI_SAMPLE_DESC {
+                Count: 1,
+                Quality: 0,
+            },
             Usage: D3D11_USAGE_DEFAULT,
             BindFlags: (D3D11_BIND_SHADER_RESOURCE.0 | D3D11_BIND_RENDER_TARGET.0) as u32,
             CPUAccessFlags: 0,

@@ -28,8 +28,7 @@ use windows::{
 };
 
 use super::{
-    CapturedFrame, FrameEvent, cursor_poll::CursorTracker, device::GpuDevice,
-    displays::DxgiDisplay,
+    CapturedFrame, FrameEvent, cursor_poll::CursorTracker, device::GpuDevice, displays::DxgiDisplay,
 };
 use crate::CaptureError;
 
@@ -54,7 +53,9 @@ impl WgcCapturer {
             let _ = RoInitialize(RO_INIT_MULTITHREADED);
         }
         if !GraphicsCaptureSession::IsSupported().unwrap_or(false) {
-            return Err(CaptureError::Unsupported("Windows.Graphics.Capture unavailable".into()));
+            return Err(CaptureError::Unsupported(
+                "Windows.Graphics.Capture unavailable".into(),
+            ));
         }
         let gpu = GpuDevice::create(&display.adapter.cast()?)?;
         let interop = windows::core::factory::<GraphicsCaptureItem, IGraphicsCaptureItemInterop>()?;
@@ -121,13 +122,18 @@ impl WgcCapturer {
             let mut frame = CapturedFrame::empty(started);
             frame.cursor_position = pos;
             frame.cursor_shape = shape;
-            if self.take_signal(cursor_period.min(deadline.saturating_duration_since(Instant::now()))) {
+            if self
+                .take_signal(cursor_period.min(deadline.saturating_duration_since(Instant::now())))
+            {
                 let copy_started = Instant::now();
                 self.drain_latest(&mut frame)?;
                 frame.captured_at = copy_started;
                 frame.capture_us = copy_started.elapsed().as_micros() as u32;
             }
-            if frame.texture.is_some() || frame.cursor_position.is_some() || frame.cursor_shape.is_some() {
+            if frame.texture.is_some()
+                || frame.cursor_position.is_some()
+                || frame.cursor_shape.is_some()
+            {
                 return Ok(FrameEvent::Captured(frame));
             }
             if Instant::now() >= deadline {

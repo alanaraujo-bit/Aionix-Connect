@@ -6,8 +6,8 @@ use windows::{
     Win32::{
         Foundation::VARIANT_BOOL,
         Media::MediaFoundation::{
-            IMFActivate, IMFAttributes, IMFMediaBuffer, IMFSample, MFSTARTUP_FULL, MFStartup,
-            MF_VERSION, MFT_FRIENDLY_NAME_Attribute,
+            IMFActivate, IMFAttributes, IMFMediaBuffer, IMFSample, MF_VERSION, MFSTARTUP_FULL,
+            MFStartup, MFT_FRIENDLY_NAME_Attribute,
         },
         System::{
             Com::{COINIT_MULTITHREADED, CoInitializeEx, CoTaskMemFree},
@@ -57,7 +57,8 @@ pub(crate) fn variant_bool(v: bool) -> VARIANT {
 }
 
 pub(crate) fn friendly_name(activate: &IMFActivate) -> String {
-    allocated_string(&activate.clone().into(), &MFT_FRIENDLY_NAME_Attribute).unwrap_or_else(|| "H.264 encoder".into())
+    allocated_string(&activate.clone().into(), &MFT_FRIENDLY_NAME_Attribute)
+        .unwrap_or_else(|| "H.264 encoder".into())
 }
 
 pub(crate) fn allocated_string(attrs: &IMFAttributes, key: &windows::core::GUID) -> Option<String> {

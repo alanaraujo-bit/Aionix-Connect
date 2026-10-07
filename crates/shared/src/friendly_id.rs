@@ -74,7 +74,9 @@ impl FromStr for FriendlyId {
         if digits.starts_with('0') {
             return Err(FriendlyIdError::LeadingZero);
         }
-        let value: u32 = digits.parse().map_err(|_| FriendlyIdError::InvalidCharacter)?;
+        let value: u32 = digits
+            .parse()
+            .map_err(|_| FriendlyIdError::InvalidCharacter)?;
         Self::new(value)
     }
 }
@@ -98,7 +100,10 @@ mod tests {
 
     #[test]
     fn formats_with_groups() {
-        assert_eq!(FriendlyId::new(482_193_771).unwrap().to_string(), "482 193 771");
+        assert_eq!(
+            FriendlyId::new(482_193_771).unwrap().to_string(),
+            "482 193 771"
+        );
     }
 
     #[test]
@@ -110,10 +115,22 @@ mod tests {
 
     #[test]
     fn rejects_invalid() {
-        assert_eq!("48219377".parse::<FriendlyId>(), Err(FriendlyIdError::InvalidLength));
-        assert_eq!("4821937710".parse::<FriendlyId>(), Err(FriendlyIdError::InvalidLength));
-        assert_eq!("082193771".parse::<FriendlyId>(), Err(FriendlyIdError::LeadingZero));
-        assert_eq!("48219377a".parse::<FriendlyId>(), Err(FriendlyIdError::InvalidCharacter));
+        assert_eq!(
+            "48219377".parse::<FriendlyId>(),
+            Err(FriendlyIdError::InvalidLength)
+        );
+        assert_eq!(
+            "4821937710".parse::<FriendlyId>(),
+            Err(FriendlyIdError::InvalidLength)
+        );
+        assert_eq!(
+            "082193771".parse::<FriendlyId>(),
+            Err(FriendlyIdError::LeadingZero)
+        );
+        assert_eq!(
+            "48219377a".parse::<FriendlyId>(),
+            Err(FriendlyIdError::InvalidCharacter)
+        );
     }
 
     #[test]

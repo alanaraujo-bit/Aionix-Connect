@@ -11,8 +11,8 @@
 use windows::Win32::{
     Foundation::{HLOCAL, LocalFree},
     Security::Cryptography::{
-        CRYPT_INTEGER_BLOB, CRYPTPROTECT_LOCAL_MACHINE, CRYPTPROTECT_UI_FORBIDDEN, CryptProtectData,
-        CryptUnprotectData,
+        CRYPT_INTEGER_BLOB, CRYPTPROTECT_LOCAL_MACHINE, CRYPTPROTECT_UI_FORBIDDEN,
+        CryptProtectData, CryptUnprotectData,
     },
 };
 
@@ -21,7 +21,10 @@ use crate::{DataScope, PlatformError};
 const ENTROPY: &[u8] = b"aionix-connect/identity/v1";
 
 fn blob(data: &[u8]) -> CRYPT_INTEGER_BLOB {
-    CRYPT_INTEGER_BLOB { cbData: data.len() as u32, pbData: data.as_ptr() as *mut u8 }
+    CRYPT_INTEGER_BLOB {
+        cbData: data.len() as u32,
+        pbData: data.as_ptr() as *mut u8,
+    }
 }
 
 fn take(out: CRYPT_INTEGER_BLOB) -> Vec<u8> {
@@ -48,7 +51,17 @@ pub fn unprotect(data: &[u8]) -> Result<Vec<u8>, PlatformError> {
     let input = blob(data);
     let entropy = blob(ENTROPY);
     let mut out = CRYPT_INTEGER_BLOB::default();
-    unsafe { CryptUnprotectData(&input, None, Some(&entropy), None, None, CRYPTPROTECT_UI_FORBIDDEN, &mut out)? };
+    unsafe {
+        CryptUnprotectData(
+            &input,
+            None,
+            Some(&entropy),
+            None,
+            None,
+            CRYPTPROTECT_UI_FORBIDDEN,
+            &mut out,
+        )?
+    };
     Ok(take(out))
 }
 

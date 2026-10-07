@@ -25,22 +25,22 @@ use windows::{
             CODECAPI_AVEncCommonRateControlMode, CODECAPI_AVEncMPVDefaultBPictureCount,
             CODECAPI_AVEncMPVGOPSize, CODECAPI_AVEncVideoForceKeyFrame, CODECAPI_AVLowLatencyMode,
             ICodecAPI, IMFActivate, IMFAttributes, IMFDXGIDeviceManager, IMFMediaEventGenerator,
-            IMFMediaType, IMFSample, IMFShutdown, IMFTransform, METransformHaveOutput,
-            METransformNeedInput, MEDIA_EVENT_GENERATOR_GET_EVENT_FLAGS, MF_E_TRANSFORM_NEED_MORE_INPUT,
-            MF_E_TRANSFORM_STREAM_CHANGE, MF_LOW_LATENCY, MF_MT_AVG_BITRATE, MF_MT_FRAME_RATE,
-            MF_MT_FRAME_SIZE, MF_MT_INTERLACE_MODE, MF_MT_MAJOR_TYPE, MF_MT_MPEG2_PROFILE,
-            MF_MT_PIXEL_ASPECT_RATIO, MF_MT_SUBTYPE, MF_SA_D3D11_AWARE, MF_TRANSFORM_ASYNC,
-            MF_TRANSFORM_ASYNC_UNLOCK, MFCreateAttributes, MFCreateDXGIDeviceManager,
-            MFCreateDXGISurfaceBuffer, MFCreateMediaType, MFCreateMemoryBuffer, MFCreateSample,
-            MFMediaType_Video, MFSampleExtension_CleanPoint, MFT_CATEGORY_VIDEO_ENCODER,
-            MFT_ENUM_ADAPTER_LUID, MFT_ENUM_FLAG, MFT_ENUM_FLAG_HARDWARE,
-            MFT_ENUM_FLAG_SORTANDFILTER, MFT_ENUM_FLAG_SYNCMFT, MFT_MESSAGE_COMMAND_FLUSH,
-            MFT_MESSAGE_NOTIFY_BEGIN_STREAMING, MFT_MESSAGE_NOTIFY_END_STREAMING,
-            MFT_MESSAGE_NOTIFY_START_OF_STREAM, MFT_MESSAGE_SET_D3D_MANAGER,
-            MFT_OUTPUT_DATA_BUFFER, MFT_OUTPUT_STREAM_PROVIDES_SAMPLES, MFT_REGISTER_TYPE_INFO,
-            MFTEnum2, MFTEnumEx, MFVideoFormat_H264, MFVideoFormat_NV12,
-            MFVideoInterlace_Progressive, eAVEncCommonRateControlMode_CBR,
-            eAVEncH264VProfile_High,
+            IMFMediaType, IMFSample, IMFShutdown, IMFTransform,
+            MEDIA_EVENT_GENERATOR_GET_EVENT_FLAGS, METransformHaveOutput, METransformNeedInput,
+            MF_E_TRANSFORM_NEED_MORE_INPUT, MF_E_TRANSFORM_STREAM_CHANGE, MF_LOW_LATENCY,
+            MF_MT_AVG_BITRATE, MF_MT_FRAME_RATE, MF_MT_FRAME_SIZE, MF_MT_INTERLACE_MODE,
+            MF_MT_MAJOR_TYPE, MF_MT_MPEG2_PROFILE, MF_MT_PIXEL_ASPECT_RATIO, MF_MT_SUBTYPE,
+            MF_SA_D3D11_AWARE, MF_TRANSFORM_ASYNC, MF_TRANSFORM_ASYNC_UNLOCK, MFCreateAttributes,
+            MFCreateDXGIDeviceManager, MFCreateDXGISurfaceBuffer, MFCreateMediaType,
+            MFCreateMemoryBuffer, MFCreateSample, MFMediaType_Video, MFSampleExtension_CleanPoint,
+            MFT_CATEGORY_VIDEO_ENCODER, MFT_ENUM_ADAPTER_LUID, MFT_ENUM_FLAG,
+            MFT_ENUM_FLAG_HARDWARE, MFT_ENUM_FLAG_SORTANDFILTER, MFT_ENUM_FLAG_SYNCMFT,
+            MFT_MESSAGE_COMMAND_FLUSH, MFT_MESSAGE_NOTIFY_BEGIN_STREAMING,
+            MFT_MESSAGE_NOTIFY_END_STREAMING, MFT_MESSAGE_NOTIFY_START_OF_STREAM,
+            MFT_MESSAGE_SET_D3D_MANAGER, MFT_OUTPUT_DATA_BUFFER,
+            MFT_OUTPUT_STREAM_PROVIDES_SAMPLES, MFT_REGISTER_TYPE_INFO, MFTEnum2, MFTEnumEx,
+            MFVideoFormat_H264, MFVideoFormat_NV12, MFVideoInterlace_Progressive,
+            eAVEncCommonRateControlMode_CBR, eAVEncH264VProfile_High,
         },
     },
     core::Interface,
@@ -61,7 +61,11 @@ const OUTPUT_WAIT: Duration = Duration::from_millis(60);
 const GOP_SIZE: u32 = 0xFFFF;
 
 enum Mode {
-    Async { events: Receiver<i32>, need_input: u32, _pump: JoinHandle<()> },
+    Async {
+        events: Receiver<i32>,
+        need_input: u32,
+        _pump: JoinHandle<()>,
+    },
     Sync,
 }
 
@@ -89,7 +93,10 @@ pub fn list_encoders(adapter_luid: Option<(u32, i32)>) -> Vec<EncoderInfo> {
     }
     candidates(adapter_luid)
         .into_iter()
-        .map(|c| EncoderInfo { name: mf::friendly_name(&c.activate), hardware: c.hardware })
+        .map(|c| EncoderInfo {
+            name: mf::friendly_name(&c.activate),
+            hardware: c.hardware,
+        })
         .collect()
 }
 
@@ -100,8 +107,14 @@ struct Candidate {
 }
 
 fn enumerate(flags: MFT_ENUM_FLAG, luid: Option<(u32, i32)>) -> Vec<IMFActivate> {
-    let input = MFT_REGISTER_TYPE_INFO { guidMajorType: MFMediaType_Video, guidSubtype: MFVideoFormat_NV12 };
-    let output = MFT_REGISTER_TYPE_INFO { guidMajorType: MFMediaType_Video, guidSubtype: MFVideoFormat_H264 };
+    let input = MFT_REGISTER_TYPE_INFO {
+        guidMajorType: MFMediaType_Video,
+        guidSubtype: MFVideoFormat_NV12,
+    };
+    let output = MFT_REGISTER_TYPE_INFO {
+        guidMajorType: MFMediaType_Video,
+        guidSubtype: MFVideoFormat_H264,
+    };
     let mut ptr = std::ptr::null_mut();
     let mut count = 0u32;
     let ok = unsafe {
@@ -111,16 +124,33 @@ fn enumerate(flags: MFT_ENUM_FLAG, luid: Option<(u32, i32)>) -> Vec<IMFActivate>
                 if MFCreateAttributes(&mut attrs, 1).is_err() {
                     return Vec::new();
                 }
-                let Some(attrs) = attrs else { return Vec::new() };
+                let Some(attrs) = attrs else {
+                    return Vec::new();
+                };
                 let mut blob = Vec::with_capacity(8);
                 blob.extend_from_slice(&low.to_le_bytes());
                 blob.extend_from_slice(&high.to_le_bytes());
                 if attrs.SetBlob(&MFT_ENUM_ADAPTER_LUID, &blob).is_err() {
                     return Vec::new();
                 }
-                MFTEnum2(MFT_CATEGORY_VIDEO_ENCODER, flags, Some(&input), Some(&output), &attrs, &mut ptr, &mut count)
+                MFTEnum2(
+                    MFT_CATEGORY_VIDEO_ENCODER,
+                    flags,
+                    Some(&input),
+                    Some(&output),
+                    &attrs,
+                    &mut ptr,
+                    &mut count,
+                )
             }
-            None => MFTEnumEx(MFT_CATEGORY_VIDEO_ENCODER, flags, Some(&input), Some(&output), &mut ptr, &mut count),
+            None => MFTEnumEx(
+                MFT_CATEGORY_VIDEO_ENCODER,
+                flags,
+                Some(&input),
+                Some(&output),
+                &mut ptr,
+                &mut count,
+            ),
         }
     };
     if ok.is_err() {
@@ -136,17 +166,29 @@ fn candidates(adapter_luid: Option<(u32, i32)>) -> Vec<Candidate> {
     if adapter_luid.is_some() {
         for a in enumerate(hw, adapter_luid) {
             same_names.push(mf::friendly_name(&a));
-            out.push(Candidate { activate: a, hardware: true, same_adapter: true });
+            out.push(Candidate {
+                activate: a,
+                hardware: true,
+                same_adapter: true,
+            });
         }
     }
     for a in enumerate(hw, None) {
         if !same_names.contains(&mf::friendly_name(&a)) {
-            out.push(Candidate { activate: a, hardware: true, same_adapter: false });
+            out.push(Candidate {
+                activate: a,
+                hardware: true,
+                same_adapter: false,
+            });
         }
     }
     let sw = MFT_ENUM_FLAG(MFT_ENUM_FLAG_SYNCMFT.0 | MFT_ENUM_FLAG_SORTANDFILTER.0);
     for a in enumerate(sw, None) {
-        out.push(Candidate { activate: a, hardware: false, same_adapter: false });
+        out.push(Candidate {
+            activate: a,
+            hardware: false,
+            same_adapter: false,
+        });
     }
     out
 }
@@ -169,7 +211,10 @@ impl H264Encoder {
                 continue;
             }
             let name = mf::friendly_name(&c.activate);
-            if filter.as_ref().is_some_and(|f| !name.to_lowercase().contains(f)) {
+            if filter
+                .as_ref()
+                .is_some_and(|f| !name.to_lowercase().contains(f))
+            {
                 continue;
             }
             match Self::init(&c, &name, device, context, config) {
@@ -195,7 +240,8 @@ impl H264Encoder {
         context: &ID3D11DeviceContext,
         config: EncoderConfig,
     ) -> Result<Self, CodecError> {
-        let transform: IMFTransform = unsafe { c.activate.ActivateObject() }.map_err(ctx("activate"))?;
+        let transform: IMFTransform =
+            unsafe { c.activate.ActivateObject() }.map_err(ctx("activate"))?;
         let attrs = unsafe { transform.GetAttributes()? };
         let is_async = unsafe { attrs.GetUINT32(&MF_TRANSFORM_ASYNC) }.unwrap_or(0) != 0;
         if is_async {
@@ -213,8 +259,12 @@ impl H264Encoder {
             unsafe { MFCreateDXGIDeviceManager(&mut token, &mut manager)? };
             let manager = manager.ok_or_else(|| CodecError::Platform("no DXGI manager".into()))?;
             unsafe {
-                manager.ResetDevice(device, token).map_err(ctx("reset device"))?;
-                transform.ProcessMessage(MFT_MESSAGE_SET_D3D_MANAGER, manager.as_raw() as usize).map_err(ctx("set D3D manager"))?;
+                manager
+                    .ResetDevice(device, token)
+                    .map_err(ctx("reset device"))?;
+                transform
+                    .ProcessMessage(MFT_MESSAGE_SET_D3D_MANAGER, manager.as_raw() as usize)
+                    .map_err(ctx("set D3D manager"))?;
             }
             device_manager = Some(manager);
             gpu_input = true;
@@ -222,12 +272,37 @@ impl H264Encoder {
 
         let codec_api = transform.cast::<ICodecAPI>().ok();
         if let Some(api) = &codec_api {
-            set_codec(api, &CODECAPI_AVLowLatencyMode, variant_bool(true), "low latency");
-            set_codec(api, &CODECAPI_AVEncCommonRateControlMode, variant_u32(eAVEncCommonRateControlMode_CBR.0 as u32), "CBR");
-            set_codec(api, &CODECAPI_AVEncCommonMeanBitRate, variant_u32(config.bitrate_kbps * 1000), "bitrate");
-            set_codec(api, &CODECAPI_AVEncMPVDefaultBPictureCount, variant_u32(0), "no B-frames");
+            set_codec(
+                api,
+                &CODECAPI_AVLowLatencyMode,
+                variant_bool(true),
+                "low latency",
+            );
+            set_codec(
+                api,
+                &CODECAPI_AVEncCommonRateControlMode,
+                variant_u32(eAVEncCommonRateControlMode_CBR.0 as u32),
+                "CBR",
+            );
+            set_codec(
+                api,
+                &CODECAPI_AVEncCommonMeanBitRate,
+                variant_u32(config.bitrate_kbps * 1000),
+                "bitrate",
+            );
+            set_codec(
+                api,
+                &CODECAPI_AVEncMPVDefaultBPictureCount,
+                variant_u32(0),
+                "no B-frames",
+            );
             set_codec(api, &CODECAPI_AVEncMPVGOPSize, variant_u32(GOP_SIZE), "GOP");
-            set_codec(api, &CODECAPI_AVEncCommonQualityVsSpeed, variant_u32(0), "speed preset");
+            set_codec(
+                api,
+                &CODECAPI_AVEncCommonQualityVsSpeed,
+                variant_u32(0),
+                "speed preset",
+            );
         }
 
         // Output type first (required by encoders), then input.
@@ -235,18 +310,26 @@ impl H264Encoder {
         unsafe {
             out_type.SetUINT32(&MF_MT_AVG_BITRATE, config.bitrate_kbps * 1000)?;
             out_type.SetUINT32(&MF_MT_MPEG2_PROFILE, eAVEncH264VProfile_High.0 as u32)?;
-            transform.SetOutputType(0, &out_type, 0).map_err(ctx("output type"))?;
+            transform
+                .SetOutputType(0, &out_type, 0)
+                .map_err(ctx("output type"))?;
         }
         set_input_type(&transform, config)?;
 
-        let stream_info = unsafe { transform.GetOutputStreamInfo(0) }.map_err(ctx("stream info"))?;
-        let provides_samples = stream_info.dwFlags & MFT_OUTPUT_STREAM_PROVIDES_SAMPLES.0 as u32 != 0;
+        let stream_info =
+            unsafe { transform.GetOutputStreamInfo(0) }.map_err(ctx("stream info"))?;
+        let provides_samples =
+            stream_info.dwFlags & MFT_OUTPUT_STREAM_PROVIDES_SAMPLES.0 as u32 != 0;
 
         unsafe {
             // Flushing an idle encoder is optional; some encoders reject it.
             let _ = transform.ProcessMessage(MFT_MESSAGE_COMMAND_FLUSH, 0);
-            transform.ProcessMessage(MFT_MESSAGE_NOTIFY_BEGIN_STREAMING, 0).map_err(ctx("begin streaming"))?;
-            transform.ProcessMessage(MFT_MESSAGE_NOTIFY_START_OF_STREAM, 0).map_err(ctx("start of stream"))?;
+            transform
+                .ProcessMessage(MFT_MESSAGE_NOTIFY_BEGIN_STREAMING, 0)
+                .map_err(ctx("begin streaming"))?;
+            transform
+                .ProcessMessage(MFT_MESSAGE_NOTIFY_START_OF_STREAM, 0)
+                .map_err(ctx("start of stream"))?;
         }
 
         let mode = if is_async {
@@ -259,16 +342,26 @@ impl H264Encoder {
                     let generator = generator;
                     let _ = mf::startup();
                     loop {
-                        let event = unsafe { generator.0.GetEvent(MEDIA_EVENT_GENERATOR_GET_EVENT_FLAGS(0)) };
+                        let event = unsafe {
+                            generator
+                                .0
+                                .GetEvent(MEDIA_EVENT_GENERATOR_GET_EVENT_FLAGS(0))
+                        };
                         let Ok(event) = event else { break };
-                        let Ok(kind) = (unsafe { event.GetType() }) else { break };
+                        let Ok(kind) = (unsafe { event.GetType() }) else {
+                            break;
+                        };
                         if tx.send(kind as i32).is_err() {
                             break;
                         }
                     }
                 })
                 .map_err(|e| CodecError::Platform(e.to_string()))?;
-            Mode::Async { events: rx, need_input: 0, _pump: pump }
+            Mode::Async {
+                events: rx,
+                need_input: 0,
+                _pump: pump,
+            }
         } else {
             Mode::Sync
         };
@@ -276,7 +369,10 @@ impl H264Encoder {
         Ok(Self {
             transform,
             codec_api,
-            info: EncoderInfo { name: name.to_owned(), hardware: c.hardware },
+            info: EncoderInfo {
+                name: name.to_owned(),
+                hardware: c.hardware,
+            },
             config,
             mode,
             gpu_input,
@@ -300,8 +396,12 @@ impl H264Encoder {
 
     /// Changes the target bitrate without restarting the stream.
     pub fn set_bitrate(&mut self, kbps: u32) -> bool {
-        let Some(api) = &self.codec_api else { return false };
-        let ok = unsafe { api.SetValue(&CODECAPI_AVEncCommonMeanBitRate, &variant_u32(kbps * 1000)) }.is_ok();
+        let Some(api) = &self.codec_api else {
+            return false;
+        };
+        let ok =
+            unsafe { api.SetValue(&CODECAPI_AVEncCommonMeanBitRate, &variant_u32(kbps * 1000)) }
+                .is_ok();
         if ok {
             self.config.bitrate_kbps = kbps;
         }
@@ -310,11 +410,19 @@ impl H264Encoder {
 
     /// Encodes one NV12 frame (`nv12` must have the configured size). Returns every
     /// access unit that became available (normally exactly the one for this frame).
-    pub fn encode(&mut self, nv12: &ID3D11Texture2D, pts_us: u64, keyframe: bool) -> Result<Vec<EncodedFrame>, CodecError> {
-        if keyframe {
-            if let Some(api) = &self.codec_api {
-                set_codec(api, &CODECAPI_AVEncVideoForceKeyFrame, variant_u32(1), "force keyframe");
-            }
+    pub fn encode(
+        &mut self,
+        nv12: &ID3D11Texture2D,
+        pts_us: u64,
+        keyframe: bool,
+    ) -> Result<Vec<EncodedFrame>, CodecError> {
+        if keyframe && let Some(api) = &self.codec_api {
+            set_codec(
+                api,
+                &CODECAPI_AVEncVideoForceKeyFrame,
+                variant_u32(1),
+                "force keyframe",
+            );
         }
         let sample = self.input_sample(nv12, pts_us)?;
         let sample_time = (pts_us * 10) as i64;
@@ -363,20 +471,26 @@ impl H264Encoder {
 
     /// Waits for one event. Returns false on timeout.
     fn wait_event(&mut self, timeout: Duration) -> Result<bool, CodecError> {
-        let Mode::Async { events, .. } = &self.mode else { return Ok(false) };
+        let Mode::Async { events, .. } = &self.mode else {
+            return Ok(false);
+        };
         match events.recv_timeout(timeout) {
             Ok(kind) => {
                 self.handle_event(kind)?;
                 Ok(true)
             }
             Err(RecvTimeoutError::Timeout) => Ok(false),
-            Err(RecvTimeoutError::Disconnected) => Err(CodecError::Platform("encoder event pump stopped".into())),
+            Err(RecvTimeoutError::Disconnected) => {
+                Err(CodecError::Platform("encoder event pump stopped".into()))
+            }
         }
     }
 
     fn drain_events(&mut self) -> Result<(), CodecError> {
         loop {
-            let Mode::Async { events, .. } = &self.mode else { return Ok(()) };
+            let Mode::Async { events, .. } = &self.mode else {
+                return Ok(());
+            };
             match events.try_recv() {
                 Ok(kind) => self.handle_event(kind)?,
                 Err(_) => return Ok(()),
@@ -400,7 +514,12 @@ impl H264Encoder {
         let buffer = if self.gpu_input {
             unsafe { MFCreateDXGISurfaceBuffer(&ID3D11Texture2D::IID, nv12, 0, false)? }
         } else {
-            let bytes = convert::read_nv12(&self.device, &self.context, nv12, (self.config.width, self.config.height))?;
+            let bytes = convert::read_nv12(
+                &self.device,
+                &self.context,
+                nv12,
+                (self.config.width, self.config.height),
+            )?;
             let buffer = unsafe { MFCreateMemoryBuffer(bytes.len() as u32)? };
             let mut ptr = std::ptr::null_mut();
             unsafe {
@@ -412,12 +531,11 @@ impl H264Encoder {
             buffer
         };
         unsafe {
-            if self.gpu_input {
-                if let Ok(b2) = buffer.cast::<windows::Win32::Media::MediaFoundation::IMF2DBuffer>() {
-                    if let Ok(len) = b2.GetContiguousLength() {
-                        let _ = buffer.SetCurrentLength(len);
-                    }
-                }
+            if self.gpu_input
+                && let Ok(b2) = buffer.cast::<windows::Win32::Media::MediaFoundation::IMF2DBuffer>()
+                && let Ok(len) = b2.GetContiguousLength()
+            {
+                let _ = buffer.SetCurrentLength(len);
             }
             sample.AddBuffer(&buffer)?;
             sample.SetSampleTime((pts_us * 10) as i64)?;
@@ -459,7 +577,9 @@ impl H264Encoder {
             }
             return Err(e.into());
         }
-        let Some(sample) = sample else { return Ok(false) };
+        let Some(sample) = sample else {
+            return Ok(false);
+        };
         let data = mf::sample_bytes(&sample)?;
         if data.is_empty() {
             return Ok(true);
@@ -475,7 +595,12 @@ impl H264Encoder {
                 break;
             }
         }
-        self.ready.push_back(EncodedFrame { data, keyframe, encode_us, pts_us: (time / 10).max(0) as u64 });
+        self.ready.push_back(EncodedFrame {
+            data,
+            keyframe,
+            encode_us,
+            pts_us: (time / 10).max(0) as u64,
+        });
         Ok(true)
     }
 }
@@ -483,7 +608,9 @@ impl H264Encoder {
 impl Drop for H264Encoder {
     fn drop(&mut self) {
         unsafe {
-            let _ = self.transform.ProcessMessage(MFT_MESSAGE_NOTIFY_END_STREAMING, 0);
+            let _ = self
+                .transform
+                .ProcessMessage(MFT_MESSAGE_NOTIFY_END_STREAMING, 0);
             // Unblocks the event pump thread (GetEvent returns MF_E_SHUTDOWN).
             if let Ok(shutdown) = self.transform.cast::<IMFShutdown>() {
                 let _ = shutdown.Shutdown();
@@ -496,13 +623,21 @@ fn ctx(step: &'static str) -> impl Fn(windows::core::Error) -> CodecError {
     move |e| CodecError::Platform(format!("{step}: {} ({:#x})", e.message(), e.code().0))
 }
 
-fn set_codec(api: &ICodecAPI, key: &windows::core::GUID, value: windows::Win32::System::Variant::VARIANT, what: &str) {
+fn set_codec(
+    api: &ICodecAPI,
+    key: &windows::core::GUID,
+    value: windows::Win32::System::Variant::VARIANT,
+    what: &str,
+) {
     if let Err(e) = unsafe { api.SetValue(key, &value) } {
         debug!(setting = what, error = %e, "encoder setting not supported");
     }
 }
 
-fn video_type(subtype: &windows::core::GUID, config: EncoderConfig) -> Result<IMFMediaType, CodecError> {
+fn video_type(
+    subtype: &windows::core::GUID,
+    config: EncoderConfig,
+) -> Result<IMFMediaType, CodecError> {
     let t = unsafe { MFCreateMediaType()? };
     unsafe {
         t.SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Video)?;
@@ -523,17 +658,23 @@ fn set_input_type(transform: &IMFTransform, config: EncoderConfig) -> Result<(),
     }
     // Some encoders only accept their own enumerated types: pick NV12 and fill size/rate.
     for i in 0.. {
-        let Ok(avail) = (unsafe { transform.GetInputAvailableType(0, i) }) else { break };
+        let Ok(avail) = (unsafe { transform.GetInputAvailableType(0, i) }) else {
+            break;
+        };
         if unsafe { avail.GetGUID(&MF_MT_SUBTYPE) }.ok() == Some(MFVideoFormat_NV12) {
             unsafe {
                 avail.SetUINT64(&MF_MT_FRAME_SIZE, pack_u64(config.width, config.height))?;
                 avail.SetUINT64(&MF_MT_FRAME_RATE, pack_u64(config.fps, 1))?;
-                transform.SetInputType(0, &avail, 0).map_err(ctx("input type"))?;
+                transform
+                    .SetInputType(0, &avail, 0)
+                    .map_err(ctx("input type"))?;
             }
             return Ok(());
         }
     }
-    Err(CodecError::Unsupported("encoder does not accept NV12".into()))
+    Err(CodecError::Unsupported(
+        "encoder does not accept NV12".into(),
+    ))
 }
 
 /// Whether an Annex B bitstream contains an IDR slice (NAL type 5).
@@ -564,7 +705,9 @@ mod tests {
 
     #[test]
     fn finds_nal_types() {
-        let stream = [0, 0, 0, 1, 0x67, 1, 2, 0, 0, 1, 0x68, 3, 0, 0, 1, 0x65, 9, 9];
+        let stream = [
+            0, 0, 0, 1, 0x67, 1, 2, 0, 0, 1, 0x68, 3, 0, 0, 1, 0x65, 9, 9,
+        ];
         assert_eq!(nal_types(&stream).collect::<Vec<_>>(), vec![7, 8, 5]);
         assert!(contains_idr(&stream));
         assert!(!contains_idr(&[0, 0, 1, 0x41, 1, 2, 3]));

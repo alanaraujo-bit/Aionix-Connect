@@ -15,7 +15,13 @@ struct TokenAccess;
 
 impl AccessControl for TokenAccess {
     async fn on_connect(&self, request: &ClientRequest) -> Access {
-        if request.auth_token().as_deref() == Some(TOKEN) { Access::Allow } else { Access::Deny { reason: Some("invalid token".into()) } }
+        if request.auth_token().as_deref() == Some(TOKEN) {
+            Access::Allow
+        } else {
+            Access::Deny {
+                reason: Some("invalid token".into()),
+            }
+        }
     }
 }
 
@@ -32,7 +38,11 @@ async fn spawn_relay() -> (Server, String) {
 fn config(relay_url: &str, token: &str, relay_only: bool) -> TransportConfig {
     TransportConfig {
         secret_key: *IdentityKey::generate().secret_bytes(),
-        relays: vec![RelayEndpoint { url: relay_url.to_owned(), token: Some(token.to_owned()), qad_port: None }],
+        relays: vec![RelayEndpoint {
+            url: relay_url.to_owned(),
+            token: Some(token.to_owned()),
+            qad_port: None,
+        }],
         alpns: vec![ALPN.to_vec()],
         port: 0,
         relay_only,
@@ -41,10 +51,20 @@ fn config(relay_url: &str, token: &str, relay_only: bool) -> TransportConfig {
 
 async fn echo_roundtrip(relay_only: bool) -> TransportKind {
     let (_server, url) = spawn_relay().await;
-    let host = Transport::bind(config(&url, TOKEN, relay_only)).await.unwrap();
-    let viewer = Transport::bind(config(&url, TOKEN, relay_only)).await.unwrap();
-    assert!(host.wait_online(Duration::from_secs(10)).await, "host reaches relay");
-    assert!(viewer.wait_online(Duration::from_secs(10)).await, "viewer reaches relay");
+    let host = Transport::bind(config(&url, TOKEN, relay_only))
+        .await
+        .unwrap();
+    let viewer = Transport::bind(config(&url, TOKEN, relay_only))
+        .await
+        .unwrap();
+    assert!(
+        host.wait_online(Duration::from_secs(10)).await,
+        "host reaches relay"
+    );
+    assert!(
+        viewer.wait_online(Duration::from_secs(10)).await,
+        "viewer reaches relay"
+    );
 
     let host_key = host.local_key();
     let viewer_key = viewer.local_key();
@@ -52,7 +72,11 @@ async fn echo_roundtrip(relay_only: bool) -> TransportKind {
 
     let server = tokio::spawn(async move {
         let conn = host.accept().await.unwrap().accept().await.unwrap();
-        assert_eq!(conn.remote_key(), viewer_key, "peer identity is authenticated");
+        assert_eq!(
+            conn.remote_key(),
+            viewer_key,
+            "peer identity is authenticated"
+        );
         let (mut send, mut recv) = conn.accept_bi().await.unwrap();
         let mut buf = [0u8; 5];
         recv.read_exact(&mut buf).await.unwrap();
@@ -67,7 +91,9 @@ async fn echo_roundtrip(relay_only: bool) -> TransportKind {
     send.write_all(b"hello").await.unwrap();
     let echoed = recv.read_to_end(64).await.unwrap();
     assert_eq!(echoed, b"hello");
-    let kind = conn.path().kind;
+    let path = conn.path();
+    eprintln!("selected path: {:?} via {}", path.kind, path.remote);
+    let kind = path.kind;
     conn.close(0, "done");
     let _ = tokio::time::timeout(Duration::from_secs(5), server).await;
     kind
@@ -81,14 +107,23 @@ async fn relay_only_connection_works() {
 #[tokio::test(flavor = "multi_thread")]
 async fn direct_connection_is_used_on_lan() {
     let kind = echo_roundtrip(false).await;
-    assert!(matches!(kind, TransportKind::Lan | TransportKind::Relay), "got {kind:?}");
+    assert!(
+        matches!(kind, TransportKind::Lan | TransportKind::Relay),
+        "got {kind:?}"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn relay_rejects_invalid_token() {
     let (_server, url) = spawn_relay().await;
     let t = Transport::bind(config(&url, "forged", true)).await.unwrap();
-    assert!(!t.wait_online(Duration::from_secs(3)).await, "must not come online with a bad token");
+    assert!(
+        !t.wait_online(Duration::from_secs(3)).await,
+        "must not come online with a bad token"
+    );
     let status = t.relay_status();
-    assert!(status.iter().all(|(_, connected, _)| !connected), "{status:?}");
+    assert!(
+        status.iter().all(|(_, connected, _)| !connected),
+        "{status:?}"
+    );
 }

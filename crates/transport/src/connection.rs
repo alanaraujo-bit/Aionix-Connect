@@ -1,6 +1,9 @@
 use aionix_crypto::PublicKey;
 use aionix_shared::TransportKind;
-use iroh::{TransportAddr, endpoint::VarInt};
+use iroh::{
+    TransportAddr,
+    endpoint::{LocalTransportAddr, VarInt},
+};
 use std::{
     io,
     pin::Pin,
@@ -9,7 +12,7 @@ use std::{
 };
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
-use crate::{TransportError, addr::classify_ip};
+use crate::{TransportError, addr::classify_path};
 
 #[derive(Debug, thiserror::Error)]
 pub enum StreamError {
@@ -65,22 +68,38 @@ impl PeerConnection {
     }
 
     pub async fn open_bi(&self) -> Result<(SendStream, RecvStream), TransportError> {
-        let (s, r) = self.conn.open_bi().await.map_err(|e| TransportError::Connection(e.to_string()))?;
+        let (s, r) = self
+            .conn
+            .open_bi()
+            .await
+            .map_err(|e| TransportError::Connection(e.to_string()))?;
         Ok((SendStream(s), RecvStream(r)))
     }
 
     pub async fn accept_bi(&self) -> Result<(SendStream, RecvStream), TransportError> {
-        let (s, r) = self.conn.accept_bi().await.map_err(|e| TransportError::Connection(e.to_string()))?;
+        let (s, r) = self
+            .conn
+            .accept_bi()
+            .await
+            .map_err(|e| TransportError::Connection(e.to_string()))?;
         Ok((SendStream(s), RecvStream(r)))
     }
 
     pub async fn open_uni(&self) -> Result<SendStream, TransportError> {
-        let s = self.conn.open_uni().await.map_err(|e| TransportError::Connection(e.to_string()))?;
+        let s = self
+            .conn
+            .open_uni()
+            .await
+            .map_err(|e| TransportError::Connection(e.to_string()))?;
         Ok(SendStream(s))
     }
 
     pub async fn accept_uni(&self) -> Result<RecvStream, TransportError> {
-        let r = self.conn.accept_uni().await.map_err(|e| TransportError::Connection(e.to_string()))?;
+        let r = self
+            .conn
+            .accept_uni()
+            .await
+            .map_err(|e| TransportError::Connection(e.to_string()))?;
         Ok(RecvStream(r))
     }
 
@@ -90,12 +109,19 @@ impl PeerConnection {
         let stats = self.conn.stats();
         let paths = self.conn.paths();
         let path_count = paths.iter().count();
-        let selected = paths.iter().find(|p| p.is_selected()).or_else(|| paths.iter().next());
+        let selected = paths
+            .iter()
+            .find(|p| p.is_selected())
+            .or_else(|| paths.iter().next());
         let (kind, rtt, remote, cwnd) = match selected {
             Some(p) => {
                 let s = p.stats();
+                let local = match p.local_addr() {
+                    LocalTransportAddr::Ip(ip) => *ip,
+                    _ => None,
+                };
                 let (kind, remote) = match p.remote_addr() {
-                    TransportAddr::Ip(sock) => (classify_ip(sock.ip()), sock.to_string()),
+                    TransportAddr::Ip(sock) => (classify_path(sock.ip(), local), sock.to_string()),
                     TransportAddr::Relay(url) => (TransportKind::Relay, url.to_string()),
                     other => (TransportKind::Unknown, format!("{other:?}")),
                 };
@@ -137,7 +163,10 @@ pub struct SendStream(iroh::endpoint::SendStream);
 
 impl SendStream {
     pub async fn write_all(&mut self, buf: &[u8]) -> Result<(), StreamError> {
-        self.0.write_all(buf).await.map_err(|e| StreamError::Other(e.to_string()))
+        self.0
+            .write_all(buf)
+            .await
+            .map_err(|e| StreamError::Other(e.to_string()))
     }
 
     /// Gracefully ends the stream after buffered data is delivered.
@@ -167,7 +196,11 @@ impl SendStream {
 }
 
 impl AsyncWrite for SendStream {
-    fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
         AsyncWrite::poll_write(Pin::new(&mut self.get_mut().0), cx, buf)
     }
 
@@ -187,7 +220,10 @@ pub struct RecvStream(iroh::endpoint::RecvStream);
 impl RecvStream {
     /// Reads until the peer finishes the stream, rejecting more than `limit` bytes.
     pub async fn read_to_end(&mut self, limit: usize) -> Result<Vec<u8>, StreamError> {
-        self.0.read_to_end(limit).await.map_err(|e| StreamError::Other(e.to_string()))
+        self.0
+            .read_to_end(limit)
+            .await
+            .map_err(|e| StreamError::Other(e.to_string()))
     }
 
     /// Tells the peer to stop sending on this stream.
@@ -197,7 +233,11 @@ impl RecvStream {
 }
 
 impl AsyncRead for RecvStream {
-    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
         AsyncRead::poll_read(Pin::new(&mut self.get_mut().0), cx, buf)
     }
 }

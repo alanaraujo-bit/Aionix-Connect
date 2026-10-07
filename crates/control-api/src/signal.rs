@@ -85,7 +85,7 @@ pub enum ServerMessage {
         session_id: Uuid,
         ticket: String,
         mode: AccessMode,
-        viewer: OfferViewer,
+        viewer: Box<OfferViewer>,
     },
     /// An active or pending session must be terminated (revoked by an admin, the
     /// technician account was disabled, ...).
@@ -106,7 +106,10 @@ mod tests {
     #[test]
     fn tagged_json_shape_is_stable() {
         let m = ClientMessage::Pong { id: 3 };
-        assert_eq!(serde_json::to_string(&m).unwrap(), r#"{"type":"pong","id":3}"#);
+        assert_eq!(
+            serde_json::to_string(&m).unwrap(),
+            r#"{"type":"pong","id":3}"#
+        );
         let s: ServerMessage = serde_json::from_str(r#"{"type":"ping","id":9}"#).unwrap();
         assert_eq!(s, ServerMessage::Ping { id: 9 });
         let r: ServerMessage = serde_json::from_str(r#"{"type":"device_revoked"}"#).unwrap();

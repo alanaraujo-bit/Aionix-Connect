@@ -19,7 +19,11 @@ pub(crate) fn convert_shape(
     let (w, h, rgba) = match kind {
         SHAPE_COLOR => (width, height, color(width, height, pitch, buf)?),
         SHAPE_MASKED_COLOR => (width, height, masked_color(width, height, pitch, buf)?),
-        SHAPE_MONOCHROME => (width, height / 2, monochrome(width, height / 2, pitch, buf)?),
+        SHAPE_MONOCHROME => (
+            width,
+            height / 2,
+            monochrome(width, height / 2, pitch, buf)?,
+        ),
         _ => return None,
     };
     if w == 0 || h == 0 {
@@ -50,7 +54,7 @@ fn row(buf: &[u8], pitch: u32, y: u32, len: usize) -> Option<&[u8]> {
 fn color(w: u32, h: u32, pitch: u32, buf: &[u8]) -> Option<Vec<u8>> {
     let mut out = Vec::with_capacity((w * h * 4) as usize);
     for y in 0..h {
-        for px in row(buf, pitch, y, (w * 4) as usize)?.chunks_exact(4) {
+        for px in row(buf, pitch, y, (w * 4) as usize)?.as_chunks::<4>().0 {
             out.extend_from_slice(&[px[2], px[1], px[0], px[3]]);
         }
     }
@@ -64,7 +68,7 @@ fn color(w: u32, h: u32, pitch: u32, buf: &[u8]) -> Option<Vec<u8>> {
 fn masked_color(w: u32, h: u32, pitch: u32, buf: &[u8]) -> Option<Vec<u8>> {
     let mut out = Vec::with_capacity((w * h * 4) as usize);
     for y in 0..h {
-        for px in row(buf, pitch, y, (w * 4) as usize)?.chunks_exact(4) {
+        for px in row(buf, pitch, y, (w * 4) as usize)?.as_chunks::<4>().0 {
             let (b, g, r, mask) = (px[0], px[1], px[2], px[3]);
             if mask == 0 {
                 out.extend_from_slice(&[r, g, b, 255]);

@@ -13,14 +13,15 @@ use windows::{
                 D3D11_VIDEO_PROCESSOR_INPUT_VIEW_DESC_0, D3D11_VIDEO_PROCESSOR_OUTPUT_VIEW_DESC,
                 D3D11_VIDEO_PROCESSOR_OUTPUT_VIEW_DESC_0, D3D11_VIDEO_PROCESSOR_STREAM,
                 D3D11_VIDEO_USAGE_OPTIMAL_SPEED, D3D11_VPIV_DIMENSION_TEXTURE2D,
-                D3D11_VPOV_DIMENSION_TEXTURE2D, ID3D11Device, ID3D11DeviceContext,
-                ID3D11Texture2D, ID3D11VideoContext, ID3D11VideoContext1, ID3D11VideoDevice,
-                ID3D11VideoProcessor, ID3D11VideoProcessorEnumerator,
-                ID3D11VideoProcessorInputView, ID3D11VideoProcessorOutputView,
+                D3D11_VPOV_DIMENSION_TEXTURE2D, ID3D11Device, ID3D11DeviceContext, ID3D11Texture2D,
+                ID3D11VideoContext, ID3D11VideoContext1, ID3D11VideoDevice, ID3D11VideoProcessor,
+                ID3D11VideoProcessorEnumerator, ID3D11VideoProcessorInputView,
+                ID3D11VideoProcessorOutputView,
             },
             Dxgi::Common::{
-                DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709, DXGI_COLOR_SPACE_YCBCR_STUDIO_G22_LEFT_P709,
-                DXGI_FORMAT_NV12, DXGI_RATIONAL, DXGI_SAMPLE_DESC,
+                DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709,
+                DXGI_COLOR_SPACE_YCBCR_STUDIO_G22_LEFT_P709, DXGI_FORMAT_NV12, DXGI_RATIONAL,
+                DXGI_SAMPLE_DESC,
             },
         },
     },
@@ -55,12 +56,21 @@ impl VideoConverter {
         in_size: (u32, u32),
         out_size: (u32, u32),
     ) -> Result<Self, CodecError> {
-        if out_size.0 % 2 != 0 || out_size.1 % 2 != 0 || out_size.0 == 0 || out_size.1 == 0 {
-            return Err(CodecError::Unsupported(format!("odd output size {out_size:?}")));
+        if !out_size.0.is_multiple_of(2)
+            || !out_size.1.is_multiple_of(2)
+            || out_size.0 == 0
+            || out_size.1 == 0
+        {
+            return Err(CodecError::Unsupported(format!(
+                "odd output size {out_size:?}"
+            )));
         }
         let video_device: ID3D11VideoDevice = device.cast()?;
         let video_context: ID3D11VideoContext = context.cast()?;
-        let rate = DXGI_RATIONAL { Numerator: 60, Denominator: 1 };
+        let rate = DXGI_RATIONAL {
+            Numerator: 60,
+            Denominator: 1,
+        };
         let desc = D3D11_VIDEO_PROCESSOR_CONTENT_DESC {
             InputFrameFormat: D3D11_VIDEO_FRAME_FORMAT_PROGRESSIVE,
             InputFrameRate: rate,
@@ -75,17 +85,38 @@ impl VideoConverter {
         let processor = unsafe { video_device.CreateVideoProcessor(&enumerator, 0)? };
 
         unsafe {
-            video_context.VideoProcessorSetStreamFrameFormat(&processor, 0, D3D11_VIDEO_FRAME_FORMAT_PROGRESSIVE);
+            video_context.VideoProcessorSetStreamFrameFormat(
+                &processor,
+                0,
+                D3D11_VIDEO_FRAME_FORMAT_PROGRESSIVE,
+            );
             video_context.VideoProcessorSetStreamAutoProcessingMode(&processor, 0, false);
-            let src = RECT { left: 0, top: 0, right: in_size.0 as i32, bottom: in_size.1 as i32 };
-            let dst = RECT { left: 0, top: 0, right: out_size.0 as i32, bottom: out_size.1 as i32 };
+            let src = RECT {
+                left: 0,
+                top: 0,
+                right: in_size.0 as i32,
+                bottom: in_size.1 as i32,
+            };
+            let dst = RECT {
+                left: 0,
+                top: 0,
+                right: out_size.0 as i32,
+                bottom: out_size.1 as i32,
+            };
             video_context.VideoProcessorSetStreamSourceRect(&processor, 0, true, Some(&src));
             video_context.VideoProcessorSetStreamDestRect(&processor, 0, true, Some(&dst));
             video_context.VideoProcessorSetOutputTargetRect(&processor, true, Some(&dst));
             // Desktop is full-range sRGB; encoders expect BT.709 limited range.
             if let Ok(vc1) = video_context.cast::<ID3D11VideoContext1>() {
-                vc1.VideoProcessorSetStreamColorSpace1(&processor, 0, DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709);
-                vc1.VideoProcessorSetOutputColorSpace1(&processor, DXGI_COLOR_SPACE_YCBCR_STUDIO_G22_LEFT_P709);
+                vc1.VideoProcessorSetStreamColorSpace1(
+                    &processor,
+                    0,
+                    DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709,
+                );
+                vc1.VideoProcessorSetOutputColorSpace1(
+                    &processor,
+                    DXGI_COLOR_SPACE_YCBCR_STUDIO_G22_LEFT_P709,
+                );
             }
         }
 
@@ -99,8 +130,18 @@ impl VideoConverter {
                 },
             };
             let mut view = None;
-            unsafe { video_device.CreateVideoProcessorOutputView(&tex, &enumerator, &view_desc, Some(&mut view))? };
-            outputs.push((tex, view.ok_or_else(|| CodecError::Platform("null output view".into()))?));
+            unsafe {
+                video_device.CreateVideoProcessorOutputView(
+                    &tex,
+                    &enumerator,
+                    &view_desc,
+                    Some(&mut view),
+                )?
+            };
+            outputs.push((
+                tex,
+                view.ok_or_else(|| CodecError::Platform("null output view".into()))?,
+            ));
         }
 
         Ok(Self {
@@ -126,14 +167,25 @@ impl VideoConverter {
                 FourCC: 0,
                 ViewDimension: D3D11_VPIV_DIMENSION_TEXTURE2D,
                 Anonymous: D3D11_VIDEO_PROCESSOR_INPUT_VIEW_DESC_0 {
-                    Texture2D: D3D11_TEX2D_VPIV { MipSlice: 0, ArraySlice: 0 },
+                    Texture2D: D3D11_TEX2D_VPIV {
+                        MipSlice: 0,
+                        ArraySlice: 0,
+                    },
                 },
             };
             let mut view = None;
             unsafe {
-                self.video_device.CreateVideoProcessorInputView(bgra, &self.enumerator, &desc, Some(&mut view))?
+                self.video_device.CreateVideoProcessorInputView(
+                    bgra,
+                    &self.enumerator,
+                    &desc,
+                    Some(&mut view),
+                )?
             };
-            self.input = Some((key, view.ok_or_else(|| CodecError::Platform("null input view".into()))?));
+            self.input = Some((
+                key,
+                view.ok_or_else(|| CodecError::Platform("null input view".into()))?,
+            ));
         }
         let input_view = self.input.as_ref().map(|(_, v)| v.clone());
         let (tex, out_view) = self.outputs[self.next].clone();
@@ -145,7 +197,10 @@ impl VideoConverter {
             ..Default::default()
         };
         let streams = [stream];
-        let result = unsafe { self.video_context.VideoProcessorBlt(&self.processor, &out_view, 0, &streams) };
+        let result = unsafe {
+            self.video_context
+                .VideoProcessorBlt(&self.processor, &out_view, 0, &streams)
+        };
         // Release the reference held by the ManuallyDrop field.
         let [mut stream] = streams;
         unsafe { std::mem::ManuallyDrop::drop(&mut stream.pInputSurface) };
@@ -171,10 +226,25 @@ pub(crate) fn create_nv12(
         MipLevels: 1,
         ArraySize: 1,
         Format: DXGI_FORMAT_NV12,
-        SampleDesc: DXGI_SAMPLE_DESC { Count: 1, Quality: 0 },
-        Usage: if staging { D3D11_USAGE_STAGING } else { D3D11_USAGE_DEFAULT },
-        BindFlags: if staging { 0 } else { (D3D11_BIND_RENDER_TARGET.0 | D3D11_BIND_SHADER_RESOURCE.0) as u32 },
-        CPUAccessFlags: if staging { D3D11_CPU_ACCESS_READ.0 as u32 } else { 0 },
+        SampleDesc: DXGI_SAMPLE_DESC {
+            Count: 1,
+            Quality: 0,
+        },
+        Usage: if staging {
+            D3D11_USAGE_STAGING
+        } else {
+            D3D11_USAGE_DEFAULT
+        },
+        BindFlags: if staging {
+            0
+        } else {
+            (D3D11_BIND_RENDER_TARGET.0 | D3D11_BIND_SHADER_RESOURCE.0) as u32
+        },
+        CPUAccessFlags: if staging {
+            D3D11_CPU_ACCESS_READ.0 as u32
+        } else {
+            0
+        },
         MiscFlags: 0,
     };
     let mut tex = None;

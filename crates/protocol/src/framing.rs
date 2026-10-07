@@ -107,13 +107,19 @@ mod tests {
     async fn clean_eof_is_closed_and_truncated_is_io() {
         let (a, mut b) = tokio::io::duplex(64);
         drop(a);
-        assert!(matches!(read_frame::<_, pb::Ping>(&mut b, 1024).await, Err(FrameError::Closed)));
+        assert!(matches!(
+            read_frame::<_, pb::Ping>(&mut b, 1024).await,
+            Err(FrameError::Closed)
+        ));
 
         let (mut a, mut b) = tokio::io::duplex(64);
         a.write_all(&10u32.to_le_bytes()).await.unwrap();
         a.write_all(&[1, 2, 3]).await.unwrap();
         drop(a);
-        assert!(matches!(read_frame::<_, pb::Ping>(&mut b, 1024).await, Err(FrameError::Io(_))));
+        assert!(matches!(
+            read_frame::<_, pb::Ping>(&mut b, 1024).await,
+            Err(FrameError::Io(_))
+        ));
     }
 
     #[tokio::test]
@@ -121,7 +127,10 @@ mod tests {
         let (mut a, mut b) = tokio::io::duplex(64);
         a.write_all(&4u32.to_le_bytes()).await.unwrap();
         a.write_all(&[0xff, 0xff, 0xff, 0xff]).await.unwrap();
-        assert!(matches!(read_frame::<_, pb::Ping>(&mut b, 1024).await, Err(FrameError::Decode(_))));
+        assert!(matches!(
+            read_frame::<_, pb::Ping>(&mut b, 1024).await,
+            Err(FrameError::Decode(_))
+        ));
     }
 
     #[test]

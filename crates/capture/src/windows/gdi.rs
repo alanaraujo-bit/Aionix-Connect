@@ -16,16 +16,15 @@ use windows::{
         Direct3D11::ID3D11Texture2D,
         Gdi::{
             BI_RGB, BITMAPINFO, BITMAPINFOHEADER, BitBlt, CAPTUREBLT, CreateCompatibleDC,
-            CreateDIBSection, DIB_RGB_COLORS, DeleteDC, DeleteObject, GetDC, HBITMAP, HDC,
-            HGDIOBJ, ReleaseDC, SRCCOPY, SelectObject,
+            CreateDIBSection, DIB_RGB_COLORS, DeleteDC, DeleteObject, GetDC, HBITMAP, HDC, HGDIOBJ,
+            ReleaseDC, SRCCOPY, SelectObject,
         },
     },
     core::Interface,
 };
 
 use super::{
-    CapturedFrame, FrameEvent, cursor_poll::CursorTracker, device::GpuDevice,
-    displays::DxgiDisplay,
+    CapturedFrame, FrameEvent, cursor_poll::CursorTracker, device::GpuDevice, displays::DxgiDisplay,
 };
 use crate::CaptureError;
 
@@ -74,7 +73,8 @@ impl GdiCapturer {
             let mut bits: *mut c_void = std::ptr::null_mut();
             let bitmap = CreateDIBSection(Some(screen), &bi, DIB_RGB_COLORS, &mut bits, None, 0);
             ReleaseDC(None, screen);
-            let bitmap = bitmap.map_err(|e| CaptureError::Platform(format!("CreateDIBSection: {e}")))?;
+            let bitmap =
+                bitmap.map_err(|e| CaptureError::Platform(format!("CreateDIBSection: {e}")))?;
             let old_object = SelectObject(mem_dc, HGDIOBJ(bitmap.0));
             info!(width, height, "GDI capture started");
             Ok(Self {
@@ -115,7 +115,9 @@ impl GdiCapturer {
             frame.cursor_position = pos;
             frame.cursor_shape = shape;
 
-            let due = self.last_sample.is_none_or(|t| t.elapsed() >= SAMPLE_PERIOD);
+            let due = self
+                .last_sample
+                .is_none_or(|t| t.elapsed() >= SAMPLE_PERIOD);
             if due {
                 let sample_started = Instant::now();
                 self.last_sample = Some(sample_started);
@@ -125,7 +127,10 @@ impl GdiCapturer {
                     frame.capture_us = sample_started.elapsed().as_micros() as u32;
                 }
             }
-            if frame.texture.is_some() || frame.cursor_position.is_some() || frame.cursor_shape.is_some() {
+            if frame.texture.is_some()
+                || frame.cursor_position.is_some()
+                || frame.cursor_shape.is_some()
+            {
                 return Ok(FrameEvent::Captured(frame));
             }
             let now = Instant::now();

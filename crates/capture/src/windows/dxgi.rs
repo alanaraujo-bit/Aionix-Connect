@@ -44,7 +44,9 @@ impl DxgiCapturer {
                 debug!(?code, "DuplicateOutput denied");
                 CaptureError::AccessDenied
             } else if code == DXGI_ERROR_UNSUPPORTED {
-                CaptureError::Unsupported("desktop duplication not supported on this adapter".into())
+                CaptureError::Unsupported(
+                    "desktop duplication not supported on this adapter".into(),
+                )
             } else {
                 e.into()
             }
@@ -81,9 +83,10 @@ impl DxgiCapturer {
         self.release_held_frame();
         let mut info = DXGI_OUTDUPL_FRAME_INFO::default();
         let mut resource: Option<IDXGIResource> = None;
-        if let Err(e) =
-            unsafe { self.duplication.AcquireNextFrame(timeout_ms, &mut info, &mut resource) }
-        {
+        if let Err(e) = unsafe {
+            self.duplication
+                .AcquireNextFrame(timeout_ms, &mut info, &mut resource)
+        } {
             let code = e.code();
             if code == DXGI_ERROR_WAIT_TIMEOUT {
                 return Ok(FrameEvent::Timeout);
@@ -102,13 +105,13 @@ impl DxgiCapturer {
         let started = Instant::now();
         let mut frame = CapturedFrame::empty(started);
 
-        if info.LastPresentTime != 0 || info.AccumulatedFrames > 0 {
-            if let Some(resource) = resource.as_ref() {
-                let tex: ID3D11Texture2D = resource.cast()?;
-                unsafe { self.gpu.context.CopyResource(&self.copy, &tex) };
-                frame.texture = Some(self.copy.clone());
-                frame.dirty = self.dirty_rects(info.TotalMetadataBufferSize);
-            }
+        if (info.LastPresentTime != 0 || info.AccumulatedFrames > 0)
+            && let Some(resource) = resource.as_ref()
+        {
+            let tex: ID3D11Texture2D = resource.cast()?;
+            unsafe { self.gpu.context.CopyResource(&self.copy, &tex) };
+            frame.texture = Some(self.copy.clone());
+            frame.dirty = self.dirty_rects(info.TotalMetadataBufferSize);
         }
         if info.LastMouseUpdateTime != 0 {
             frame.cursor_position = Some(CursorPosition {
@@ -156,7 +159,12 @@ impl DxgiCapturer {
         let n = (required as usize / std::mem::size_of::<RECT>()).min(self.rect_buf.len());
         self.rect_buf[..n]
             .iter()
-            .map(|r| Rect { left: r.left, top: r.top, right: r.right, bottom: r.bottom })
+            .map(|r| Rect {
+                left: r.left,
+                top: r.top,
+                right: r.right,
+                bottom: r.bottom,
+            })
             .collect()
     }
 

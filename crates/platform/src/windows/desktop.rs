@@ -6,13 +6,11 @@
 //! changes. Only a SYSTEM process running in the user's session (the Agent's session
 //! host) may open the Winlogon desktop; Quick Support reports it as unavailable.
 
-use windows::{
-    Win32::{
-        Foundation::HANDLE,
-        System::StationsAndDesktops::{
-            CloseDesktop, DESKTOP_ACCESS_FLAGS, DESKTOP_CONTROL_FLAGS, GetUserObjectInformationW,
-            HDESK, OpenInputDesktop, SetThreadDesktop, UOI_NAME,
-        },
+use windows::Win32::{
+    Foundation::HANDLE,
+    System::StationsAndDesktops::{
+        CloseDesktop, DESKTOP_ACCESS_FLAGS, DESKTOP_CONTROL_FLAGS, GetUserObjectInformationW,
+        HDESK, OpenInputDesktop, SetThreadDesktop, UOI_NAME,
     },
 };
 
@@ -65,8 +63,14 @@ fn desktop_name(desk: HDESK) -> Option<String> {
 /// Returns the desktop currently receiving user input, or `AccessDenied` when this
 /// process may not see it (a non-SYSTEM process while the secure desktop is active).
 pub fn current_input_desktop() -> Result<InputDesktop, PlatformError> {
-    let desk = unsafe { OpenInputDesktop(DESKTOP_CONTROL_FLAGS(0), false, DESKTOP_ACCESS_FLAGS(0x0001)) }
-        .map_err(|_| PlatformError::AccessDenied)?;
+    let desk = unsafe {
+        OpenInputDesktop(
+            DESKTOP_CONTROL_FLAGS(0),
+            false,
+            DESKTOP_ACCESS_FLAGS(0x0001),
+        )
+    }
+    .map_err(|_| PlatformError::AccessDenied)?;
     let name = desktop_name(desk);
     unsafe {
         let _ = CloseDesktop(desk);
@@ -77,8 +81,14 @@ pub fn current_input_desktop() -> Result<InputDesktop, PlatformError> {
 /// Attaches the calling thread to the current input desktop. The thread must not own
 /// windows or hooks. Returns which desktop it is now attached to.
 pub fn attach_thread_to_input_desktop() -> Result<InputDesktop, PlatformError> {
-    let desk = unsafe { OpenInputDesktop(DESKTOP_CONTROL_FLAGS(0), false, DESKTOP_ACCESS_FLAGS(DESKTOP_GENERIC_ALL)) }
-        .map_err(|_| PlatformError::AccessDenied)?;
+    let desk = unsafe {
+        OpenInputDesktop(
+            DESKTOP_CONTROL_FLAGS(0),
+            false,
+            DESKTOP_ACCESS_FLAGS(DESKTOP_GENERIC_ALL),
+        )
+    }
+    .map_err(|_| PlatformError::AccessDenied)?;
     let name = desktop_name(desk).unwrap_or_default();
     let result = unsafe { SetThreadDesktop(desk) };
     // The thread keeps the desktop referenced while attached; our handle can go.
@@ -97,6 +107,9 @@ mod tests {
     fn classifies_desktop_names() {
         assert_eq!(InputDesktop::from_name("Default"), InputDesktop::Default);
         assert!(InputDesktop::from_name("Winlogon").is_secure());
-        assert_eq!(InputDesktop::from_name("Screen-saver"), InputDesktop::Other("Screen-saver".into()));
+        assert_eq!(
+            InputDesktop::from_name("Screen-saver"),
+            InputDesktop::Other("Screen-saver".into())
+        );
     }
 }

@@ -43,7 +43,10 @@ pub struct EncoderPreference {
 
 impl Default for EncoderPreference {
     fn default() -> Self {
-        Self { allow_hardware: true, name_contains: None }
+        Self {
+            allow_hardware: true,
+            name_contains: None,
+        }
     }
 }
 
@@ -86,7 +89,10 @@ pub fn fit_pixels(w: u32, h: u32, max_pixels: u64) -> (u32, u32) {
         return (even(w), even(h));
     }
     let scale = (max_pixels as f64 / pixels as f64).sqrt();
-    (even((f64::from(w) * scale) as u32).max(2), even((f64::from(h) * scale) as u32).max(2))
+    (
+        even((f64::from(w) * scale) as u32).max(2),
+        even((f64::from(h) * scale) as u32).max(2),
+    )
 }
 
 #[cfg(test)]

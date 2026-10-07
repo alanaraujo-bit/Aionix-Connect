@@ -85,7 +85,10 @@ pub struct InputInjector {
 
 impl InputInjector {
     pub fn new(display: DisplayRect) -> Self {
-        Self { display, held: HeldState::default() }
+        Self {
+            display,
+            held: HeldState::default(),
+        }
     }
 
     /// Changes the display that mouse coordinates refer to (monitor switch).
@@ -110,7 +113,13 @@ impl InputInjector {
         self.platform_move(self.display.x + x, self.display.y + y)
     }
 
-    pub fn mouse_button(&mut self, button: MouseButton, down: bool, x: i32, y: i32) -> Result<(), InputError> {
+    pub fn mouse_button(
+        &mut self,
+        button: MouseButton,
+        down: bool,
+        x: i32,
+        y: i32,
+    ) -> Result<(), InputError> {
         self.mouse_move(x, y)?;
         self.held.button(button, down);
         self.platform_button(button, down)
@@ -190,7 +199,15 @@ mod tests {
 
     #[test]
     fn coordinates_are_clamped_to_display() {
-        let inj = InputInjector { display: DisplayRect { x: 1920, y: 0, width: 1280, height: 1024 }, held: HeldState::default() };
+        let inj = InputInjector {
+            display: DisplayRect {
+                x: 1920,
+                y: 0,
+                width: 1280,
+                height: 1024,
+            },
+            held: HeldState::default(),
+        };
         assert_eq!(inj.clamp(-5, 5000), (0, 1023));
         assert_eq!(inj.clamp(100, 100), (100, 100));
         std::mem::forget(inj);

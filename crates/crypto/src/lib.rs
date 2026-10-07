@@ -20,7 +20,8 @@ use zeroize::Zeroizing;
 
 pub use ed25519_dalek::{PUBLIC_KEY_LENGTH, SIGNATURE_LENGTH};
 
-pub(crate) const B64: base64::engine::GeneralPurpose = base64::engine::general_purpose::URL_SAFE_NO_PAD;
+pub(crate) const B64: base64::engine::GeneralPurpose =
+    base64::engine::general_purpose::URL_SAFE_NO_PAD;
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum CryptoError {
@@ -42,11 +43,15 @@ impl IdentityKey {
     pub fn generate() -> Self {
         let mut seed = Zeroizing::new([0u8; 32]);
         rand::fill(&mut seed[..]);
-        Self { signing: SigningKey::from_bytes(&seed) }
+        Self {
+            signing: SigningKey::from_bytes(&seed),
+        }
     }
 
     pub fn from_secret_bytes(bytes: &[u8; 32]) -> Self {
-        Self { signing: SigningKey::from_bytes(bytes) }
+        Self {
+            signing: SigningKey::from_bytes(bytes),
+        }
     }
 
     /// Raw secret seed. Callers must store it protected (DPAPI, secrets file with
@@ -66,7 +71,9 @@ impl IdentityKey {
 
 impl fmt::Debug for IdentityKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("IdentityKey").field("public", &self.public()).finish_non_exhaustive()
+        f.debug_struct("IdentityKey")
+            .field("public", &self.public())
+            .finish_non_exhaustive()
     }
 }
 
@@ -77,7 +84,9 @@ pub struct PublicKey(VerifyingKey);
 impl PublicKey {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, CryptoError> {
         let arr: [u8; PUBLIC_KEY_LENGTH] = bytes.try_into().map_err(|_| CryptoError::InvalidKey)?;
-        VerifyingKey::from_bytes(&arr).map(Self).map_err(|_| CryptoError::InvalidKey)
+        VerifyingKey::from_bytes(&arr)
+            .map(Self)
+            .map_err(|_| CryptoError::InvalidKey)
     }
 
     pub fn to_bytes(&self) -> [u8; PUBLIC_KEY_LENGTH] {
@@ -101,8 +110,11 @@ impl PublicKey {
 
     /// Strict verification (rejects small-order / malleable signatures).
     pub fn verify(&self, message: &[u8], signature: &[u8]) -> Result<(), CryptoError> {
-        let sig = Signature::from_slice(signature).map_err(|_| CryptoError::InvalidSignatureEncoding)?;
-        self.0.verify_strict(message, &sig).map_err(|_| CryptoError::BadSignature)
+        let sig =
+            Signature::from_slice(signature).map_err(|_| CryptoError::InvalidSignatureEncoding)?;
+        self.0
+            .verify_strict(message, &sig)
+            .map_err(|_| CryptoError::BadSignature)
     }
 }
 
@@ -169,7 +181,9 @@ pub fn verify_domain(
     payload: &[u8],
     signature_b64: &str,
 ) -> Result<(), CryptoError> {
-    let sig = B64.decode(signature_b64).map_err(|_| CryptoError::InvalidSignatureEncoding)?;
+    let sig = B64
+        .decode(signature_b64)
+        .map_err(|_| CryptoError::InvalidSignatureEncoding)?;
     key.verify(&domain_message(domain, payload), &sig)
 }
 
@@ -203,7 +217,10 @@ mod tests {
         assert_eq!(k.public(), restored.public());
         let sig = k.sign(b"hello");
         assert!(k.public().verify(b"hello", &sig).is_ok());
-        assert_eq!(k.public().verify(b"hellO", &sig), Err(CryptoError::BadSignature));
+        assert_eq!(
+            k.public().verify(b"hellO", &sig),
+            Err(CryptoError::BadSignature)
+        );
     }
 
     #[test]
@@ -217,9 +234,25 @@ mod tests {
     fn domain_signatures_do_not_cross_domains() {
         let k = IdentityKey::generate();
         let sig = sign_domain(&k, SignatureDomain::DeviceRegistration, b"nonce");
-        assert!(verify_domain(&k.public(), SignatureDomain::DeviceRegistration, b"nonce", &sig).is_ok());
+        assert!(
+            verify_domain(
+                &k.public(),
+                SignatureDomain::DeviceRegistration,
+                b"nonce",
+                &sig
+            )
+            .is_ok()
+        );
         assert!(verify_domain(&k.public(), SignatureDomain::DeviceLogin, b"nonce", &sig).is_err());
-        assert!(verify_domain(&k.public(), SignatureDomain::DeviceRegistration, b"nonce2", &sig).is_err());
+        assert!(
+            verify_domain(
+                &k.public(),
+                SignatureDomain::DeviceRegistration,
+                b"nonce2",
+                &sig
+            )
+            .is_err()
+        );
     }
 
     #[test]

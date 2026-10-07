@@ -23,12 +23,19 @@ pub(crate) struct CursorTracker {
 impl CursorTracker {
     /// `origin` is the captured display's top-left corner in desktop coordinates.
     pub fn new(origin: (i32, i32)) -> Self {
-        Self { origin, last_handle: None, last_position: None }
+        Self {
+            origin,
+            last_handle: None,
+            last_position: None,
+        }
     }
 
     /// Returns what changed since the previous call.
     pub fn poll(&mut self) -> (Option<CursorPosition>, Option<CursorShape>) {
-        let mut info = CURSORINFO { cbSize: std::mem::size_of::<CURSORINFO>() as u32, ..Default::default() };
+        let mut info = CURSORINFO {
+            cbSize: std::mem::size_of::<CURSORINFO>() as u32,
+            ..Default::default()
+        };
         if unsafe { GetCursorInfo(&mut info) }.is_err() {
             return (None, None);
         }
@@ -68,7 +75,11 @@ impl Drop for Bitmap {
 fn bitmap_bgra(bmp: HBITMAP) -> Option<(u32, u32, Vec<u8>)> {
     let mut bm = BITMAP::default();
     let got = unsafe {
-        GetObjectW(HGDIOBJ(bmp.0), std::mem::size_of::<BITMAP>() as i32, Some((&mut bm as *mut BITMAP).cast()))
+        GetObjectW(
+            HGDIOBJ(bmp.0),
+            std::mem::size_of::<BITMAP>() as i32,
+            Some((&mut bm as *mut BITMAP).cast()),
+        )
     };
     if got == 0 || bm.bmWidth <= 0 || bm.bmHeight <= 0 || bm.bmWidth > 512 || bm.bmHeight > 1024 {
         return None;
@@ -88,7 +99,17 @@ fn bitmap_bgra(bmp: HBITMAP) -> Option<(u32, u32, Vec<u8>)> {
     };
     let mut buf = vec![0u8; (w * h * 4) as usize];
     let hdc = unsafe { GetDC(None) };
-    let lines = unsafe { GetDIBits(hdc, bmp, 0, h, Some(buf.as_mut_ptr().cast()), &mut bi, DIB_RGB_COLORS) };
+    let lines = unsafe {
+        GetDIBits(
+            hdc,
+            bmp,
+            0,
+            h,
+            Some(buf.as_mut_ptr().cast()),
+            &mut bi,
+            DIB_RGB_COLORS,
+        )
+    };
     unsafe { ReleaseDC(None, hdc) };
     (lines == h as i32).then_some((w, h, buf))
 }
@@ -103,10 +124,12 @@ fn read_shape(cursor: HCURSOR) -> Option<CursorShape> {
     let (w, h, rgba) = if !color.0.is_invalid() {
         let (w, h, bgra) = bitmap_bgra(color.0)?;
         let mask_bits = bitmap_bgra(mask.0).map(|(_, _, m)| m);
-        let has_alpha = bgra.chunks_exact(4).any(|p| p[3] != 0);
+        let has_alpha = bgra.as_chunks::<4>().0.iter().any(|p| p[3] != 0);
         let mut out = Vec::with_capacity(bgra.len());
-        for (i, p) in bgra.chunks_exact(4).enumerate() {
-            let transparent_mask = mask_bits.as_ref().is_some_and(|m| m.get(i * 4).copied().unwrap_or(0) != 0);
+        for (i, p) in bgra.as_chunks::<4>().0.iter().enumerate() {
+            let transparent_mask = mask_bits
+                .as_ref()
+                .is_some_and(|m| m.get(i * 4).copied().unwrap_or(0) != 0);
             let alpha = if has_alpha {
                 p[3]
             } else if transparent_mask && p[0] == 0 && p[1] == 0 && p[2] == 0 {

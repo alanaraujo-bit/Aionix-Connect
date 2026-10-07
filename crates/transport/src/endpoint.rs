@@ -80,7 +80,10 @@ impl Transport {
                 .map_err(|e| TransportError::Bind(e.to_string()))?;
         }
 
-        let endpoint = builder.bind().await.map_err(|e| TransportError::Bind(e.to_string()))?;
+        let endpoint = builder
+            .bind()
+            .await
+            .map_err(|e| TransportError::Bind(e.to_string()))?;
         debug!(id = %endpoint.id().fmt_short(), "transport bound");
         Ok(Self { endpoint })
     }
@@ -96,13 +99,18 @@ impl Transport {
 
     /// Stream of reachability updates; yields the current value first.
     pub fn addr_updates(&self) -> impl Stream<Item = EndpointAddrDto> + Send + 'static {
-        self.endpoint.watch_addr().stream().map(|a| addr::to_dto(&a))
+        self.endpoint
+            .watch_addr()
+            .stream()
+            .map(|a| addr::to_dto(&a))
     }
 
     /// Waits until connected to a home relay (or until `timeout`). Returns whether
     /// the endpoint is reachable through a relay.
     pub async fn wait_online(&self, timeout: Duration) -> bool {
-        tokio::time::timeout(timeout, self.endpoint.online()).await.is_ok()
+        tokio::time::timeout(timeout, self.endpoint.online())
+            .await
+            .is_ok()
     }
 
     /// Relay connection status for diagnostics: `(url, connected, denial reason)`.
@@ -111,7 +119,13 @@ impl Transport {
             .home_relay_status()
             .get()
             .into_iter()
-            .map(|s| (s.url().to_string(), s.is_connected(), s.auth_denied_reason().map(str::to_owned)))
+            .map(|s| {
+                (
+                    s.url().to_string(),
+                    s.is_connected(),
+                    s.auth_denied_reason().map(str::to_owned),
+                )
+            })
             .collect()
     }
 
@@ -121,7 +135,9 @@ impl Transport {
             .url
             .parse()
             .map_err(|_| TransportError::InvalidAddress(relay.url.clone()))?;
-        self.endpoint.insert_relay(url, Arc::new(relay_config(relay)?)).await;
+        self.endpoint
+            .insert_relay(url, Arc::new(relay_config(relay)?))
+            .await;
         Ok(())
     }
 
@@ -167,7 +183,10 @@ impl Incoming {
     /// Completes the handshake. The peer's identity is authenticated afterwards;
     /// application-level authorization (session tickets) is the caller's job.
     pub async fn accept(self) -> Result<PeerConnection, TransportError> {
-        let accepting = self.inner.accept().map_err(|e| TransportError::Connect(e.to_string()))?;
+        let accepting = self
+            .inner
+            .accept()
+            .map_err(|e| TransportError::Connect(e.to_string()))?;
         let conn = tokio::time::timeout(CONNECT_TIMEOUT, accepting)
             .await
             .map_err(|_| TransportError::Timeout)?

@@ -8,13 +8,13 @@ use windows::Win32::{
         QDC_ONLY_ACTIVE_PATHS, QueryDisplayConfig,
     },
     Foundation::ERROR_SUCCESS,
-    Graphics::Gdi::HMONITOR,
     Graphics::Dxgi::{
-        Common::{DXGI_MODE_ROTATION_ROTATE90, DXGI_MODE_ROTATION_ROTATE180, DXGI_MODE_ROTATION_ROTATE270},
-        CreateDXGIFactory1, DXGI_ERROR_NOT_FOUND,
-        IDXGIAdapter1, IDXGIFactory1,
-        IDXGIOutput,
+        Common::{
+            DXGI_MODE_ROTATION_ROTATE90, DXGI_MODE_ROTATION_ROTATE180, DXGI_MODE_ROTATION_ROTATE270,
+        },
+        CreateDXGIFactory1, DXGI_ERROR_NOT_FOUND, IDXGIAdapter1, IDXGIFactory1, IDXGIOutput,
     },
+    Graphics::Gdi::HMONITOR,
 };
 
 use crate::{CaptureError, DisplayInfo};
@@ -72,7 +72,10 @@ pub(crate) fn enumerate_dxgi() -> Result<Vec<DxgiDisplay>, CaptureError> {
             out.push(DxgiDisplay {
                 info: DisplayInfo {
                     id: 0,
-                    name: friendly.get(&device_name).cloned().unwrap_or_else(|| device_name.clone()),
+                    name: friendly
+                        .get(&device_name)
+                        .cloned()
+                        .unwrap_or_else(|| device_name.clone()),
                     device_name,
                     x: r.left,
                     y: r.top,
@@ -101,7 +104,9 @@ fn friendly_names() -> HashMap<String, String> {
     let mut map = HashMap::new();
     unsafe {
         let (mut n_paths, mut n_modes) = (0u32, 0u32);
-        if GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, &mut n_paths, &mut n_modes) != ERROR_SUCCESS {
+        if GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, &mut n_paths, &mut n_modes)
+            != ERROR_SUCCESS
+        {
             return map;
         }
         let mut paths = vec![DISPLAYCONFIG_PATH_INFO::default(); n_paths as usize];

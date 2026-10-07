@@ -136,6 +136,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "aionix-remote-core"
+version = "0.1.0"
+dependencies = [
+ "aionix-shared",
+]
+
+[[package]]
 name = "aionix-shared"
 version = "0.1.0"
 dependencies = [

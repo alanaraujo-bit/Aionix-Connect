@@ -29,7 +29,14 @@ fn mouse(flags: MOUSE_EVENT_FLAGS, dx: i32, dy: i32, data: i32) -> INPUT {
     INPUT {
         r#type: INPUT_MOUSE,
         Anonymous: INPUT_0 {
-            mi: MOUSEINPUT { dx, dy, mouseData: data as u32, dwFlags: flags, time: 0, dwExtraInfo: 0 },
+            mi: MOUSEINPUT {
+                dx,
+                dy,
+                mouseData: data as u32,
+                dwFlags: flags,
+                time: 0,
+                dwExtraInfo: 0,
+            },
         },
     }
 }
@@ -38,7 +45,13 @@ fn keyboard(scan: u16, vk: u16, flags: KEYBD_EVENT_FLAGS) -> INPUT {
     INPUT {
         r#type: INPUT_KEYBOARD,
         Anonymous: INPUT_0 {
-            ki: KEYBDINPUT { wVk: VIRTUAL_KEY(vk), wScan: scan, dwFlags: flags, time: 0, dwExtraInfo: 0 },
+            ki: KEYBDINPUT {
+                wVk: VIRTUAL_KEY(vk),
+                wScan: scan,
+                dwFlags: flags,
+                time: 0,
+                dwExtraInfo: 0,
+            },
         },
     }
 }
@@ -61,10 +74,19 @@ impl InputInjector {
             )
         };
         let (nx, ny) = normalize(x, y, vx, vy, vw, vh);
-        send(&[mouse(MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK, nx, ny, 0)])
+        send(&[mouse(
+            MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK,
+            nx,
+            ny,
+            0,
+        )])
     }
 
-    pub(crate) fn platform_button(&mut self, button: MouseButton, down: bool) -> Result<(), InputError> {
+    pub(crate) fn platform_button(
+        &mut self,
+        button: MouseButton,
+        down: bool,
+    ) -> Result<(), InputError> {
         let (flags, data) = match (button, down) {
             (MouseButton::Left, true) => (MOUSEEVENTF_LEFTDOWN, 0),
             (MouseButton::Left, false) => (MOUSEEVENTF_LEFTUP, 0),
@@ -88,10 +110,19 @@ impl InputInjector {
         if dx != 0 {
             inputs.push(mouse(MOUSEEVENTF_HWHEEL, 0, 0, dx));
         }
-        if inputs.is_empty() { Ok(()) } else { send(&inputs) }
+        if inputs.is_empty() {
+            Ok(())
+        } else {
+            send(&inputs)
+        }
     }
 
-    pub(crate) fn platform_key(&mut self, scancode: u32, extended: bool, down: bool) -> Result<(), InputError> {
+    pub(crate) fn platform_key(
+        &mut self,
+        scancode: u32,
+        extended: bool,
+        down: bool,
+    ) -> Result<(), InputError> {
         let mut flags = KEYEVENTF_SCANCODE;
         if extended {
             flags |= KEYEVENTF_EXTENDEDKEY;
@@ -108,7 +139,11 @@ impl InputInjector {
             inputs.push(keyboard(unit, 0, KEYEVENTF_UNICODE));
             inputs.push(keyboard(unit, 0, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP));
         }
-        if inputs.is_empty() { Ok(()) } else { send(&inputs) }
+        if inputs.is_empty() {
+            Ok(())
+        } else {
+            send(&inputs)
+        }
     }
 }
 
