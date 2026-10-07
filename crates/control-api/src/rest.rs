@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use crate::signal::EndpointAddrDto;
+use crate::{claims::SessionPermission, signal::EndpointAddrDto};
 
 // ---------------------------------------------------------------------------
 // Server
@@ -193,7 +193,10 @@ pub struct DeviceSummary {
     pub hostname: String,
     pub os_name: String,
     pub os_version: String,
+    /// `presence == Online`; kept for older clients.
     pub online: bool,
+    #[serde(default)]
+    pub presence: PresenceState,
     pub unattended_enabled: bool,
     pub favorite: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -263,6 +266,8 @@ pub struct DeviceLookup {
     pub friendly_id: FriendlyId,
     pub kind: DeviceKind,
     pub online: bool,
+    #[serde(default)]
+    pub presence: PresenceState,
     /// Only disclosed when the caller belongs to the device's organization.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device: Option<DeviceSummary>,
@@ -277,6 +282,10 @@ pub struct DeviceLookup {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateSessionRequest {
     pub target: FriendlyId,
+    /// Requested capabilities. The server grants at most what the technician's role
+    /// allows; omitted = everything the role allows. `view` is always required.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<Vec<SessionPermission>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -294,6 +303,103 @@ pub struct CreateSessionResponse {
     pub ticket: String,
     pub mode: AccessMode,
     pub host: HostEndpoint,
+    /// Permissions granted by the ticket.
+    #[serde(default)]
+    pub permissions: Vec<SessionPermission>,
+    /// The ticket must be presented to the host before this instant.
+    #[serde(default, with = "time::serde::rfc3339::option")]
+    pub expires_at: Option<OffsetDateTime>,
+}
+
+// ---------------------------------------------------------------------------
+// Presence
+// ---------------------------------------------------------------------------
+
+/// Truthful device reachability as seen by the signaling service.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum PresenceState {
+    /// Authenticated signaling link alive, reachability published, heartbeat on time.
+    Online,
+    /// Link authenticated but reachability not published yet, or the link was lost
+    /// unexpectedly moments ago and the device is expected to reconnect.
+    Connecting,
+    /// No signaling link.
+    #[default]
+    Offline,
+}
+
+impl PresenceState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Online => "online",
+            Self::Connecting => "connecting",
+            Self::Offline => "offline",
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Organization administration
+// ---------------------------------------------------------------------------
+
+/// `GET /v1/orgs/{org}/members`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Member {
+    pub user_id: Uuid,
+    pub email: String,
+    pub display_name: String,
+    pub role: OrgRole,
+    pub disabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemberList {
+    pub members: Vec<Member>,
+}
+
+/// `PUT /v1/orgs/{org}/members` — add an existing account or change its role.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpsertMemberRequest {
+    pub email: String,
+    pub role: OrgRole,
+}
+
+/// `POST /v1/devices/{id}/revoke`
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct RevokeDeviceRequest {
+    #[serde(default)]
+    pub reason: String,
+}
+
+/// One audit/security record (`GET /v1/orgs/{org}/audit`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuditEvent {
+    pub id: i64,
+    #[serde(with = "time::serde::rfc3339")]
+    pub occurred_at: OffsetDateTime,
+    /// `audit` or `security`.
+    pub category: String,
+    pub action: String,
+    /// `success`, `denied` or `failure`.
+    pub outcome: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actor_user_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actor_device_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_device_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
+    #[serde(default)]
+    pub details: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuditList {
+    pub events: Vec<AuditEvent>,
 }
 
 /// `POST /v1/sessions/{id}/events` — viewer-side lifecycle reports for history/audit.

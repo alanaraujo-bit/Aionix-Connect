@@ -1,0 +1,39 @@
+[package]
+name = "aionix-control-plane"
+description = "Control Plane: accounts, organizations, devices, presence, authorization, session tickets, audit (aionix-api, aionix-admin)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+# Helpers for integration tests (disposable databases, isolated Redis namespaces).
+test-support = []
+
+[dependencies]
+aionix-shared = { workspace = true }
+aionix-crypto = { workspace = true }
+aionix-control-api = { workspace = true }
+aionix-server-common = { workspace = true }
+anyhow = { workspace = true }
+argon2 = { workspace = true }
+async-trait = { workspace = true }
+axum = { workspace = true }
+clap = { workspace = true }
+futures = { workspace = true }
+http = { workspace = true }
+metrics = { workspace = true }
+redis = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+time = { workspace = true }
+tokio = { workspace = true }
+tower-http = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+aionix-control-plane = { path = ".", features = ["test-support"] }
+reqwest = { workspace = true }

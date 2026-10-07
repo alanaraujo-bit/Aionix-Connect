@@ -50,7 +50,30 @@ pub enum ClientMessage {
     Pong {
         id: u64,
     },
+    /// Orderly disconnect (application exit): the device is offline immediately
+    /// instead of "connecting" for the reconnect grace period.
+    Goodbye,
 }
+
+/// WebSocket close codes used by the signaling service.
+pub mod close_code {
+    /// No message within the heartbeat timeout.
+    pub const HEARTBEAT_TIMEOUT: u16 = 4000;
+    /// The device token expired; log in again and reconnect.
+    pub const TOKEN_EXPIRED: u16 = 4001;
+    /// A newer connection of the same device replaced this one.
+    pub const SUPERSEDED: u16 = 4002;
+    /// The device identity was revoked. Do not reconnect.
+    pub const DEVICE_REVOKED: u16 = 4003;
+    /// Protocol violation or message rate exceeded.
+    pub const POLICY: u16 = 4008;
+    /// The server is restarting; reconnect with backoff.
+    pub const SERVICE_RESTART: u16 = 1012;
+}
+
+/// `GET /v1/signal` must be retried after this many seconds at most (clients add
+/// jitter). Exposed so client and server agree on reconnect pacing.
+pub const MAX_RECONNECT_BACKOFF_SECS: u64 = 30;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]

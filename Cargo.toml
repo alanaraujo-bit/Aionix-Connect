@@ -23,6 +23,10 @@ aionix-input = { path = "crates/input" }
 aionix-platform = { path = "crates/platform" }
 aionix-remote-core = { path = "crates/remote-core" }
 aionix-client = { path = "crates/client" }
+aionix-server-common = { path = "crates/server-common" }
+aionix-control-plane = { path = "crates/control-plane" }
+aionix-signaling = { path = "crates/signaling" }
+aionix-relay = { path = "crates/relay" }
 
 # Async / runtime
 tokio = { version = "1.53", features = ["full"] }
@@ -39,6 +43,8 @@ tower-http = { version = "0.6", features = ["trace", "cors", "limit", "request-i
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 tokio-tungstenite = { version = "0.30", features = ["rustls-tls-webpki-roots"] }
 url = { version = "2", features = ["serde"] }
+http = "1"
+ipnet = "2"
 
 # Data / serialization
 serde = { version = "1", features = ["derive"] }
@@ -61,6 +67,7 @@ zeroize = { version = "1", features = ["derive"] }
 
 # Database
 sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "time", "json", "macros", "migrate"] }
+redis = { version = "1.7", default-features = false, features = ["tokio-comp", "connection-manager", "script"] }
 
 # Errors / observability
 thiserror = "2"
