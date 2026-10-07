@@ -1,0 +1,20 @@
+[package]
+name = "aionix-crypto"
+description = "Identity keys, signed tokens and domain-separated signatures"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ed25519-dalek = { workspace = true }
+rand = { workspace = true }
+sha2 = { workspace = true }
+base64 = { workspace = true }
+hex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+time = { workspace = true }
+zeroize = { workspace = true }
+subtle = { workspace = true }

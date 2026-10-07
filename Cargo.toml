@@ -1,0 +1,87 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+license = "LicenseRef-Proprietary"
+publish = false
+
+[workspace.dependencies]
+# Internal crates
+aionix-brand = { path = "crates/brand" }
+aionix-shared = { path = "crates/shared" }
+aionix-protocol = { path = "crates/protocol" }
+aionix-crypto = { path = "crates/crypto" }
+aionix-transport = { path = "crates/transport" }
+aionix-control-api = { path = "crates/control-api" }
+aionix-capture = { path = "crates/capture" }
+aionix-codec = { path = "crates/codec" }
+aionix-input = { path = "crates/input" }
+aionix-platform = { path = "crates/platform" }
+aionix-remote-core = { path = "crates/remote-core" }
+aionix-client = { path = "crates/client" }
+
+# Async / runtime
+tokio = { version = "1.53", features = ["full"] }
+tokio-util = "0.7"
+futures = "0.3"
+async-trait = "0.1"
+
+# Networking
+iroh = "1.3"
+iroh-relay = { version = "1.3", default-features = false }
+axum = { version = "0.8", features = ["ws", "macros"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["trace", "cors", "limit", "request-id", "timeout"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tokio-tungstenite = { version = "0.30", features = ["rustls-tls-webpki-roots"] }
+url = { version = "2", features = ["serde"] }
+
+# Data / serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+prost = "0.14"
+bytes = "1"
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
+time = { version = "0.3", features = ["serde", "formatting", "parsing", "macros"] }
+base64 = "0.22"
+hex = "0.4"
+toml = "0.9"
+
+# Crypto
+ed25519-dalek = { version = "3", features = ["rand_core", "zeroize"] }
+rand = "0.10"
+sha2 = "0.10"
+argon2 = "0.6"
+subtle = "2"
+zeroize = { version = "1", features = ["derive"] }
+
+# Database
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "time", "json", "macros", "migrate"] }
+
+# Errors / observability
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
+metrics = "0.24"
+metrics-exporter-prometheus = { version = "0.17", default-features = false }
+
+# CLI
+clap = { version = "4", features = ["derive", "env"] }
+
+# Windows
+windows = "0.62"
+windows-core = "0.62"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"
+
+[profile.dev.package."*"]
+opt-level = 2

@@ -1,0 +1,15 @@
+[package]
+name = "aionix-control-api"
+description = "Control plane contract: REST DTOs, signaling messages and token claims"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+aionix-shared = { workspace = true }
+aionix-crypto = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+time = { workspace = true }

@@ -1,0 +1,386 @@
+// Aionix Connect remote session protocol (data plane).
+//
+// ALPN: "aionix/remote/1"
+//
+// Transport: a QUIC connection between the viewer (technician) and the host whose TLS
+// handshake authenticates both Ed25519 endpoint keys. All streams are therefore
+// end-to-end encrypted; relays only forward ciphertext.
+//
+// Stream layout (see docs/PROTOCOL.md):
+//   * Control stream: the first bidirectional stream, opened by the viewer.
+//     Carries length-delimited ViewerToHost / HostToViewer messages.
+//   * Input stream: a unidirectional viewer -> host stream opened once the session is
+//     authorized. Carries length-delimited InputBatch messages.
+//   * Video: one unidirectional host -> viewer stream per encoded frame. The stream
+//     contains a length-delimited VideoFrameHeader followed by `payload_len` bytes of
+//     codec bitstream, then FIN.
+//
+// Compatibility rules: never reuse or renumber a field; add new fields/messages only.
+// Breaking changes require a new ALPN version.
+
+syntax = "proto3";
+
+package aionix.remote.v1;
+
+// ---------------------------------------------------------------------------
+// Envelopes
+// ---------------------------------------------------------------------------
+
+message ViewerToHost {
+  oneof msg {
+    Hello hello = 1;
+    PasswordAuth password_auth = 2;
+    SelectDisplay select_display = 3;
+    QualitySettings quality = 4;
+    ReceiverReport receiver_report = 5;
+    KeyframeRequest keyframe_request = 6;
+    ClipboardData clipboard = 7;
+    Ping ping = 8;
+    Pong pong = 9;
+    SpecialAction special_action = 10;
+    Goodbye goodbye = 11;
+  }
+}
+
+message HostToViewer {
+  oneof msg {
+    HelloAck hello_ack = 1;
+    AuthStatus auth_status = 2;
+    DisplayList displays = 3;
+    StreamStarted stream_started = 4;
+    CursorShape cursor_shape = 5;
+    CursorPosition cursor_position = 6;
+    ClipboardData clipboard = 7;
+    Ping ping = 8;
+    Pong pong = 9;
+    SenderReport sender_report = 10;
+    SystemInfo system_info = 11;
+    Goodbye goodbye = 12;
+    Notice notice = 13;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Handshake and authorization
+// ---------------------------------------------------------------------------
+
+message Hello {
+  uint32 protocol_version = 1;
+  string client_version = 2;
+  // Control-plane signed session ticket (axt1 token, type "session_ticket").
+  string session_ticket = 3;
+  Capabilities capabilities = 4;
+  // Present when resuming a session after a transport interruption.
+  string resume_token = 5;
+}
+
+message Capabilities {
+  repeated VideoCodec decoders = 1;
+  bool clipboard_text = 2;
+  uint32 max_width = 3;
+  uint32 max_height = 4;
+  uint32 max_fps = 5;
+}
+
+enum VideoCodec {
+  VIDEO_CODEC_UNSPECIFIED = 0;
+  VIDEO_CODEC_H264 = 1;
+}
+
+enum AuthState {
+  AUTH_STATE_UNSPECIFIED = 0;
+  AUTH_STATE_PENDING = 1;
+  AUTH_STATE_GRANTED = 2;
+  AUTH_STATE_DENIED = 3;
+}
+
+enum AuthMethod {
+  AUTH_METHOD_UNSPECIFIED = 0;
+  // The local user confirms on screen.
+  AUTH_METHOD_LOCAL_PROMPT = 1;
+  // The technician types the temporary password displayed on the host.
+  AUTH_METHOD_PASSWORD = 2;
+}
+
+message HelloAck {
+  uint32 protocol_version = 1;
+  string host_version = 2;
+  AuthState auth_state = 3;
+  repeated AuthMethod methods = 4;
+  string host_name = 5;
+}
+
+message PasswordAuth {
+  string password = 1;
+}
+
+enum DenyReason {
+  DENY_REASON_UNSPECIFIED = 0;
+  DENY_REASON_USER_REJECTED = 1;
+  DENY_REASON_WRONG_PASSWORD = 2;
+  DENY_REASON_TOO_MANY_ATTEMPTS = 3;
+  DENY_REASON_TIMEOUT = 4;
+  DENY_REASON_POLICY = 5;
+  DENY_REASON_BUSY = 6;
+  DENY_REASON_INVALID_TICKET = 7;
+}
+
+message AuthStatus {
+  AuthState state = 1;
+  DenyReason reason = 2;
+  // For DENIED with WRONG_PASSWORD: how many attempts remain before lockout.
+  uint32 attempts_remaining = 3;
+  // Opaque secret allowing this viewer to resume the session after a transport
+  // interruption without asking the local user again. Valid for a short window.
+  string resume_token = 4;
+}
+
+// ---------------------------------------------------------------------------
+// Displays and video
+// ---------------------------------------------------------------------------
+
+message Display {
+  uint32 id = 1;
+  string name = 2;
+  int32 x = 3;
+  int32 y = 4;
+  uint32 width = 5;
+  uint32 height = 6;
+  bool primary = 7;
+}
+
+message DisplayList {
+  repeated Display displays = 1;
+  uint32 active_display_id = 2;
+}
+
+message SelectDisplay {
+  uint32 display_id = 1;
+}
+
+// Sent whenever the encoded stream geometry or codec changes. Frames carry the
+// matching `stream_epoch`; the viewer must reconfigure its decoder on a new epoch.
+message StreamStarted {
+  uint32 stream_epoch = 1;
+  uint32 display_id = 2;
+  VideoCodec codec = 3;
+  // Encoded resolution.
+  uint32 width = 4;
+  uint32 height = 5;
+  // Source (desktop) resolution; input coordinates are expressed in this space.
+  uint32 source_width = 6;
+  uint32 source_height = 7;
+}
+
+message VideoFrameHeader {
+  uint32 stream_epoch = 1;
+  uint64 seq = 2;
+  bool keyframe = 3;
+  // Host monotonic clock at capture, microseconds. Only meaningful relative to other
+  // values from the same host (used for jitter and pipeline latency estimates).
+  uint64 capture_time_us = 4;
+  uint32 encode_us = 5;
+  uint32 payload_len = 6;
+}
+
+enum QualityMode {
+  QUALITY_MODE_AUTOMATIC = 0;
+  QUALITY_MODE_PREFER_SPEED = 1;
+  QUALITY_MODE_BALANCED = 2;
+  QUALITY_MODE_PREFER_QUALITY = 3;
+  QUALITY_MODE_ORIGINAL = 4;
+}
+
+message QualitySettings {
+  QualityMode mode = 1;
+}
+
+message KeyframeRequest {}
+
+// Periodic viewer feedback driving the host's adaptive quality controller.
+message ReceiverReport {
+  uint32 stream_epoch = 1;
+  uint64 last_frame_seq = 2;
+  uint32 frames_received = 3;
+  uint32 frames_decoded = 4;
+  uint32 frames_dropped = 5;
+  uint32 decode_us_avg = 6;
+  uint32 render_us_avg = 7;
+  uint32 decode_queue = 8;
+  uint64 bytes_received = 9;
+  // Average delay between consecutive frame arrival vs. capture spacing (jitter), us.
+  uint32 jitter_us = 10;
+  uint32 interval_ms = 11;
+}
+
+// Periodic host statistics for diagnostics.
+message SenderReport {
+  uint32 fps = 1;
+  uint32 target_fps = 2;
+  uint32 bitrate_kbps = 3;
+  uint32 target_bitrate_kbps = 4;
+  uint32 capture_us_avg = 5;
+  uint32 encode_us_avg = 6;
+  string encoder_name = 7;
+  bool hardware_encoder = 8;
+  uint32 width = 9;
+  uint32 height = 10;
+  uint32 frames_skipped = 11;
+  uint32 cpu_percent = 12;
+  uint32 rtt_ms = 13;
+  uint32 lost_packets_permille = 14;
+}
+
+// ---------------------------------------------------------------------------
+// Cursor
+// ---------------------------------------------------------------------------
+
+message CursorShape {
+  // Stable hash of the shape so viewers can cache shapes.
+  uint64 id = 1;
+  uint32 width = 2;
+  uint32 height = 3;
+  uint32 hotspot_x = 4;
+  uint32 hotspot_y = 5;
+  // Straight (non-premultiplied) RGBA8, row-major, width*height*4 bytes.
+  bytes rgba = 6;
+}
+
+message CursorPosition {
+  // Source display coordinates.
+  int32 x = 1;
+  int32 y = 2;
+  bool visible = 3;
+  uint64 shape_id = 4;
+}
+
+// ---------------------------------------------------------------------------
+// Input
+// ---------------------------------------------------------------------------
+
+message InputBatch {
+  repeated InputEvent events = 1;
+}
+
+message InputEvent {
+  oneof event {
+    MouseMove mouse_move = 1;
+    MouseButton mouse_button = 2;
+    MouseWheel mouse_wheel = 3;
+    KeyEvent key = 4;
+    ReleaseAll release_all = 5;
+    TextInput text = 6;
+  }
+}
+
+// Absolute position in source display pixels.
+message MouseMove {
+  int32 x = 1;
+  int32 y = 2;
+}
+
+enum MouseButtonKind {
+  MOUSE_BUTTON_UNSPECIFIED = 0;
+  MOUSE_BUTTON_LEFT = 1;
+  MOUSE_BUTTON_RIGHT = 2;
+  MOUSE_BUTTON_MIDDLE = 3;
+  MOUSE_BUTTON_BACK = 4;
+  MOUSE_BUTTON_FORWARD = 5;
+}
+
+message MouseButton {
+  MouseButtonKind button = 1;
+  bool down = 2;
+  int32 x = 3;
+  int32 y = 4;
+}
+
+// Wheel deltas in Windows WHEEL_DELTA units (120 = one notch).
+message MouseWheel {
+  int32 delta_x = 1;
+  int32 delta_y = 2;
+}
+
+// Physical key by scan code: the remote keyboard layout decides the character.
+message KeyEvent {
+  uint32 scancode = 1;
+  bool extended = 2;
+  bool down = 3;
+}
+
+// Unicode text that cannot be expressed as scancodes (IME, emoji).
+message TextInput {
+  string text = 1;
+}
+
+// Release every key and button currently held by this viewer (focus loss).
+message ReleaseAll {}
+
+// ---------------------------------------------------------------------------
+// Misc
+// ---------------------------------------------------------------------------
+
+message ClipboardData {
+  string text = 1;
+}
+
+message Ping {
+  uint64 id = 1;
+  uint64 sent_us = 2;
+}
+
+message Pong {
+  uint64 id = 1;
+  uint64 echo_sent_us = 2;
+}
+
+enum SpecialActionKind {
+  SPECIAL_ACTION_UNSPECIFIED = 0;
+  SPECIAL_ACTION_CTRL_ALT_DEL = 1;
+  SPECIAL_ACTION_LOCK_SCREEN = 2;
+}
+
+message SpecialAction {
+  SpecialActionKind kind = 1;
+}
+
+enum GoodbyeReason {
+  GOODBYE_REASON_UNSPECIFIED = 0;
+  GOODBYE_REASON_VIEWER_CLOSED = 1;
+  GOODBYE_REASON_HOST_CLOSED = 2;
+  GOODBYE_REASON_HOST_USER_ENDED = 3;
+  GOODBYE_REASON_SESSION_REVOKED = 4;
+  GOODBYE_REASON_HOST_SHUTTING_DOWN = 5;
+  GOODBYE_REASON_PROTOCOL_ERROR = 6;
+}
+
+message Goodbye {
+  GoodbyeReason reason = 1;
+  string detail = 2;
+}
+
+enum NoticeKind {
+  NOTICE_UNSPECIFIED = 0;
+  // Host switched to the secure desktop (UAC, lock screen, Ctrl+Alt+Del screen).
+  NOTICE_SECURE_DESKTOP = 1;
+  NOTICE_NORMAL_DESKTOP = 2;
+  // Capture temporarily unavailable (display mode change, GPU reset).
+  NOTICE_CAPTURE_PAUSED = 3;
+  NOTICE_CAPTURE_RESUMED = 4;
+  // Secure desktop requires the permanent agent; Quick Support cannot see it.
+  NOTICE_SECURE_DESKTOP_UNAVAILABLE = 5;
+}
+
+message Notice {
+  NoticeKind kind = 1;
+}
+
+message SystemInfo {
+  string hostname = 1;
+  string os_name = 2;
+  string os_version = 3;
+  string cpu = 4;
+  uint64 memory_total_bytes = 5;
+  string username = 6;
+  string host_kind = 7;
+}

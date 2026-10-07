@@ -1,0 +1,17 @@
+[package]
+name = "aionix-protocol"
+description = "Aionix Connect remote session wire protocol"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+prost = { workspace = true }
+bytes = { workspace = true }
+tokio = { workspace = true }
+thiserror = { workspace = true }
+
+[build-dependencies]
+prost-build = "0.14"
+protox = "0.9"

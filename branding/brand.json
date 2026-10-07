@@ -1,0 +1,26 @@
+{
+  "$comment": "Single source of truth for product identity. Rust (crates/brand) and TypeScript (packages/brand) both read this file. Changing the product name, company or identifiers happens here only.",
+  "productName": "Aionix Connect",
+  "shortName": "Aionix",
+  "companyName": "Aionix",
+  "apps": {
+    "technician": "Aionix Connect Technician",
+    "agent": "Aionix Connect Agent",
+    "quickSupport": "Aionix Connect Quick Support",
+    "server": "Aionix Connect Server",
+    "admin": "Aionix Connect Admin"
+  },
+  "identifiers": {
+    "bundlePrefix": "com.aionix.connect",
+    "windowsServiceName": "AionixConnectAgent",
+    "windowsServiceDisplayName": "Aionix Connect Agent",
+    "windowsServiceDescription": "Permite acesso remoto autorizado a este computador pelo Aionix Connect.",
+    "dataDirName": "Aionix Connect",
+    "cliName": "aionix"
+  },
+  "links": {
+    "website": "",
+    "support": "",
+    "privacy": ""
+  }
+}

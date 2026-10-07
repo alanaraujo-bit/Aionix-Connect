@@ -1,0 +1,23 @@
+[package]
+name = "aionix-transport"
+description = "Encrypted peer-to-peer transport with relay fallback (iroh/QUIC backend)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+aionix-crypto = { workspace = true }
+aionix-shared = { workspace = true }
+aionix-control-api = { workspace = true }
+iroh = { workspace = true }
+iroh-relay = { workspace = true }
+tokio = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+futures = { workspace = true }
+url = { workspace = true }
+
+[dev-dependencies]
+iroh-relay = { workspace = true, features = ["server"] }
+tracing-subscriber = { workspace = true }

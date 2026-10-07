@@ -1,0 +1,4 @@
+[toolchain]
+# Stable toolchain; minimum supported version is declared as rust-version in Cargo.toml.
+channel = "stable"
+components = ["rustfmt", "clippy"]
