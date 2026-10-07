@@ -8,9 +8,9 @@ use windows::Win32::Media::MediaFoundation::{
     MF_MT_DEFAULT_STRIDE, MF_MT_FRAME_SIZE, MF_MT_MAJOR_TYPE, MF_MT_MINIMUM_DISPLAY_APERTURE,
     MF_MT_SUBTYPE, MFCreateMediaType, MFCreateMemoryBuffer, MFCreateSample, MFMediaType_Video,
     MFT_CATEGORY_VIDEO_DECODER, MFT_ENUM_FLAG, MFT_ENUM_FLAG_SORTANDFILTER, MFT_ENUM_FLAG_SYNCMFT,
-    MFT_MESSAGE_NOTIFY_BEGIN_STREAMING, MFT_MESSAGE_NOTIFY_START_OF_STREAM, MFT_OUTPUT_DATA_BUFFER,
-    MFT_OUTPUT_STREAM_PROVIDES_SAMPLES, MFT_REGISTER_TYPE_INFO, MFTEnumEx, MFVideoArea,
-    MFVideoFormat_H264, MFVideoFormat_NV12,
+    MFT_FRIENDLY_NAME_Attribute, MFT_MESSAGE_NOTIFY_BEGIN_STREAMING,
+    MFT_MESSAGE_NOTIFY_START_OF_STREAM, MFT_OUTPUT_DATA_BUFFER, MFT_OUTPUT_STREAM_PROVIDES_SAMPLES,
+    MFT_REGISTER_TYPE_INFO, MFTEnumEx, MFVideoArea, MFVideoFormat_H264, MFVideoFormat_NV12,
 };
 
 use super::mf;
@@ -26,6 +26,8 @@ pub struct DecodedFrame {
 
 pub struct H264Decoder {
     transform: IMFTransform,
+    /// Friendly name of the decoder MFT (diagnostics).
+    name: String,
     /// Visible size (display aperture).
     width: u32,
     height: u32,
@@ -64,6 +66,8 @@ impl H264Decoder {
             .into_iter()
             .next()
             .ok_or(CodecError::NoEncoder)?;
+        let name = mf::allocated_string(&activate.clone().into(), &MFT_FRIENDLY_NAME_Attribute)
+            .unwrap_or_else(|| "Media Foundation H.264 decoder".into());
         let transform: IMFTransform = unsafe { activate.ActivateObject()? };
         if let Ok(attrs) = unsafe { transform.GetAttributes() } {
             let _ = unsafe { attrs.SetUINT32(&MF_LOW_LATENCY, 1) };
@@ -76,6 +80,7 @@ impl H264Decoder {
         }
         let mut dec = Self {
             transform,
+            name,
             width: 0,
             height: 0,
             stride: 0,
@@ -130,6 +135,10 @@ impl H264Decoder {
             }
         }
         Err(CodecError::Unsupported("decoder has no NV12 output".into()))
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
     }
 
     /// Feeds one access unit and returns the pictures that became available.

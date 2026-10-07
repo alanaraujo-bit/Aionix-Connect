@@ -229,6 +229,10 @@ message SenderReport {
   uint32 cpu_percent = 12;
   uint32 rtt_ms = 13;
   uint32 lost_packets_permille = 14;
+  // Capture backend in use, e.g. "DXGI Desktop Duplication". Empty = unknown.
+  string capture_backend = 15;
+  // The host's adaptive controller currently sees congestion (session "degraded").
+  bool congested = 16;
 }
 
 // ---------------------------------------------------------------------------

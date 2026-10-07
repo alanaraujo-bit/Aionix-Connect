@@ -27,7 +27,7 @@ pub trait TokenClaims: Serialize + DeserializeOwned {
     const TYPE: &'static str;
 }
 
-#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+#[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
 pub enum TokenError {
     #[error("malformed token")]
     Malformed,

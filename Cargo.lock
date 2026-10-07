@@ -139,7 +139,29 @@ dependencies = [
 name = "aionix-remote-core"
 version = "0.1.0"
 dependencies = [
+ "aionix-brand",
+ "aionix-capture",
+ "aionix-codec",
+ "aionix-control-api",
+ "aionix-crypto",
+ "aionix-input",
+ "aionix-platform",
+ "aionix-protocol",
+ "aionix-remote-core",
  "aionix-shared",
+ "aionix-transport",
+ "async-trait",
+ "iroh-relay",
+ "prost",
+ "rand",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "time",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]

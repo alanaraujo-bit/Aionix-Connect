@@ -1,6 +1,7 @@
 //! Windows integration.
 
 pub mod clipboard;
+pub mod consent;
 pub mod desktop;
 pub mod dpapi;
 pub mod sysinfo;
