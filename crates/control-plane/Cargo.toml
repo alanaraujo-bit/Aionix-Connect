@@ -37,3 +37,4 @@ uuid = { workspace = true }
 [dev-dependencies]
 aionix-control-plane = { path = ".", features = ["test-support"] }
 reqwest = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }
