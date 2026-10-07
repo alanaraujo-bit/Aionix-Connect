@@ -71,16 +71,20 @@ dependencies = [
  "aionix-control-api",
  "aionix-control-plane",
  "aionix-crypto",
+ "aionix-platform",
  "aionix-remote-core",
  "aionix-server-common",
  "aionix-shared",
  "aionix-signaling",
  "async-trait",
+ "axum",
+ "base64 0.22.1",
  "futures",
  "rand 0.10.3",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
+ "sqlx",
  "thiserror 2.0.21",
  "time",
  "tokio",
@@ -89,6 +93,7 @@ dependencies = [
  "tracing-subscriber",
  "url",
  "uuid",
+ "zeroize",
 ]
 
 [[package]]
