@@ -13,6 +13,7 @@ aionix-server-common = { workspace = true }
 anyhow = { workspace = true }
 axum = { workspace = true }
 iroh-relay = { workspace = true, features = ["server"] }
+iroh-base = "1.3"
 redis = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -22,5 +23,7 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]
+aionix-control-plane = { workspace = true, features = ["test-support"] }
+aionix-shared = { workspace = true }
 aionix-transport = { workspace = true }
 reqwest = { workspace = true }
