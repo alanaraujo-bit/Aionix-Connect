@@ -55,6 +55,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "aionix-capture"
+version = "0.1.0"
+dependencies = [
+ "thiserror 2.0.21",
+ "tracing",
+ "tracing-subscriber",
+ "windows",
+]
+
+[[package]]
+name = "aionix-codec"
+version = "0.1.0"
+dependencies = [
+ "aionix-capture",
+ "thiserror 2.0.21",
+ "tracing",
+ "tracing-subscriber",
+ "windows",
+]
+
+[[package]]
 name = "aionix-control-api"
 version = "0.1.0"
 dependencies = [
