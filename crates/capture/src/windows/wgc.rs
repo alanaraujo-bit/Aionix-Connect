@@ -1,15 +1,15 @@
 //! Windows.Graphics.Capture backend (Windows 10 1903+).
 //!
 //! Used when Desktop Duplication is unavailable to the process. Frames stay on the GPU.
-//! The border highlight is disabled where the OS allows it (Windows 11); the cursor is
-//! excluded from the image and tracked separately so viewers can draw it locally.
+//! The OS-drawn capture border is kept so the local user always sees that the screen
+//! is being captured; the cursor is excluded from the image and tracked separately so viewers can draw it locally.
 
 use std::{
     sync::{Arc, Condvar, Mutex},
     time::{Duration, Instant},
 };
 
-use tracing::{debug, info};
+use tracing::info;
 use windows::{
     Foundation::TypedEventHandler,
     Graphics::{
@@ -71,9 +71,8 @@ impl WgcCapturer {
             size,
         )?;
         let session = pool.CreateCaptureSession(&item)?;
-        if let Err(e) = session.SetIsBorderRequired(false) {
-            debug!(error = %e, "capture border cannot be disabled on this Windows version");
-        }
+        // The OS capture border stays enabled: capture must always be visible to the
+        // local user (no stealth behavior, see SECURITY.md).
         let _ = session.SetIsCursorCaptureEnabled(false);
 
         let signal: Signal = Arc::new((Mutex::new(false), Condvar::new()));

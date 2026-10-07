@@ -105,6 +105,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "aionix-input"
+version = "0.1.0"
+dependencies = [
+ "thiserror 2.0.21",
+ "tracing",
+ "windows",
+]
+
+[[package]]
+name = "aionix-platform"
+version = "0.1.0"
+dependencies = [
+ "aionix-brand",
+ "thiserror 2.0.21",
+ "tracing",
+ "windows",
+]
+
+[[package]]
 name = "aionix-protocol"
 version = "0.1.0"
 dependencies = [

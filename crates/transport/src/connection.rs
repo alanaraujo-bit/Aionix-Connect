@@ -150,6 +150,16 @@ impl SendStream {
         let _ = self.0.reset(VarInt::from_u32(code));
     }
 
+    /// Resolves once the peer acknowledged every byte of a finished stream. Used to
+    /// measure delivery latency and frames in flight (application-level backpressure).
+    pub async fn acknowledged(&self) -> Result<(), StreamError> {
+        match self.0.stopped().await {
+            Ok(None) => Ok(()),
+            Ok(Some(code)) => Err(StreamError::Reset(code.into_inner())),
+            Err(e) => Err(StreamError::ConnectionLost(e.to_string())),
+        }
+    }
+
     /// Higher values are sent first when several streams compete for bandwidth.
     pub fn set_priority(&self, priority: i32) {
         let _ = self.0.set_priority(priority);
