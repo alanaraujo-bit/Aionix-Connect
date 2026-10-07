@@ -49,17 +49,16 @@ pub async fn migrate(pool: &PgPool) -> anyhow::Result<()> {
 /// Readiness: the database answers and every embedded migration has been applied.
 /// Services do not migrate on their own; `aionix-admin migrate` does (ADR-0011).
 pub async fn check_ready(pool: &PgPool) -> Result<(), String> {
-    let applied: Vec<i64> = sqlx::query_scalar(
-        "SELECT version FROM _sqlx_migrations WHERE success ORDER BY version",
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|e| match &e {
-        sqlx::Error::Database(d) if d.code().as_deref() == Some("42P01") => {
-            "schema not migrated (run aionix-admin migrate)".to_owned()
-        }
-        _ => format!("database unavailable: {e}"),
-    })?;
+    let applied: Vec<i64> =
+        sqlx::query_scalar("SELECT version FROM _sqlx_migrations WHERE success ORDER BY version")
+            .fetch_all(pool)
+            .await
+            .map_err(|e| match &e {
+                sqlx::Error::Database(d) if d.code().as_deref() == Some("42P01") => {
+                    "schema not migrated (run aionix-admin migrate)".to_owned()
+                }
+                _ => format!("database unavailable: {e}"),
+            })?;
     let missing: Vec<i64> = MIGRATOR
         .iter()
         .map(|m| m.version)

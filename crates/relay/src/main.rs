@@ -13,7 +13,10 @@ async fn main() -> ExitCode {
         Ok(s) => s,
         Err(e) => {
             eprintln!("{e}");
-            error!(problems = e.0.len(), "invalid configuration; refusing to start");
+            error!(
+                problems = e.0.len(),
+                "invalid configuration; refusing to start"
+            );
             return ExitCode::from(2);
         }
     };

@@ -45,7 +45,9 @@ fn new_refresh(sid: Uuid) -> (String, String) {
 fn parse_refresh(token: &str) -> Option<(Uuid, String)> {
     let mut parts = token.trim().splitn(3, '.');
     match (parts.next(), parts.next(), parts.next()) {
-        (Some(REFRESH_PREFIX), Some(sid), Some(secret)) if !secret.is_empty() && secret.len() < 200 => {
+        (Some(REFRESH_PREFIX), Some(sid), Some(secret))
+            if !secret.is_empty() && secret.len() < 200 =>
+        {
             Some((sid.parse().ok()?, sha256_hex(secret.as_bytes())))
         }
         _ => None,
@@ -166,13 +168,11 @@ pub async fn login(
     if !ok {
         let failures = u.failed_login_count + 1;
         if failures >= MAX_FAILED_LOGINS {
-            sqlx::query(
-                "UPDATE users SET failed_login_count = 0, locked_until = $2 WHERE id = $1",
-            )
-            .bind(u.id)
-            .bind(now + LOCKOUT)
-            .execute(&state.db)
-            .await?;
+            sqlx::query("UPDATE users SET failed_login_count = 0, locked_until = $2 WHERE id = $1")
+                .bind(u.id)
+                .bind(now + LOCKOUT)
+                .execute(&state.db)
+                .await?;
             AuditRecord::security(action::ACCOUNT_LOCKED, Outcome::Denied)
                 .target_user(u.id)
                 .client(ctx.ip(), ctx.rid())
@@ -265,8 +265,8 @@ pub async fn refresh(
     Json(req): Json<RefreshRequest>,
 ) -> ApiResult<Json<AuthTokens>> {
     limit(&state, "refresh-ip", &ctx.ip, limits::REFRESH_PER_IP).await?;
-    let (sid, hash) =
-        parse_refresh(&req.refresh_token).ok_or_else(|| ApiFailure::unauthorized("invalid refresh token"))?;
+    let (sid, hash) = parse_refresh(&req.refresh_token)
+        .ok_or_else(|| ApiFailure::unauthorized("invalid refresh token"))?;
     let mut tx = state.db.begin().await?;
     let row: Option<RefreshRow> = sqlx::query_as(
         "SELECT s.user_id, s.refresh_hash, s.previous_refresh_hash, s.expires_at,
@@ -306,7 +306,9 @@ pub async fn refresh(
         return Err(ApiFailure::unauthorized("invalid refresh token"));
     }
     if row.expires_at <= now || row.absolute_expires_at <= now {
-        return Err(ApiFailure::from_token(aionix_crypto::token::TokenError::Expired));
+        return Err(ApiFailure::from_token(
+            aionix_crypto::token::TokenError::Expired,
+        ));
     }
     let (refresh, new_hash) = new_refresh(sid);
     let expires = (now + REFRESH_TTL).min(row.absolute_expires_at);
@@ -339,8 +341,8 @@ pub async fn logout(
     ctx: ClientCtx,
     Json(req): Json<RefreshRequest>,
 ) -> ApiResult<StatusCode> {
-    let (sid, hash) =
-        parse_refresh(&req.refresh_token).ok_or_else(|| ApiFailure::unauthorized("invalid refresh token"))?;
+    let (sid, hash) = parse_refresh(&req.refresh_token)
+        .ok_or_else(|| ApiFailure::unauthorized("invalid refresh token"))?;
     let user: Option<Uuid> = sqlx::query_scalar(
         "UPDATE auth_sessions SET revoked_at = now(), revoked_reason = 'logout'
          WHERE id = $1 AND revoked_at IS NULL AND (refresh_hash = $2 OR previous_refresh_hash = $2)

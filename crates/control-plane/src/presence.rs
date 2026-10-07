@@ -94,8 +94,12 @@ pub trait PresenceStore: Send + Sync {
 
     /// Updates/extends the record while `record.conn_id` still owns it (or recreates it
     /// when it vanished, e.g. after a Redis restart). `false` = superseded.
-    async fn refresh(&self, device: Uuid, record: &PresenceRecord, ttl: Duration)
-    -> StoreResult<bool>;
+    async fn refresh(
+        &self,
+        device: Uuid,
+        record: &PresenceRecord,
+        ttl: Duration,
+    ) -> StoreResult<bool>;
 
     /// Gives up ownership. `lost = Some((record, grace))` keeps the device
     /// `Connecting` for `grace`; `None` makes it offline immediately.
@@ -351,10 +355,10 @@ impl PresenceStore for MemoryPresence {
         ttl: Duration,
     ) -> StoreResult<Option<Uuid>> {
         let prev = self.live(device).map(|r| r.conn_id);
-        self.records.lock().unwrap().insert(
-            device,
-            (record.clone(), tokio::time::Instant::now() + ttl),
-        );
+        self.records
+            .lock()
+            .unwrap()
+            .insert(device, (record.clone(), tokio::time::Instant::now() + ttl));
         Ok(prev.filter(|p| *p != record.conn_id))
     }
 
@@ -369,10 +373,10 @@ impl PresenceStore for MemoryPresence {
         {
             return Ok(false);
         }
-        self.records.lock().unwrap().insert(
-            device,
-            (record.clone(), tokio::time::Instant::now() + ttl),
-        );
+        self.records
+            .lock()
+            .unwrap()
+            .insert(device, (record.clone(), tokio::time::Instant::now() + ttl));
         Ok(true)
     }
 
@@ -442,18 +446,30 @@ pub mod scenarios {
     pub async fn timeout(store: &dyn PresenceStore, ttl: Duration, wait: impl AsyncFn(Duration)) {
         let dev = Uuid::new_v4();
         let conn = Uuid::new_v4();
-        assert_eq!(state_of(store.get(dev).await.unwrap().as_ref()), PresenceState::Offline);
+        assert_eq!(
+            state_of(store.get(dev).await.unwrap().as_ref()),
+            PresenceState::Offline
+        );
         store
             .claim(dev, &PresenceRecord::connecting(conn, "test"), ttl)
             .await
             .unwrap();
-        assert_eq!(state_of(store.get(dev).await.unwrap().as_ref()), PresenceState::Connecting);
+        assert_eq!(
+            state_of(store.get(dev).await.unwrap().as_ref()),
+            PresenceState::Connecting
+        );
         assert!(store.refresh(dev, &online(conn), ttl).await.unwrap());
-        assert_eq!(state_of(store.get(dev).await.unwrap().as_ref()), PresenceState::Online);
+        assert_eq!(
+            state_of(store.get(dev).await.unwrap().as_ref()),
+            PresenceState::Online
+        );
         assert!(store.online_count().await.unwrap() >= 1);
         // No heartbeat: the evidence expires.
         wait(ttl + Duration::from_millis(300)).await;
-        assert_eq!(state_of(store.get(dev).await.unwrap().as_ref()), PresenceState::Offline);
+        assert_eq!(
+            state_of(store.get(dev).await.unwrap().as_ref()),
+            PresenceState::Offline
+        );
     }
 
     /// Unexpected loss → connecting for the grace period → reconnect → online; the old
@@ -467,7 +483,10 @@ pub mod scenarios {
             .release(dev, first, Some((online(first), ttl)))
             .await
             .unwrap();
-        assert_eq!(state_of(store.get(dev).await.unwrap().as_ref()), PresenceState::Connecting);
+        assert_eq!(
+            state_of(store.get(dev).await.unwrap().as_ref()),
+            PresenceState::Connecting
+        );
 
         let second = Uuid::new_v4();
         store
@@ -475,12 +494,18 @@ pub mod scenarios {
             .await
             .unwrap();
         assert!(store.refresh(dev, &online(second), ttl).await.unwrap());
-        assert_eq!(state_of(store.get(dev).await.unwrap().as_ref()), PresenceState::Online);
+        assert_eq!(
+            state_of(store.get(dev).await.unwrap().as_ref()),
+            PresenceState::Online
+        );
 
         // A late heartbeat / release of the superseded link is refused / ignored.
         assert!(!store.refresh(dev, &online(first), ttl).await.unwrap());
         store.release(dev, first, None).await.unwrap();
-        assert_eq!(state_of(store.get(dev).await.unwrap().as_ref()), PresenceState::Online);
+        assert_eq!(
+            state_of(store.get(dev).await.unwrap().as_ref()),
+            PresenceState::Online
+        );
 
         // A third link takes over and reports who it replaced.
         let third = Uuid::new_v4();
@@ -492,7 +517,10 @@ pub mod scenarios {
 
         // Orderly goodbye: offline immediately.
         store.release(dev, third, None).await.unwrap();
-        assert_eq!(state_of(store.get(dev).await.unwrap().as_ref()), PresenceState::Offline);
+        assert_eq!(
+            state_of(store.get(dev).await.unwrap().as_ref()),
+            PresenceState::Offline
+        );
 
         // Loss with grace, then nobody comes back: offline after the grace period.
         let fourth = Uuid::new_v4();
@@ -502,7 +530,10 @@ pub mod scenarios {
             .await
             .unwrap();
         wait(ttl + Duration::from_millis(300)).await;
-        assert_eq!(state_of(store.get(dev).await.unwrap().as_ref()), PresenceState::Offline);
+        assert_eq!(
+            state_of(store.get(dev).await.unwrap().as_ref()),
+            PresenceState::Offline
+        );
         let many = store.get_many(&[dev, Uuid::new_v4()]).await.unwrap();
         assert!(many.is_empty());
     }

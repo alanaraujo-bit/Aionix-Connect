@@ -164,7 +164,10 @@ mod tests {
         let src: HashMap<String, String> = [
             ("AIONIX_DATABASE_URL", "postgres://a:b@db/aionix"),
             ("AIONIX_REDIS_URL", "redis://redis:6379"),
-            ("AIONIX_TOKEN_SIGNING_KEY_FILE", "/run/secrets/token-signing.key"),
+            (
+                "AIONIX_TOKEN_SIGNING_KEY_FILE",
+                "/run/secrets/token-signing.key",
+            ),
         ]
         .into_iter()
         .map(|(k, v)| (k.to_owned(), v.to_owned()))

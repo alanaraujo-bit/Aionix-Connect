@@ -20,7 +20,11 @@ use clap::{Parser, Subcommand};
 use uuid::Uuid;
 
 #[derive(Parser)]
-#[command(name = "aionix-admin", version, about = "Aionix Connect server administration")]
+#[command(
+    name = "aionix-admin",
+    version,
+    about = "Aionix Connect server administration"
+)]
 struct Cli {
     #[command(subcommand)]
     cmd: Cmd,
@@ -161,7 +165,9 @@ async fn run(cmd: Cmd) -> Result<(), String> {
         }
         Cmd::CreateOrg { name } => {
             let db = pool().await?;
-            let id = admin::create_org(&db, &name).await.map_err(|e| e.to_string())?;
+            let id = admin::create_org(&db, &name)
+                .await
+                .map_err(|e| e.to_string())?;
             println!("{id}");
         }
         Cmd::CreateUser { email, name } => {
@@ -188,9 +194,10 @@ async fn run(cmd: Cmd) -> Result<(), String> {
                 return Err("hours must be 1..=720 and uses 1..=1000".into());
             }
             let db = pool().await?;
-            let (_, token, expires) = admin::insert_enrollment_token(&db, org, None, hours, uses, None)
-                .await
-                .map_err(|e| e.to_string())?;
+            let (_, token, expires) =
+                admin::insert_enrollment_token(&db, org, None, hours, uses, None)
+                    .await
+                    .map_err(|e| e.to_string())?;
             println!("{token}");
             eprintln!("valid until {expires} for {uses} device(s); shown only once");
         }
@@ -199,7 +206,9 @@ async fn run(cmd: Cmd) -> Result<(), String> {
             let user = admin::user_id_by_email(&db, &email)
                 .await
                 .map_err(|e| e.to_string())?;
-            let n = admin::disable_user(&db, user).await.map_err(|e| e.to_string())?;
+            let n = admin::disable_user(&db, user)
+                .await
+                .map_err(|e| e.to_string())?;
             println!("account disabled; {n} login session(s) revoked");
         }
         Cmd::RevokeDevice { device, reason } => {
@@ -210,10 +219,25 @@ async fn run(cmd: Cmd) -> Result<(), String> {
                 None => Arc::new(MemoryBus::new()),
             };
             let redis_pair = r.as_ref().map(|(_, m, k)| (m.clone(), k.clone()));
-            let done = devices::revoke(&db, bus.as_ref(), redis_pair.as_ref(), device, None, &reason, (None, None))
-                .await
-                .map_err(|e| e.to_string())?;
-            println!("{}", if done { "device revoked" } else { "device was already revoked (or does not exist)" });
+            let done = devices::revoke(
+                &db,
+                bus.as_ref(),
+                redis_pair.as_ref(),
+                device,
+                None,
+                &reason,
+                (None, None),
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+            println!(
+                "{}",
+                if done {
+                    "device revoked"
+                } else {
+                    "device was already revoked (or does not exist)"
+                }
+            );
         }
         Cmd::Status { json } => {
             let db = pool().await?;
@@ -229,10 +253,15 @@ async fn run(cmd: Cmd) -> Result<(), String> {
             } else {
                 println!("organizations     {}", st.organizations);
                 println!("users             {}", st.users);
-                println!("devices           {} (revoked {})", st.devices, st.devices_revoked);
+                println!(
+                    "devices           {} (revoked {})",
+                    st.devices, st.devices_revoked
+                );
                 println!(
                     "devices online    {}",
-                    st.devices_online.map(|n| n.to_string()).unwrap_or_else(|| "unavailable".into())
+                    st.devices_online
+                        .map(|n| n.to_string())
+                        .unwrap_or_else(|| "unavailable".into())
                 );
                 println!("sessions active   {}", st.sessions_active);
                 println!("sessions 24h      {}", st.sessions_last_24h);

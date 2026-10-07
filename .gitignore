@@ -21,6 +21,9 @@ apps/*/src-tauri/gen/
 !.env.example
 infra/**/secrets/*
 !infra/**/secrets/.gitkeep
+# Windows staging server state (config, secrets, data, backups)
+/infra/local/.staging/
+*.dump
 
 # OS / IDE
 .DS_Store

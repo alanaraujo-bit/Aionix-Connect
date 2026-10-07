@@ -13,7 +13,10 @@ async fn main() -> ExitCode {
         Ok(c) => c,
         Err(e) => {
             eprintln!("{e}");
-            error!(problems = e.0.len(), "invalid configuration; refusing to start");
+            error!(
+                problems = e.0.len(),
+                "invalid configuration; refusing to start"
+            );
             return ExitCode::from(2);
         }
     };
@@ -25,9 +28,15 @@ async fn main() -> ExitCode {
         }
     };
     if config.settings.relay_urls.is_empty() {
-        tracing::warn!("AIONIX_RELAY_URLS is empty: devices get no relay and only direct paths work");
+        tracing::warn!(
+            "AIONIX_RELAY_URLS is empty: devices get no relay and only direct paths work"
+        );
     }
-    janitor::spawn(state.db.clone(), state.presence.clone(), server::JANITOR_EVERY);
+    janitor::spawn(
+        state.db.clone(),
+        state.presence.clone(),
+        server::JANITOR_EVERY,
+    );
     let listener = match tokio::net::TcpListener::bind(config.bind).await {
         Ok(l) => l,
         Err(e) => {

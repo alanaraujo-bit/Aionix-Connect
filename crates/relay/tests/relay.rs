@@ -69,8 +69,14 @@ async fn authorized_endpoints_exchange_end_to_end_encrypted_traffic() {
     let (hk, vk) = (IdentityKey::generate(), IdentityKey::generate());
     let host = endpoint(&relay, &hk, grant(&issuer, &hk)).await;
     let viewer = endpoint(&relay, &vk, grant(&issuer, &vk)).await;
-    assert!(host.wait_online(Duration::from_secs(10)).await, "host admitted");
-    assert!(viewer.wait_online(Duration::from_secs(10)).await, "viewer admitted");
+    assert!(
+        host.wait_online(Duration::from_secs(10)).await,
+        "host admitted"
+    );
+    assert!(
+        viewer.wait_online(Duration::from_secs(10)).await,
+        "viewer admitted"
+    );
 
     let host_key = host.local_key();
     let host_addr = host.addr();
@@ -99,8 +105,13 @@ async fn authorized_endpoints_exchange_end_to_end_encrypted_traffic() {
         .text()
         .await
         .unwrap();
-    assert!(metrics.contains("aionix_relay_connections_active 2"), "{metrics}");
-    let ready = reqwest::get(format!("http://{}/readyz", relay.status_addr)).await.unwrap();
+    assert!(
+        metrics.contains("aionix_relay_connections_active 2"),
+        "{metrics}"
+    );
+    let ready = reqwest::get(format!("http://{}/readyz", relay.status_addr))
+        .await
+        .unwrap();
     assert_eq!(ready.status(), 200);
     conn.close(0, "done");
     let _ = tokio::time::timeout(Duration::from_secs(5), server).await;
@@ -171,7 +182,10 @@ async fn connection_attempts_are_rate_limited_and_capped() {
     let first = endpoint(&relay, &a, grant(&issuer, &a)).await;
     assert!(first.wait_online(Duration::from_secs(10)).await);
     let second = endpoint(&relay, &b, grant(&issuer, &b)).await;
-    assert!(!second.wait_online(Duration::from_secs(3)).await, "over capacity");
+    assert!(
+        !second.wait_online(Duration::from_secs(3)).await,
+        "over capacity"
+    );
     let st = status(&relay).await;
     assert!(st["denied"]["capacity"].as_u64().unwrap() >= 1, "{st}");
     relay.shutdown().await;
@@ -183,13 +197,22 @@ async fn revoked_devices_are_refused_before_their_grant_expires() {
         return;
     };
     let issuer = TokenIssuer::new(IdentityKey::generate());
-    let relay = spawn_with(&settings(&issuer), Some((r.conn.clone(), r.keys.prefix().to_owned())))
-        .await
-        .unwrap();
+    let relay = spawn_with(
+        &settings(&issuer),
+        Some((r.conn.clone(), r.keys.prefix().to_owned())),
+    )
+    .await
+    .unwrap();
     let key = IdentityKey::generate();
     let device = Uuid::new_v4();
     let token = issuer
-        .issue(&RelayClaims { sub: device, key: key.public() }, RelayClaims::TTL)
+        .issue(
+            &RelayClaims {
+                sub: device,
+                key: key.public(),
+            },
+            RelayClaims::TTL,
+        )
         .token;
     let mut c = r.conn.clone();
     let _: () = redis::cmd("SET")

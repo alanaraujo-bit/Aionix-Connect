@@ -126,7 +126,13 @@ impl SignalingClient {
     }
 
     /// Host-side lifecycle report (approval decision, connected, ended…). Metadata only.
-    pub fn report(&self, session_id: Uuid, kind: SessionEventKind, transport: Option<TransportKind>, detail: &str) {
+    pub fn report(
+        &self,
+        session_id: Uuid,
+        kind: SessionEventKind,
+        transport: Option<TransportKind>,
+        detail: &str,
+    ) {
         let _ = self.cmds.send(Command::Send(ClientMessage::SessionEvent {
             session_id,
             kind,
@@ -141,7 +147,8 @@ impl SignalingClient {
     }
 }
 
-type Ws = tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+type Ws =
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
 enum LinkEnd {
     Reconnect { reset_backoff: bool },
@@ -171,7 +178,9 @@ async fn run(
             Err(ConnectError::Unauthorized) => LinkEnd::ReloginAndReconnect,
             Err(ConnectError::Other(e)) => {
                 debug!(error = %e, "signaling connect failed");
-                LinkEnd::Reconnect { reset_backoff: false }
+                LinkEnd::Reconnect {
+                    reset_backoff: false,
+                }
             }
         };
         match end {
@@ -181,8 +190,12 @@ async fn run(
                 return;
             }
             LinkEnd::ReloginAndReconnect => session.invalidate().await,
-            LinkEnd::Reconnect { reset_backoff: true } => backoff = options.min_backoff,
-            LinkEnd::Reconnect { reset_backoff: false } => {}
+            LinkEnd::Reconnect {
+                reset_backoff: true,
+            } => backoff = options.min_backoff,
+            LinkEnd::Reconnect {
+                reset_backoff: false,
+            } => {}
         }
         state.send_replace(LinkState::Connecting);
         let wait = jitter(backoff);
@@ -216,9 +229,15 @@ async fn connect(url: &str, session: &DeviceSession) -> Result<Ws, ConnectError>
         .map_err(|e| ConnectError::Other(e.to_string()))?;
     req.headers_mut().insert(
         "authorization",
-        HeaderValue::from_str(&format!("Bearer {token}")).map_err(|e| ConnectError::Other(e.to_string()))?,
+        HeaderValue::from_str(&format!("Bearer {token}"))
+            .map_err(|e| ConnectError::Other(e.to_string()))?,
     );
-    match tokio::time::timeout(Duration::from_secs(15), tokio_tungstenite::connect_async(req)).await {
+    match tokio::time::timeout(
+        Duration::from_secs(15),
+        tokio_tungstenite::connect_async(req),
+    )
+    .await
+    {
         Err(_) => Err(ConnectError::Other("connect timed out".into())),
         Ok(Ok((ws, _))) => Ok(ws),
         Ok(Err(tungstenite::Error::Http(resp))) => match resp.status().as_u16() {
@@ -355,7 +374,10 @@ mod tests {
     fn jitter_stays_within_bounds() {
         for _ in 0..100 {
             let j = jitter(Duration::from_secs(4));
-            assert!(j >= Duration::from_secs(2) && j <= Duration::from_millis(4001), "{j:?}");
+            assert!(
+                j >= Duration::from_secs(2) && j <= Duration::from_millis(4001),
+                "{j:?}"
+            );
         }
     }
 }

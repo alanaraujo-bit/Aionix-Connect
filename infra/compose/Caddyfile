@@ -1,0 +1,58 @@
+# Aionix Connect reverse proxy.
+#
+# AIONIX_SITE_ADDRESS:
+#   production   connect.example.com   (automatic HTTPS via Let's Encrypt; ports 80+443)
+#   staging/dev  :80                   (plain HTTP, no certificate)
+#
+# Routes (one hostname):
+#   /v1/signal                       → aionix-signaling (WebSocket)
+#   /relay, /ping, /generate_204     → aionix-relay (end-to-end encrypted relay traffic)
+#   /v1/*                            → aionix-api (control plane REST)
+#   /healthz                         → aionix-api liveness (public)
+# Everything else: 404. Internal /readyz and /metrics are not exposed.
+
+{
+	# Required for Let's Encrypt in production; the default only keeps staging valid.
+	email {$ACME_EMAIL:ops@example.invalid}
+	admin off
+}
+
+{$AIONIX_SITE_ADDRESS} {
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 50MiB
+			roll_keep 10
+		}
+		format json
+	}
+
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+	}
+
+	@signal path /v1/signal
+	handle @signal {
+		reverse_proxy aionix-signaling:8081
+	}
+
+	@relay path /relay /relay/* /ping /generate_204
+	handle @relay {
+		reverse_proxy aionix-relay:3340 {
+			flush_interval -1
+		}
+	}
+
+	handle /v1/* {
+		reverse_proxy aionix-api:8080
+	}
+
+	handle /healthz {
+		reverse_proxy aionix-api:8080
+	}
+
+	handle {
+		respond 404
+	}
+}

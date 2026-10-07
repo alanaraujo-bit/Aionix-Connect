@@ -1,0 +1,11 @@
+target/
+.git/
+**/*.log
+.env
+.env.*
+!.env.example
+infra/local/.staging/
+infra/**/secrets/
+backups/
+*.dump
+*.tar.gz

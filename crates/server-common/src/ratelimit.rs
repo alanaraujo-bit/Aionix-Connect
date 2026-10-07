@@ -44,7 +44,9 @@ impl Limit {
 pub enum Decision {
     Allowed,
     /// Refused; retry after this many seconds.
-    Limited { retry_after: u64 },
+    Limited {
+        retry_after: u64,
+    },
 }
 
 impl Decision {

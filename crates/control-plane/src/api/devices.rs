@@ -35,7 +35,10 @@ use crate::{
 };
 
 /// `POST /v1/devices/challenge`
-pub async fn challenge(State(state): State<AppState>, ctx: ClientCtx) -> ApiResult<Json<Challenge>> {
+pub async fn challenge(
+    State(state): State<AppState>,
+    ctx: ClientCtx,
+) -> ApiResult<Json<Challenge>> {
     limit(&state, "challenge-ip", &ctx.ip, limits::CHALLENGE_PER_IP).await?;
     let nonce = devices::new_challenge(&state.db).await?;
     Ok(Json(Challenge {
@@ -251,7 +254,13 @@ pub async fn login(
     ctx: ClientCtx,
     Json(req): Json<DeviceLoginRequest>,
 ) -> ApiResult<Json<DeviceLoginResponse>> {
-    limit(&state, "device-login-ip", &ctx.ip, limits::DEVICE_LOGIN_PER_IP).await?;
+    limit(
+        &state,
+        "device-login-ip",
+        &ctx.ip,
+        limits::DEVICE_LOGIN_PER_IP,
+    )
+    .await?;
     let refuse = |reason: &'static str| {
         AuditRecord::security(action::DEVICE_LOGIN_REFUSED, Outcome::Denied)
             .client(ctx.ip(), ctx.rid())
@@ -349,7 +358,13 @@ pub async fn lookup(
     user: AuthUser,
     Path(friendly): Path<String>,
 ) -> ApiResult<Json<DeviceLookup>> {
-    limit(&state, "lookup-user", &user.user_id.to_string(), limits::LOOKUP_PER_USER).await?;
+    limit(
+        &state,
+        "lookup-user",
+        &user.user_id.to_string(),
+        limits::LOOKUP_PER_USER,
+    )
+    .await?;
     let f: FriendlyId = friendly
         .parse()
         .map_err(|_| ApiFailure::bad_request("invalid friendly id"))?;
@@ -360,7 +375,9 @@ pub async fn lookup(
     let presence = state.presence.get(dev.id).await?;
     let state_now = crate::presence::state_of(presence.as_ref());
     let can_view = match dev.org_id {
-        Some(org) => authz::has_permission(&state.db, user.user_id, org, Permission::DeviceView).await?,
+        Some(org) => {
+            authz::has_permission(&state.db, user.user_id, org, Permission::DeviceView).await?
+        }
         None => dev.owner_user_id == Some(user.user_id),
     };
     Ok(Json(DeviceLookup {
@@ -384,7 +401,9 @@ pub async fn revoke(
         .await?
         .ok_or_else(|| ApiFailure::not_found("device not found"))?;
     let allowed = match dev.org_id {
-        Some(org) => authz::has_permission(&state.db, user.user_id, org, Permission::DeviceRevoke).await?,
+        Some(org) => {
+            authz::has_permission(&state.db, user.user_id, org, Permission::DeviceRevoke).await?
+        }
         None => dev.owner_user_id == Some(user.user_id),
     };
     if !allowed {

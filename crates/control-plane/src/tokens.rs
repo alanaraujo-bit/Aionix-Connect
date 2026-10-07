@@ -4,9 +4,7 @@
 //! (15 min), device tokens (1 h), relay grants (12 h) and session tickets (90 s), each
 //! with a distinct type so one can never be accepted as another.
 
-use aionix_control_api::claims::{
-    AccessClaims, DeviceClaims, RelayClaims, SessionTicketClaims,
-};
+use aionix_control_api::claims::{AccessClaims, DeviceClaims, RelayClaims, SessionTicketClaims};
 use aionix_crypto::{
     IdentityKey, PublicKey,
     token::{Issued, TokenClaims, TokenError, TokenIssuer, TokenVerifier, Verified},

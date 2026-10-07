@@ -1,0 +1,41 @@
+# Local development databases for `cargo test --workspace`.
+#
+#   docker compose up -d          # PostgreSQL on 127.0.0.1:55432, Redis on 127.0.0.1:56379
+#   cargo test --workspace        # integration tests use them (see SERVER.md)
+#   docker compose down -v        # throw everything away
+#
+# Development-only credentials, bound to localhost. The full server stack (API,
+# signaling, relay, Caddy) lives in infra/compose/ — see infra/local/staging.ps1.
+
+name: aionix-dev
+
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_USER: aionix
+      POSTGRES_PASSWORD: aionix-dev
+      POSTGRES_DB: aionix
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - dev-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aionix -d aionix -h 127.0.0.1"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "127.0.0.1:56379:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  dev-postgres: {}

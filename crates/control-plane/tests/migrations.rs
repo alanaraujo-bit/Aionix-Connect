@@ -38,7 +38,10 @@ async fn migrations_apply_to_an_empty_database_and_are_idempotent() {
         "sessions",
         "users",
     ] {
-        assert!(tables.iter().any(|x| x == t), "missing table {t}: {tables:?}");
+        assert!(
+            tables.iter().any(|x| x == t),
+            "missing table {t}: {tables:?}"
+        );
     }
     let roles: Vec<String> = sqlx::query_scalar("SELECT name FROM roles ORDER BY rank")
         .fetch_all(&tdb.pool)
@@ -72,14 +75,19 @@ async fn audit_events_are_append_only() {
         .execute(&tdb.pool)
         .await;
     assert!(update.is_err(), "UPDATE must be refused");
-    let delete = sqlx::query("DELETE FROM audit_events").execute(&tdb.pool).await;
+    let delete = sqlx::query("DELETE FROM audit_events")
+        .execute(&tdb.pool)
+        .await;
     assert!(delete.is_err(), "DELETE must be refused");
-    let truncate = sqlx::query("TRUNCATE audit_events").execute(&tdb.pool).await;
+    let truncate = sqlx::query("TRUNCATE audit_events")
+        .execute(&tdb.pool)
+        .await;
     assert!(truncate.is_err(), "TRUNCATE must be refused");
-    let n: i64 = sqlx::query_scalar("SELECT count(*) FROM audit_events WHERE action = 'test.event'")
-        .fetch_one(&tdb.pool)
-        .await
-        .unwrap();
+    let n: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM audit_events WHERE action = 'test.event'")
+            .fetch_one(&tdb.pool)
+            .await
+            .unwrap();
     assert_eq!(n, 1);
     tdb.cleanup().await;
 }

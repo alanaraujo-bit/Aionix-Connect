@@ -154,7 +154,9 @@ mod tests {
     #[tokio::test]
     async fn readiness_reports_each_failing_dependency() {
         let ok = FnCheck::new("postgres", || Box::pin(async { Ok(()) }));
-        let bad = FnCheck::new("redis", || Box::pin(async { Err("connection refused".into()) }));
+        let bad = FnCheck::new("redis", || {
+            Box::pin(async { Err("connection refused".into()) })
+        });
         let h = Health::new("test", vec![Box::new(ok), Box::new(bad)]);
         let r = h.readiness().await;
         assert!(!r.ready);

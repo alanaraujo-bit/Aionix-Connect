@@ -244,7 +244,10 @@ impl Signaling {
                 DeviceBusMessage::Revoked => {
                     let _ = tx.send(Outgoing::Msg(ServerMessage::DeviceRevoked)).await;
                     let _ = tx
-                        .send(Outgoing::Close(close_code::DEVICE_REVOKED, "device revoked"))
+                        .send(Outgoing::Close(
+                            close_code::DEVICE_REVOKED,
+                            "device revoked",
+                        ))
                         .await;
                 }
             }
@@ -267,7 +270,7 @@ pub async fn build(config: &SignalingConfig) -> anyhow::Result<(Arc<Signaling>, 
     let pool = db::connect(&config.database_url, config.db_max_connections, 30).await?;
     let (client, conn) = redis_conn::connect(&config.redis_url, 30).await?;
     let keys = Keys::new(config.redis_prefix.clone());
-    Ok(from_parts(
+    from_parts(
         pool,
         client,
         conn,
@@ -276,7 +279,7 @@ pub async fn build(config: &SignalingConfig) -> anyhow::Result<(Arc<Signaling>, 
         config.timing.clone(),
         config.trusted_proxies.clone(),
     )
-    .await?)
+    .await
 }
 
 /// Builds an instance on existing connections (tests, embedding) and starts its
@@ -334,7 +337,11 @@ pub fn router(sig: Arc<Signaling>, health: Health) -> Router {
 }
 
 fn refuse(status: StatusCode, detail: &'static str) -> Response {
-    (status, axum::Json(json!({"code": "unauthorized", "detail": detail}))).into_response()
+    (
+        status,
+        axum::Json(json!({"code": "unauthorized", "detail": detail})),
+    )
+        .into_response()
 }
 
 async fn upgrade(
@@ -347,9 +354,17 @@ async fn upgrade(
     if sig.shutdown.is_triggered() {
         return refuse(StatusCode::SERVICE_UNAVAILABLE, "restarting");
     }
-    if !sig.limiter.check(&format!("connect:{ip}"), CONNECT_LIMIT).is_allowed() {
-        metrics::counter!("aionix_signaling_refused_total", "reason" => "rate_limited").increment(1);
-        return refuse(StatusCode::TOO_MANY_REQUESTS, "too many connection attempts");
+    if !sig
+        .limiter
+        .check(&format!("connect:{ip}"), CONNECT_LIMIT)
+        .is_allowed()
+    {
+        metrics::counter!("aionix_signaling_refused_total", "reason" => "rate_limited")
+            .increment(1);
+        return refuse(
+            StatusCode::TOO_MANY_REQUESTS,
+            "too many connection attempts",
+        );
     }
     let Some(token) = aionix_control_plane::api::bearer(&headers) else {
         metrics::counter!("aionix_signaling_refused_total", "reason" => "no_token").increment(1);
@@ -359,7 +374,8 @@ async fn upgrade(
         Ok(v) => v,
         Err(e) => {
             debug!(error = %e, %ip, "signaling token refused");
-            metrics::counter!("aionix_signaling_refused_total", "reason" => "bad_token").increment(1);
+            metrics::counter!("aionix_signaling_refused_total", "reason" => "bad_token")
+                .increment(1);
             return refuse(StatusCode::UNAUTHORIZED, "invalid device token");
         }
     };
@@ -379,7 +395,10 @@ async fn upgrade(
         let _ = AuditRecord::security(action::SIGNALING_REFUSED, Outcome::Denied)
             .device(device.id)
             .org(device.org_id)
-            .client(Some(&ip), aionix_server_common::http::request_id(&headers).as_deref())
+            .client(
+                Some(&ip),
+                aionix_server_common::http::request_id(&headers).as_deref(),
+            )
             .details(json!({"reason": "device_revoked"}))
             .write(&sig.db)
             .await;

@@ -68,7 +68,10 @@ impl Keys {
 }
 
 /// Connects a self-healing multiplexed connection (reconnects with backoff).
-pub async fn connect(url: &str, attempts: u32) -> anyhow::Result<(redis::Client, ConnectionManager)> {
+pub async fn connect(
+    url: &str,
+    attempts: u32,
+) -> anyhow::Result<(redis::Client, ConnectionManager)> {
     let client = redis::Client::open(url)?;
     let config = ConnectionManagerConfig::new()
         .set_connection_timeout(Some(Duration::from_secs(3)))
@@ -78,7 +81,10 @@ pub async fn connect(url: &str, attempts: u32) -> anyhow::Result<(redis::Client,
     let mut delay = Duration::from_millis(500);
     let mut last = None;
     for attempt in 1..=attempts.max(1) {
-        match client.get_connection_manager_with_config(config.clone()).await {
+        match client
+            .get_connection_manager_with_config(config.clone())
+            .await
+        {
             Ok(m) => return Ok((client, m)),
             Err(e) => {
                 warn!(attempt, error = %e, "redis not reachable yet");

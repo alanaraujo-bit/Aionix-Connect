@@ -70,7 +70,11 @@ pub async fn run_once(db: &PgPool, presence: &dyn PresenceStore) -> anyhow::Resu
     Ok(())
 }
 
-pub fn spawn(db: PgPool, presence: Arc<dyn PresenceStore>, every: Duration) -> tokio::task::JoinHandle<()> {
+pub fn spawn(
+    db: PgPool,
+    presence: Arc<dyn PresenceStore>,
+    every: Duration,
+) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let mut tick = tokio::time::interval(every);
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);

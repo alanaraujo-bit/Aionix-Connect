@@ -134,7 +134,12 @@ pub async fn create(
     let target = devices::by_friendly(&state.db, req.target).await?;
     let Some(target) = target else {
         return Err(d
-            .deny(None, None, "unknown_device", ApiFailure::not_found("device not found"))
+            .deny(
+                None,
+                None,
+                "unknown_device",
+                ApiFailure::not_found("device not found"),
+            )
             .await);
     };
     if target.is_revoked() {
@@ -143,7 +148,11 @@ pub async fn create(
                 Some(&target),
                 None,
                 "device_revoked",
-                ApiFailure::new(StatusCode::FORBIDDEN, ErrorCode::DeviceRevoked, "device revoked"),
+                ApiFailure::new(
+                    StatusCode::FORBIDDEN,
+                    ErrorCode::DeviceRevoked,
+                    "device revoked",
+                ),
             )
             .await);
     }
@@ -164,7 +173,9 @@ pub async fn create(
     //    (the host user's visible consent is then the only grant).
     let (org_id, org_name) = match target.org_id {
         Some(org) => {
-            if !authz::has_permission(&state.db, user.user_id, org, Permission::SessionRequest).await? {
+            if !authz::has_permission(&state.db, user.user_id, org, Permission::SessionRequest)
+                .await?
+            {
                 return Err(d
                     .deny(
                         Some(&target),
@@ -181,7 +192,9 @@ pub async fn create(
             (org, name)
         }
         None => {
-            let orgs = authz::orgs_with_permission(&state.db, user.user_id, Permission::SessionRequest).await?;
+            let orgs =
+                authz::orgs_with_permission(&state.db, user.user_id, Permission::SessionRequest)
+                    .await?;
             match orgs.into_iter().next() {
                 Some(o) => o,
                 None => {
@@ -348,7 +361,11 @@ pub async fn create(
     let audit_answer = |accepted: bool, reason: &str| {
         AuditRecord::new(
             action::SESSION_OFFER_ANSWERED,
-            if accepted { Outcome::Success } else { Outcome::Denied },
+            if accepted {
+                Outcome::Success
+            } else {
+                Outcome::Denied
+            },
         )
         .org(Some(org_id))
         .device(target.id)
@@ -383,7 +400,9 @@ pub async fn create(
         Some(a) => {
             let reason = match a.reason {
                 Some(aionix_control_api::signal::OfferRejectReason::Policy) => "policy",
-                Some(aionix_control_api::signal::OfferRejectReason::ShuttingDown) => "shutting_down",
+                Some(aionix_control_api::signal::OfferRejectReason::ShuttingDown) => {
+                    "shutting_down"
+                }
                 _ => "busy",
             };
             finish("rejected", reason).await?;

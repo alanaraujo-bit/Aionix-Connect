@@ -91,7 +91,9 @@ fn map_error(e: ClientError) -> AuthorityError {
                 AuthorityError::Unavailable(detail)
             }
             ErrorCode::DeviceBusy => AuthorityError::Forbidden(format!("device busy: {detail}")),
-            ErrorCode::DeviceTimeout => AuthorityError::Unavailable(format!("device did not answer: {detail}")),
+            ErrorCode::DeviceTimeout => {
+                AuthorityError::Unavailable(format!("device did not answer: {detail}"))
+            }
             other => AuthorityError::Forbidden(format!("{other:?}: {detail}")),
         },
         other => AuthorityError::Unavailable(other.to_string()),
@@ -100,7 +102,10 @@ fn map_error(e: ClientError) -> AuthorityError {
 
 #[async_trait]
 impl AuthorizationProvider for ControlPlaneAuthority {
-    async fn request_session(&self, request: SessionRequest) -> Result<SessionGrant, AuthorityError> {
+    async fn request_session(
+        &self,
+        request: SessionRequest,
+    ) -> Result<SessionGrant, AuthorityError> {
         // The identity in the request is informational: the server derives the real
         // one from the signed-in user and the workstation token. It must still name
         // this workstation's key, since the host checks the transport peer against it.
@@ -110,7 +115,9 @@ impl AuthorizationProvider for ControlPlaneAuthority {
             ));
         }
         if request.mode != AccessMode::Assisted {
-            return Err(AuthorityError::Forbidden("only assisted sessions are supported".into()));
+            return Err(AuthorityError::Forbidden(
+                "only assisted sessions are supported".into(),
+            ));
         }
         let target = match request.target {
             DeviceLookup::Friendly(f) => f,

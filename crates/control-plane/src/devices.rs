@@ -97,10 +97,14 @@ impl DeviceRow {
 }
 
 pub async fn by_id(db: &PgPool, id: Uuid) -> Result<Option<DeviceRow>, sqlx::Error> {
-    sqlx::query_as(concat!("SELECT ", device_columns!(), " FROM devices WHERE id = $1"))
-        .bind(id)
-        .fetch_optional(db)
-        .await
+    sqlx::query_as(concat!(
+        "SELECT ",
+        device_columns!(),
+        " FROM devices WHERE id = $1"
+    ))
+    .bind(id)
+    .fetch_optional(db)
+    .await
 }
 
 pub async fn by_friendly(db: &PgPool, f: FriendlyId) -> Result<Option<DeviceRow>, sqlx::Error> {

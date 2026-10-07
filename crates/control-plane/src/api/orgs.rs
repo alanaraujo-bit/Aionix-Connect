@@ -60,7 +60,10 @@ pub async fn devices(
     let ids: Vec<Uuid> = rows.iter().map(|d| d.id).collect();
     let presence = state.presence.get_many(&ids).await?;
     Ok(Json(DeviceList {
-        devices: rows.iter().map(|d| d.summary(presence.get(&d.id))).collect(),
+        devices: rows
+            .iter()
+            .map(|d| d.summary(presence.get(&d.id)))
+            .collect(),
     }))
 }
 
@@ -91,9 +94,15 @@ pub async fn create_enrollment_token(
             return Err(ApiFailure::bad_request("unknown customer"));
         }
     }
-    let (id, token, expires_at) =
-        crate::admin::insert_enrollment_token(&state.db, org, req.customer_id, req.valid_hours, req.max_uses, Some(user.user_id))
-            .await?;
+    let (id, token, expires_at) = crate::admin::insert_enrollment_token(
+        &state.db,
+        org,
+        req.customer_id,
+        req.valid_hours,
+        req.max_uses,
+        Some(user.user_id),
+    )
+    .await?;
     AuditRecord::new(action::ENROLLMENT_TOKEN_CREATED, Outcome::Success)
         .user(user.user_id)
         .org(Some(org))

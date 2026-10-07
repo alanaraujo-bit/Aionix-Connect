@@ -51,7 +51,8 @@ pub struct ApiClient {
 impl ApiClient {
     /// `base` is the public server URL, e.g. `https://connect.example.com`.
     pub fn new(base: &str) -> Result<Self, ClientError> {
-        let base = Url::parse(base).map_err(|e| ClientError::Local(format!("invalid server URL: {e}")))?;
+        let base =
+            Url::parse(base).map_err(|e| ClientError::Local(format!("invalid server URL: {e}")))?;
         let http = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(10))
             .timeout(Duration::from_secs(40))
@@ -221,7 +222,11 @@ impl ApiClient {
         report: &SessionEventReport,
     ) -> Result<(), ClientError> {
         let _: serde_json::Value = self
-            .post(&format!("/v1/sessions/{session}/events"), report, Some(access))
+            .post(
+                &format!("/v1/sessions/{session}/events"),
+                report,
+                Some(access),
+            )
             .await?;
         Ok(())
     }
@@ -234,11 +239,15 @@ mod tests {
     #[test]
     fn signal_url_follows_the_api_scheme() {
         assert_eq!(
-            ApiClient::new("https://connect.example.com").unwrap().signal_url(),
+            ApiClient::new("https://connect.example.com")
+                .unwrap()
+                .signal_url(),
             "wss://connect.example.com/v1/signal"
         );
         assert_eq!(
-            ApiClient::new("http://127.0.0.1:8080/").unwrap().signal_url(),
+            ApiClient::new("http://127.0.0.1:8080/")
+                .unwrap()
+                .signal_url(),
             "ws://127.0.0.1:8080/v1/signal"
         );
         assert!(ApiClient::new("not a url").is_err());

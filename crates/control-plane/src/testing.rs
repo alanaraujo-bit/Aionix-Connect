@@ -144,8 +144,8 @@ pub struct TestRedis {
 
 impl TestRedis {
     pub async fn connect() -> Option<Self> {
-        let url =
-            std::env::var("AIONIX_TEST_REDIS_URL").unwrap_or_else(|_| DEFAULT_TEST_REDIS_URL.to_owned());
+        let url = std::env::var("AIONIX_TEST_REDIS_URL")
+            .unwrap_or_else(|_| DEFAULT_TEST_REDIS_URL.to_owned());
         match tokio::time::timeout(Duration::from_secs(5), redis_conn::connect(&url, 1)).await {
             Ok(Ok((client, conn))) => Some(Self {
                 url,
@@ -240,7 +240,9 @@ pub const TEST_PASSWORD: &str = "correct horse battery staple";
 
 /// Creates an organization and a member with `role`; returns `(org, user, email)`.
 pub async fn org_member(db: &PgPool, role: OrgRole) -> (Uuid, Uuid, String) {
-    let org = crate::admin::create_org(db, "Suporte Exemplo").await.unwrap();
+    let org = crate::admin::create_org(db, "Suporte Exemplo")
+        .await
+        .unwrap();
     let (user, email) = member_of(db, org, role).await;
     (org, user, email)
 }
@@ -251,6 +253,8 @@ pub async fn member_of(db: &PgPool, org: Uuid, role: OrgRole) -> (Uuid, String) 
     let user = crate::admin::create_user(db, &email, "Técnica Ana", TEST_PASSWORD.into())
         .await
         .unwrap();
-    crate::admin::set_membership(db, org, user, role).await.unwrap();
+    crate::admin::set_membership(db, org, user, role)
+        .await
+        .unwrap();
     (user, email)
 }

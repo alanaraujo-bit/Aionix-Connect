@@ -110,9 +110,16 @@ async fn enrollment_presence_ticket_restart_and_revocation() {
     assert_eq!(reg.token_keys, api.state.tokens.public_keys());
     // Restart of the host app: same identity, no new registration (the single-use
     // enrollment token would be refused anyway).
-    let (again_key, again_reg) = ensure_enrolled(&client, &store, Enrollment::Agent { enrollment_token: "spent" }, info())
-        .await
-        .unwrap();
+    let (again_key, again_reg) = ensure_enrolled(
+        &client,
+        &store,
+        Enrollment::Agent {
+            enrollment_token: "spent",
+        },
+        info(),
+    )
+    .await
+    .unwrap();
     assert_eq!(again_key.public(), host_key.public());
     assert_eq!(again_reg, reg);
     // The file never contains anything the server could not see except the secret;
@@ -124,7 +131,12 @@ async fn enrollment_presence_ticket_restart_and_revocation() {
         .unwrap();
     assert_eq!(stored, host_key.public().to_base64());
 
-    let host_session = Arc::new(DeviceSession::new(client.clone(), host_key, reg.clone(), Some(info())));
+    let host_session = Arc::new(DeviceSession::new(
+        client.clone(),
+        host_key,
+        reg.clone(),
+        Some(info()),
+    ));
     let validator = Arc::new(TicketValidator::new(
         host_session.ticket_verifier(),
         reg.device_id,
@@ -148,7 +160,11 @@ async fn enrollment_presence_ticket_restart_and_revocation() {
         presence_rx.clone(),
         Arc::new(HostOfferHandler::new(validator.clone(), presence_rx)),
     );
-    assert!(host_link.wait_for(Duration::from_secs(10), |s| *s == LinkState::Online).await);
+    assert!(
+        host_link
+            .wait_for(Duration::from_secs(10), |s| *s == LinkState::Online)
+            .await
+    );
     for _ in 0..30 {
         if presence(&api, reg.device_id).await == PresenceState::Online {
             break;
@@ -158,14 +174,30 @@ async fn enrollment_presence_ticket_restart_and_revocation() {
     assert_eq!(presence(&api, reg.device_id).await, PresenceState::Online);
 
     // ---- Technician.
-    let user = Arc::new(UserSession::login(client.clone(), &email, TEST_PASSWORD).await.unwrap());
+    let user = Arc::new(
+        UserSession::login(client.clone(), &email, TEST_PASSWORD)
+            .await
+            .unwrap(),
+    );
     let access = user.access_token().await.unwrap();
     let ws_store = aionix_client::identity::MemoryIdentityStore::default();
-    let (ws_key, ws_reg) = ensure_enrolled(&client, &ws_store, Enrollment::Technician { access_token: &access }, info())
-        .await
-        .unwrap();
+    let (ws_key, ws_reg) = ensure_enrolled(
+        &client,
+        &ws_store,
+        Enrollment::Technician {
+            access_token: &access,
+        },
+        info(),
+    )
+    .await
+    .unwrap();
     let ws_public = ws_key.public();
-    let workstation = Arc::new(DeviceSession::new(client.clone(), ws_key, ws_reg.clone(), None));
+    let workstation = Arc::new(DeviceSession::new(
+        client.clone(),
+        ws_key,
+        ws_reg.clone(),
+        None,
+    ));
     let authority = ControlPlaneAuthority::new(user.clone(), workstation.clone());
     let profile = user.profile().await;
     let request = SessionRequest {
@@ -185,17 +217,26 @@ async fn enrollment_presence_ticket_restart_and_revocation() {
     assert_eq!(grant.host_device_id, reg.device_id);
     assert_eq!(grant.host_key, host_session.key().public());
     assert_eq!(grant.host_addr.direct_addrs, ["192.0.2.33:7000"]);
-    assert_eq!(grant.permissions, [SessionPermission::View, SessionPermission::Control]);
+    assert_eq!(
+        grant.permissions,
+        [SessionPermission::View, SessionPermission::Control]
+    );
 
     // The host's real validator accepts the Control Plane ticket exactly once, only
     // from the workstation key, and only for the announced session id.
     let thief = aionix_crypto::IdentityKey::generate().public();
-    assert_eq!(validator.validate(&grant.ticket, &thief), Err(TicketRejection::WrongTechnician));
+    assert_eq!(
+        validator.validate(&grant.ticket, &thief),
+        Err(TicketRejection::WrongTechnician)
+    );
     let authorized = validator.validate(&grant.ticket, &ws_public).unwrap();
     assert_eq!(authorized.session_id, grant.session_id);
     assert_eq!(authorized.technician.user_id, profile.id);
     assert!(authorized.permissions.control && !authorized.permissions.clipboard);
-    assert_eq!(validator.validate(&grant.ticket, &ws_public), Err(TicketRejection::Replayed));
+    assert_eq!(
+        validator.validate(&grant.ticket, &ws_public),
+        Err(TicketRejection::Replayed)
+    );
 
     // A request naming another key is refused client-side.
     let mut forged = request.clone();
@@ -206,11 +247,21 @@ async fn enrollment_presence_ticket_restart_and_revocation() {
     sig.drain(Duration::from_secs(3)).await;
     sig_task.abort();
     let _ = sig_task.await;
-    assert!(host_link.wait_for(Duration::from_secs(5), |s| *s == LinkState::Connecting).await);
+    assert!(
+        host_link
+            .wait_for(Duration::from_secs(5), |s| *s == LinkState::Connecting)
+            .await
+    );
     assert_ne!(presence(&api, reg.device_id).await, PresenceState::Online);
-    let listener = TcpListener::bind(signal_addr).await.expect("rebind signaling port");
+    let listener = TcpListener::bind(signal_addr)
+        .await
+        .expect("rebind signaling port");
     let (_sig2, sig_task2) = serve_signaling(&api, listener).await;
-    assert!(host_link.wait_for(Duration::from_secs(15), |s| *s == LinkState::Online).await);
+    assert!(
+        host_link
+            .wait_for(Duration::from_secs(15), |s| *s == LinkState::Online)
+            .await
+    );
     for _ in 0..30 {
         if presence(&api, reg.device_id).await == PresenceState::Online {
             break;
@@ -227,12 +278,21 @@ async fn enrollment_presence_ticket_restart_and_revocation() {
     assert!(authority.request_session(request.clone()).await.is_ok());
 
     // ---- Revocation stops the link for good.
-    aionix_control_plane::devices::revoke(&api.state.db, api.state.bus.as_ref(), None, reg.device_id, None, "test", (None, None))
-        .await
-        .unwrap();
+    aionix_control_plane::devices::revoke(
+        &api.state.db,
+        api.state.bus.as_ref(),
+        None,
+        reg.device_id,
+        None,
+        "test",
+        (None, None),
+    )
+    .await
+    .unwrap();
     assert!(
         host_link
-            .wait_for(Duration::from_secs(5), |s| *s == LinkState::Stopped(StopReason::Revoked))
+            .wait_for(Duration::from_secs(5), |s| *s
+                == LinkState::Stopped(StopReason::Revoked))
             .await
     );
     assert_eq!(presence(&api, reg.device_id).await, PresenceState::Offline);

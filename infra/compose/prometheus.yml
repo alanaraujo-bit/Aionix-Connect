@@ -1,0 +1,14 @@
+# Optional (compose profile "monitoring"). Scrapes the internal metrics endpoints.
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: aionix-api
+    static_configs:
+      - targets: ["aionix-api:8080"]
+  - job_name: aionix-signaling
+    static_configs:
+      - targets: ["aionix-signaling:8081"]
+  - job_name: aionix-relay
+    static_configs:
+      - targets: ["aionix-relay:9090"]

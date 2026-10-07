@@ -71,9 +71,7 @@ impl RateLimiter {
             .await;
         match res {
             Ok((count, ttl_ms)) if count > i64::from(limit.max) => Decision::Limited {
-                retry_after: Duration::from_millis(ttl_ms.max(0) as u64)
-                    .as_secs()
-                    .max(1),
+                retry_after: Duration::from_millis(ttl_ms.max(0) as u64).as_secs().max(1),
             },
             Ok(_) => Decision::Allowed,
             Err(e) => {

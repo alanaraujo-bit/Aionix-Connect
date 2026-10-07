@@ -43,7 +43,9 @@ async fn enroll_host(api: &TestApi, http: &Http, org: Uuid) -> Host {
         .await
         .unwrap();
     let key = IdentityKey::generate();
-    let (s, v) = http.register(&key, DeviceKind::Agent, Some(&token), None).await;
+    let (s, v) = http
+        .register(&key, DeviceKind::Agent, Some(&token), None)
+        .await;
     assert_eq!(s, StatusCode::OK, "{v}");
     Host {
         id: v["device_id"].as_str().unwrap().parse().unwrap(),
@@ -172,13 +174,19 @@ async fn technician_gets_a_bound_short_lived_ticket() {
     assert_eq!(t.claims.viewer.org_name.as_deref(), Some("Suporte Exemplo"));
     assert_eq!(
         t.claims.perms,
-        [SessionPermission::View, SessionPermission::Control, SessionPermission::Clipboard]
+        [
+            SessionPermission::View,
+            SessionPermission::Control,
+            SessionPermission::Clipboard
+        ]
     );
     assert!(t.expires_at - t.issued_at <= SessionTicketClaims::TTL);
 
     // The host received the offer with the same ticket.
     let offers = seen.lock().unwrap().clone();
-    assert!(matches!(&offers[..], [ServerMessage::SessionOffer { session_id, .. }] if *session_id == sid));
+    assert!(
+        matches!(&offers[..], [ServerMessage::SessionOffer { session_id, .. }] if *session_id == sid)
+    );
 
     let status: String = sqlx::query_scalar("SELECT status FROM sessions WHERE id = $1")
         .bind(sid)
@@ -195,7 +203,17 @@ async fn technician_gets_a_bound_short_lived_ticket() {
     assert_ne!(stored, t.jti);
 
     // Host reports the user's approval, then the technician the connection.
-    let r = sessions::record_event(&api.state.db, sid, Reporter::Host { device: host.id }, SessionEventKind::AuthGranted, None, "", (None, None)).await.unwrap();
+    let r = sessions::record_event(
+        &api.state.db,
+        sid,
+        Reporter::Host { device: host.id },
+        SessionEventKind::AuthGranted,
+        None,
+        "",
+        (None, None),
+    )
+    .await
+    .unwrap();
     assert_eq!(r, EventOutcome::Recorded);
     let (s, _) = http
         .post(
@@ -206,7 +224,19 @@ async fn technician_gets_a_bound_short_lived_ticket() {
         .await;
     assert_eq!(s, StatusCode::NO_CONTENT);
     // A stranger cannot report on this session.
-    let other = sessions::record_event(&api.state.db, sid, Reporter::Host { device: Uuid::new_v4() }, SessionEventKind::Ended, Some(TransportKind::Relay), "", (None, None)).await.unwrap();
+    let other = sessions::record_event(
+        &api.state.db,
+        sid,
+        Reporter::Host {
+            device: Uuid::new_v4(),
+        },
+        SessionEventKind::Ended,
+        Some(TransportKind::Relay),
+        "",
+        (None, None),
+    )
+    .await
+    .unwrap();
     assert_eq!(other, EventOutcome::NotAllowed);
     let (status, transport): (String, Option<String>) =
         sqlx::query_as("SELECT status, transport FROM sessions WHERE id = $1")
@@ -214,31 +244,48 @@ async fn technician_gets_a_bound_short_lived_ticket() {
             .fetch_one(&api.state.db)
             .await
             .unwrap();
-    assert_eq!((status.as_str(), transport.as_deref()), ("connected", Some("relay")));
+    assert_eq!(
+        (status.as_str(), transport.as_deref()),
+        ("connected", Some("relay"))
+    );
     assert_eq!(sessions::active_count(&api.state.db).await.unwrap(), 1);
 
     let (s, list) = http.get("/v1/sessions", Some(&ws.access)).await;
     assert_eq!(s, StatusCode::OK);
     assert_eq!(list["sessions"][0]["status"], "connected");
 
-    let actions: Vec<String> = sqlx::query_scalar(
-        "SELECT action FROM audit_events WHERE session_id = $1 ORDER BY id",
-    )
-    .bind(sid)
-    .fetch_all(&api.state.db)
-    .await
-    .unwrap();
-    for a in ["session.requested", "session.ticket_issued", "session.offer_answered", "session.approved"] {
+    let actions: Vec<String> =
+        sqlx::query_scalar("SELECT action FROM audit_events WHERE session_id = $1 ORDER BY id")
+            .bind(sid)
+            .fetch_all(&api.state.db)
+            .await
+            .unwrap();
+    for a in [
+        "session.requested",
+        "session.ticket_issued",
+        "session.offer_answered",
+        "session.approved",
+    ] {
         assert!(actions.iter().any(|x| x == a), "missing {a}: {actions:?}");
     }
     // Requested permissions are intersected with the role.
     let (s, v) = http
-        .request_session(&ws.access, &ws.device_token, &host.friendly, Some(json!(["view"])))
+        .request_session(
+            &ws.access,
+            &ws.device_token,
+            &host.friendly,
+            Some(json!(["view"])),
+        )
         .await;
     assert_eq!(s, StatusCode::OK, "{v}");
     assert_eq!(v["permissions"], json!(["view"]));
     let (s, _) = http
-        .request_session(&ws.access, &ws.device_token, &host.friendly, Some(json!(["control"])))
+        .request_session(
+            &ws.access,
+            &ws.device_token,
+            &host.friendly,
+            Some(json!(["control"])),
+        )
         .await;
     assert_eq!(s, StatusCode::BAD_REQUEST);
     task.abort();
@@ -289,18 +336,30 @@ async fn permission_denials_and_wrong_devices() {
     assert_eq!(s, StatusCode::FORBIDDEN);
     // Missing workstation token.
     let (s, _) = http
-        .send(reqwest::Method::POST, "/v1/sessions", Some(json!({"target": host.friendly})), Some(&tws.access), None)
+        .send(
+            reqwest::Method::POST,
+            "/v1/sessions",
+            Some(json!({"target": host.friendly})),
+            Some(&tws.access),
+            None,
+        )
         .await;
     assert_eq!(s, StatusCode::UNAUTHORIZED);
 
     // A technician workstation is not a host.
-    let ws_friendly: i32 = sqlx::query_scalar("SELECT friendly_id FROM devices WHERE public_key = $1")
-        .bind(tws.key.public().to_base64())
-        .fetch_one(&api.state.db)
-        .await
-        .unwrap();
+    let ws_friendly: i32 =
+        sqlx::query_scalar("SELECT friendly_id FROM devices WHERE public_key = $1")
+            .bind(tws.key.public().to_base64())
+            .fetch_one(&api.state.db)
+            .await
+            .unwrap();
     let (s, _) = http
-        .request_session(&tws.access, &tws.device_token, &ws_friendly.to_string(), None)
+        .request_session(
+            &tws.access,
+            &tws.device_token,
+            &ws_friendly.to_string(),
+            None,
+        )
         .await;
     assert_eq!(s, StatusCode::BAD_REQUEST);
     // Unknown friendly id.
@@ -327,9 +386,17 @@ async fn permission_denials_and_wrong_devices() {
         .await;
     assert_eq!((s, code(&v)), (StatusCode::CONFLICT, "device_offline"));
     set_online(&api, host.id, false).await;
-    aionix_control_plane::devices::revoke(&api.state.db, api.state.bus.as_ref(), None, host.id, None, "test", (None, None))
-        .await
-        .unwrap();
+    aionix_control_plane::devices::revoke(
+        &api.state.db,
+        api.state.bus.as_ref(),
+        None,
+        host.id,
+        None,
+        "test",
+        (None, None),
+    )
+    .await
+    .unwrap();
     let (s, v) = http
         .request_session(&tws.access, &tws.device_token, &host.friendly, None)
         .await;
@@ -341,9 +408,17 @@ async fn permission_denials_and_wrong_devices() {
         .fetch_one(&api.state.db)
         .await
         .unwrap();
-    aionix_control_plane::devices::revoke(&api.state.db, api.state.bus.as_ref(), None, ws_id, None, "test", (None, None))
-        .await
-        .unwrap();
+    aionix_control_plane::devices::revoke(
+        &api.state.db,
+        api.state.bus.as_ref(),
+        None,
+        ws_id,
+        None,
+        "test",
+        (None, None),
+    )
+    .await
+    .unwrap();
     let other_host = enroll_host(&api, &http, org).await;
     set_online(&api, other_host.id, false).await;
     let (s, _) = http
@@ -391,12 +466,16 @@ async fn host_refusal_and_offer_timeout() {
     let (s, v) = http
         .request_session(&ws.access, &ws.device_token, &silent.friendly, None)
         .await;
-    assert_eq!((s, code(&v)), (StatusCode::GATEWAY_TIMEOUT, "device_timeout"));
+    assert_eq!(
+        (s, code(&v)),
+        (StatusCode::GATEWAY_TIMEOUT, "device_timeout")
+    );
     assert_eq!(seen.lock().unwrap().len(), 1, "offer was delivered");
-    let statuses: Vec<String> = sqlx::query_scalar("SELECT status FROM sessions ORDER BY requested_at")
-        .fetch_all(&api.state.db)
-        .await
-        .unwrap();
+    let statuses: Vec<String> =
+        sqlx::query_scalar("SELECT status FROM sessions ORDER BY requested_at")
+            .fetch_all(&api.state.db)
+            .await
+            .unwrap();
     assert_eq!(statuses, ["rejected", "failed"]);
     t1.abort();
     t2.abort();
@@ -414,8 +493,12 @@ async fn janitor_expires_unanswered_and_stale_sessions() {
     let host = enroll_host(&api, &http, org).await;
     set_online(&api, host.id, false).await;
     let (task, _) = fake_host(&api, host.id, Some(accept())).await;
-    let (_, a) = http.request_session(&ws.access, &ws.device_token, &host.friendly, None).await;
-    let (_, b) = http.request_session(&ws.access, &ws.device_token, &host.friendly, None).await;
+    let (_, a) = http
+        .request_session(&ws.access, &ws.device_token, &host.friendly, None)
+        .await;
+    let (_, b) = http
+        .request_session(&ws.access, &ws.device_token, &host.friendly, None)
+        .await;
     let a: Uuid = a["session_id"].as_str().unwrap().parse().unwrap();
     let b: Uuid = b["session_id"].as_str().unwrap().parse().unwrap();
     // `a` never got approved and its ticket is long expired; `b` was connected but the
@@ -431,13 +514,25 @@ async fn janitor_expires_unanswered_and_stale_sessions() {
         .await
         .unwrap();
     // Host still online: nothing stale yet.
-    aionix_control_plane::janitor::run_once(&api.state.db, api.state.presence.as_ref()).await.unwrap();
-    let sb: String = sqlx::query_scalar("SELECT status FROM sessions WHERE id = $1").bind(b).fetch_one(&api.state.db).await.unwrap();
+    aionix_control_plane::janitor::run_once(&api.state.db, api.state.presence.as_ref())
+        .await
+        .unwrap();
+    let sb: String = sqlx::query_scalar("SELECT status FROM sessions WHERE id = $1")
+        .bind(b)
+        .fetch_one(&api.state.db)
+        .await
+        .unwrap();
     assert_eq!(sb, "connected");
     // Host goes offline.
     let rec = api.state.presence.get(host.id).await.unwrap().unwrap();
-    api.state.presence.release(host.id, rec.conn_id, None).await.unwrap();
-    aionix_control_plane::janitor::run_once(&api.state.db, api.state.presence.as_ref()).await.unwrap();
+    api.state
+        .presence
+        .release(host.id, rec.conn_id, None)
+        .await
+        .unwrap();
+    aionix_control_plane::janitor::run_once(&api.state.db, api.state.presence.as_ref())
+        .await
+        .unwrap();
     let rows: Vec<(Uuid, String, Option<String>)> =
         sqlx::query_as("SELECT id, status, end_reason FROM sessions WHERE id = ANY($1)")
             .bind(vec![a, b])
@@ -446,9 +541,15 @@ async fn janitor_expires_unanswered_and_stale_sessions() {
             .unwrap();
     for (id, status, reason) in rows {
         if id == a {
-            assert_eq!((status.as_str(), reason.as_deref()), ("expired", Some("ticket_expired")));
+            assert_eq!(
+                (status.as_str(), reason.as_deref()),
+                ("expired", Some("ticket_expired"))
+            );
         } else {
-            assert_eq!((status.as_str(), reason.as_deref()), ("failed", Some("host_offline")));
+            assert_eq!(
+                (status.as_str(), reason.as_deref()),
+                ("failed", Some("host_offline"))
+            );
         }
     }
     task.abort();

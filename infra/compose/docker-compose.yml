@@ -1,0 +1,239 @@
+# Aionix Connect Server — production / staging stack.
+#
+# The same file runs on the Ubuntu Server 24.04.5 production host and on the Windows
+# Docker Desktop development/staging host; only the env file differs.
+#
+#   docker compose --env-file /opt/aionix-connect/config/.env up -d
+#
+# Layout on the server (see SERVER.md):
+#   AIONIX_SOURCE_DIR  /opt/aionix-connect/current/src     build context (release)
+#   AIONIX_CONFIG_DIR  /opt/aionix-connect/config          .env + secrets/ (never in git)
+#   AIONIX_DATA_DIR    /opt/aionix-connect/data            postgres/ caddy/ (persistent)
+#   AIONIX_LOG_DIR     /opt/aionix-connect/logs            caddy access logs
+#
+# Data plane vs control plane: the API only ever carries JSON control traffic; remote
+# desktop media goes peer-to-peer or through aionix-relay, end-to-end encrypted.
+# Redis is deliberately ephemeral (presence, offers, rate limits): no volume.
+
+name: aionix-connect
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+x-common-env: &common-env
+  AIONIX_DATABASE_URL: "postgres://aionix:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/aionix"
+  AIONIX_REDIS_URL: "redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379"
+  AIONIX_REDIS_PREFIX: "${AIONIX_REDIS_PREFIX:-aionix}"
+  AIONIX_LOG: "${AIONIX_LOG:-info,sqlx=warn}"
+  AIONIX_TRUSTED_PROXIES: "${AIONIX_TRUSTED_PROXIES:-172.16.0.0/12,10.0.0.0/8,192.168.0.0/16,127.0.0.1/32}"
+
+x-server: &server
+  image: "aionix-connect-server:${AIONIX_VERSION:-dev}"
+  build:
+    context: "${AIONIX_SOURCE_DIR:?AIONIX_SOURCE_DIR is required}"
+    dockerfile: infra/docker/Dockerfile
+    args:
+      AIONIX_VERSION: "${AIONIX_VERSION:-dev}"
+  restart: unless-stopped
+  logging: *logging
+  read_only: true
+  cap_drop: ["ALL"]
+  security_opt: ["no-new-privileges:true"]
+  networks: [backend]
+
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      POSTGRES_USER: aionix
+      POSTGRES_DB: aionix
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    volumes:
+      # Host directory in production. Windows staging sets AIONIX_POSTGRES_DATA to the
+      # named volume below (PostgreSQL refuses NTFS bind mounts' permissions).
+      - "${AIONIX_POSTGRES_DATA:-${AIONIX_DATA_DIR:?AIONIX_DATA_DIR is required}/postgres}:/var/lib/postgresql/data"
+    shm_size: 256mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aionix -d aionix -h 127.0.0.1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks: [backend]
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    logging: *logging
+    # Ephemeral by design: no RDB/AOF persistence, bounded memory, TTL-aware eviction.
+    command:
+      - redis-server
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+      - --requirepass
+      - "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"
+      - --maxmemory
+      - "256mb"
+      - --maxmemory-policy
+      - volatile-ttl
+    environment:
+      REDISCLI_AUTH: "${REDIS_PASSWORD}"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [backend]
+
+  # One-shot: applies pending migrations, then exits. Services start only after it
+  # succeeded, so they never run against an outdated schema.
+  aionix-migrate:
+    <<: *server
+    command: ["aionix-admin", "migrate"]
+    restart: "no"
+    environment:
+      <<: *common-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  aionix-api:
+    <<: *server
+    command: ["aionix-api"]
+    environment:
+      <<: *common-env
+      AIONIX_API_BIND: "0.0.0.0:8080"
+      AIONIX_TOKEN_SIGNING_KEY_FILE: /run/secrets/token_signing_key
+      AIONIX_TOKEN_PREVIOUS_PUBLIC_KEYS: "${AIONIX_TOKEN_PREVIOUS_PUBLIC_KEYS:-}"
+      AIONIX_SERVER_NAME: "${AIONIX_SERVER_NAME:-Aionix Connect}"
+      AIONIX_RELAY_URLS: "${AIONIX_RELAY_URLS:-}"
+      AIONIX_ALLOW_QUICK_SUPPORT: "${AIONIX_ALLOW_QUICK_SUPPORT:-true}"
+      AIONIX_OFFER_TIMEOUT_SECS: "${AIONIX_OFFER_TIMEOUT_SECS:-15}"
+    secrets:
+      - token_signing_key
+    depends_on:
+      aionix-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "aionix-healthcheck", "http://127.0.0.1:8080/readyz"]
+      interval: 10s
+      timeout: 6s
+      retries: 6
+      start_period: 15s
+
+  aionix-signaling:
+    <<: *server
+    command: ["aionix-signaling"]
+    stop_grace_period: 15s
+    environment:
+      <<: *common-env
+      AIONIX_SIGNALING_BIND: "0.0.0.0:8081"
+      AIONIX_TOKEN_PUBLIC_KEYS: "${AIONIX_TOKEN_PUBLIC_KEYS:?AIONIX_TOKEN_PUBLIC_KEYS is required}"
+    depends_on:
+      aionix-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "aionix-healthcheck", "http://127.0.0.1:8081/readyz"]
+      interval: 10s
+      timeout: 6s
+      retries: 6
+      start_period: 15s
+
+  aionix-relay:
+    <<: *server
+    command: ["aionix-relay"]
+    stop_grace_period: 15s
+    environment:
+      AIONIX_RELAY_BIND: "0.0.0.0:3340"
+      AIONIX_RELAY_STATUS_BIND: "0.0.0.0:9090"
+      AIONIX_TOKEN_PUBLIC_KEYS: "${AIONIX_TOKEN_PUBLIC_KEYS:?AIONIX_TOKEN_PUBLIC_KEYS is required}"
+      AIONIX_REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379"
+      AIONIX_REDIS_PREFIX: "${AIONIX_REDIS_PREFIX:-aionix}"
+      AIONIX_RELAY_CLIENT_RX_BYTES_PER_SEC: "${AIONIX_RELAY_CLIENT_RX_BYTES_PER_SEC:-0}"
+      AIONIX_RELAY_CONNECT_LIMIT_PER_MINUTE: "${AIONIX_RELAY_CONNECT_LIMIT_PER_MINUTE:-120}"
+      AIONIX_RELAY_MAX_CONNECTIONS: "${AIONIX_RELAY_MAX_CONNECTIONS:-10000}"
+      AIONIX_LOG: "${AIONIX_LOG:-info}"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "aionix-healthcheck", "http://127.0.0.1:9090/readyz"]
+      interval: 10s
+      timeout: 6s
+      retries: 6
+      start_period: 10s
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    logging: *logging
+    ports:
+      - "${AIONIX_HTTP_PORT:-80}:80"
+      - "${AIONIX_HTTPS_PORT:-443}:443"
+      - "${AIONIX_HTTPS_PORT:-443}:443/udp"
+    environment:
+      AIONIX_SITE_ADDRESS: "${AIONIX_SITE_ADDRESS:?AIONIX_SITE_ADDRESS is required}"
+      ACME_EMAIL: "${ACME_EMAIL:-}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - "${AIONIX_DATA_DIR}/caddy:/data"
+      - "${AIONIX_LOG_DIR:?AIONIX_LOG_DIR is required}/caddy:/var/log/caddy"
+    depends_on:
+      aionix-api:
+        condition: service_healthy
+      aionix-signaling:
+        condition: service_healthy
+      aionix-relay:
+        condition: service_healthy
+    networks: [edge, backend]
+
+  # Operator CLI: docker compose --profile tools run --rm aionix-admin status
+  aionix-admin:
+    <<: *server
+    profiles: ["tools"]
+    restart: "no"
+    command: ["aionix-admin", "status"]
+    environment:
+      <<: *common-env
+    secrets:
+      - token_signing_key
+
+  # Optional metrics collection: docker compose --profile monitoring up -d prometheus
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    logging: *logging
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - "${AIONIX_DATA_DIR}/prometheus:/prometheus"
+    ports:
+      - "127.0.0.1:9095:9090"
+    networks: [backend, edge]
+
+volumes:
+  # Only used when AIONIX_POSTGRES_DATA=aionix-postgres (Windows staging).
+  aionix-postgres: {}
+
+secrets:
+  token_signing_key:
+    file: "${AIONIX_CONFIG_DIR:?AIONIX_CONFIG_DIR is required}/secrets/token-signing.key"
+
+networks:
+  # Published ports live here (Caddy only).
+  edge: {}
+  # Services, PostgreSQL and Redis: no route to the outside world.
+  backend:
+    internal: true

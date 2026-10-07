@@ -45,8 +45,14 @@ pub fn router(state: AppState) -> Router {
         .route("/devices/lookup/{friendly_id}", get(devices::lookup))
         .route("/devices/{id}/revoke", post(devices::revoke))
         .route("/orgs/{org}/devices", get(orgs::devices))
-        .route("/orgs/{org}/enrollment-tokens", post(orgs::create_enrollment_token))
-        .route("/orgs/{org}/members", get(orgs::members).put(orgs::upsert_member))
+        .route(
+            "/orgs/{org}/enrollment-tokens",
+            post(orgs::create_enrollment_token),
+        )
+        .route(
+            "/orgs/{org}/members",
+            get(orgs::members).put(orgs::upsert_member),
+        )
         .route("/orgs/{org}/audit", get(orgs::audit))
         .route("/sessions", post(sessions::create).get(sessions::list))
         .route("/sessions/{id}/events", post(sessions::report_event));

@@ -28,7 +28,9 @@ impl Http {
         bearer: Option<&str>,
         device_token: Option<&str>,
     ) -> (StatusCode, Value) {
-        let mut req = self.client.request(method, format!("{}{}", self.base, path));
+        let mut req = self
+            .client
+            .request(method, format!("{}{}", self.base, path));
         if let Some(b) = bearer {
             req = req.bearer_auth(b);
         }
@@ -51,7 +53,8 @@ impl Http {
     }
 
     pub async fn get(&self, path: &str, bearer: Option<&str>) -> (StatusCode, Value) {
-        self.send(reqwest::Method::GET, path, None, bearer, None).await
+        self.send(reqwest::Method::GET, path, None, bearer, None)
+            .await
     }
 
     pub async fn login(&self, email: &str, password: &str) -> (StatusCode, Value) {

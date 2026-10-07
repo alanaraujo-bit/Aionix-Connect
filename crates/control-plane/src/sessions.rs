@@ -167,7 +167,9 @@ pub async fn record_event(
                 .session(session)
                 .target_device(p.host_device_id)
                 .client(client.0, client.1)
-                .details(json!({"reported_by": source, "previous_status": p.status, "detail": detail}));
+                .details(
+                    json!({"reported_by": source, "previous_status": p.status, "detail": detail}),
+                );
             if let Some(u) = actor_user {
                 rec = rec.user(u);
             }

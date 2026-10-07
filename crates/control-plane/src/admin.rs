@@ -42,7 +42,9 @@ fn slugify(name: &str) -> String {
 pub async fn create_org(db: &PgPool, name: &str) -> Result<Uuid, AdminError> {
     let name = name.trim();
     if name.is_empty() || name.len() > 120 {
-        return Err(AdminError::Invalid("organization name must have 1..=120 characters".into()));
+        return Err(AdminError::Invalid(
+            "organization name must have 1..=120 characters".into(),
+        ));
     }
     let id = Uuid::now_v7();
     let slug = format!("{}-{}", slugify(name), &id.simple().to_string()[24..]);
@@ -74,7 +76,9 @@ pub async fn create_user(
     }
     let display_name = display_name.trim();
     if display_name.is_empty() || display_name.len() > 120 {
-        return Err(AdminError::Invalid("display name must have 1..=120 characters".into()));
+        return Err(AdminError::Invalid(
+            "display name must have 1..=120 characters".into(),
+        ));
     }
     password::check_policy(&password_plain).map_err(|e| AdminError::Invalid(e.to_string()))?;
     let hash = password::hash(password_plain).await;
@@ -198,7 +202,10 @@ pub struct ServerStatus {
     pub schema_ready: bool,
 }
 
-pub async fn status(db: &PgPool, presence: Option<&dyn PresenceStore>) -> Result<ServerStatus, sqlx::Error> {
+pub async fn status(
+    db: &PgPool,
+    presence: Option<&dyn PresenceStore>,
+) -> Result<ServerStatus, sqlx::Error> {
     let (organizations, users, devices, devices_revoked, sessions_last_24h): (i64, i64, i64, i64, i64) =
         sqlx::query_as(
             "SELECT (SELECT count(*) FROM organizations),

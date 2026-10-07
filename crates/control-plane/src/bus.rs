@@ -147,15 +147,20 @@ impl RedisBus {
         let pattern = self.keys.offer_channel_pattern();
         let waiters = self.waiters.clone();
         let flag = self.offer_listener.clone();
-        tokio::spawn(subscribe_loop(client, pattern, flag, move |channel, payload| {
-            if let (Some(id), Ok(answer)) = (
-                Keys::id_from_channel(channel),
-                serde_json::from_str::<OfferAnswer>(payload),
-            ) {
-                waiters.complete(id, answer);
-            }
-            true
-        }));
+        tokio::spawn(subscribe_loop(
+            client,
+            pattern,
+            flag,
+            move |channel, payload| {
+                if let (Some(id), Ok(answer)) = (
+                    Keys::id_from_channel(channel),
+                    serde_json::from_str::<OfferAnswer>(payload),
+                ) {
+                    waiters.complete(id, answer);
+                }
+                true
+            },
+        ));
     }
 
     async fn publish(&self, channel: String, payload: String) -> StoreResult<()> {
@@ -212,7 +217,8 @@ async fn subscribe_loop(
 impl SignalBus for RedisBus {
     async fn publish_device(&self, device: Uuid, msg: &DeviceBusMessage) -> StoreResult<()> {
         let payload = serde_json::to_string(msg).map_err(|e| StoreError(e.to_string()))?;
-        self.publish(self.keys.device_channel(device), payload).await
+        self.publish(self.keys.device_channel(device), payload)
+            .await
     }
 
     async fn device_messages(&self) -> StoreResult<mpsc::Receiver<(Uuid, DeviceBusMessage)>> {
@@ -241,7 +247,8 @@ impl SignalBus for RedisBus {
 
     async fn publish_offer_answer(&self, session: Uuid, answer: &OfferAnswer) -> StoreResult<()> {
         let payload = serde_json::to_string(answer).map_err(|e| StoreError(e.to_string()))?;
-        self.publish(self.keys.offer_channel(session), payload).await
+        self.publish(self.keys.offer_channel(session), payload)
+            .await
     }
 
     fn await_offer_answer(&self, session: Uuid) -> OfferWaiter {
@@ -249,9 +256,7 @@ impl SignalBus for RedisBus {
     }
 
     fn listening(&self) -> bool {
-        let offers_ok =
-            !self.wants_offers.load(Ordering::SeqCst) || self.offer_listener.load(Ordering::SeqCst);
-        offers_ok
+        !self.wants_offers.load(Ordering::SeqCst) || self.offer_listener.load(Ordering::SeqCst)
     }
 }
 
@@ -329,7 +334,9 @@ mod tests {
         let bus = MemoryBus::new();
         let mut rx = bus.device_messages().await.unwrap();
         let dev = Uuid::new_v4();
-        bus.publish_device(dev, &DeviceBusMessage::Revoked).await.unwrap();
+        bus.publish_device(dev, &DeviceBusMessage::Revoked)
+            .await
+            .unwrap();
         assert_eq!(rx.recv().await.unwrap(), (dev, DeviceBusMessage::Revoked));
 
         let sid = Uuid::new_v4();

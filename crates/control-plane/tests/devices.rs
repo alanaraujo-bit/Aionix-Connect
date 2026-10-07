@@ -28,7 +28,9 @@ async fn agent_enrollment_duplicate_and_token_limits() {
         .unwrap();
 
     let key = IdentityKey::generate();
-    let (s, v) = http.register(&key, DeviceKind::Agent, Some(&token), None).await;
+    let (s, v) = http
+        .register(&key, DeviceKind::Agent, Some(&token), None)
+        .await;
     assert_eq!(s, StatusCode::OK, "{v}");
     let friendly = v["friendly_id"].as_str().unwrap();
     assert_eq!(friendly.len(), 9);
@@ -45,12 +47,16 @@ async fn agent_enrollment_duplicate_and_token_limits() {
     assert_eq!(stored_org, Some(org));
 
     // Duplicate registration of the same identity.
-    let (s, v) = http.register(&key, DeviceKind::Agent, Some(&token), None).await;
+    let (s, v) = http
+        .register(&key, DeviceKind::Agent, Some(&token), None)
+        .await;
     assert_eq!(s, StatusCode::CONFLICT, "{v}");
 
     // The single-use token is exhausted.
     let other = IdentityKey::generate();
-    let (s, v) = http.register(&other, DeviceKind::Agent, Some(&token), None).await;
+    let (s, v) = http
+        .register(&other, DeviceKind::Agent, Some(&token), None)
+        .await;
     assert_eq!(s, StatusCode::FORBIDDEN);
     assert_eq!(code(&v), "enrollment_invalid");
     // No token / forged token.
@@ -84,29 +90,43 @@ async fn invalid_identities_are_refused() {
 
     // Signature made by another key.
     let nonce = http.challenge().await;
-    let sig = sign_domain(&impostor, SignatureDomain::DeviceRegistration, nonce.as_bytes());
+    let sig = sign_domain(
+        &impostor,
+        SignatureDomain::DeviceRegistration,
+        nonce.as_bytes(),
+    );
     let body = |nonce: &str, sig: &str| {
         json!({"public_key": key.public(), "kind": "quick_support", "nonce": nonce,
                "signature": sig, "info": {"hostname": "x", "os_name": "", "os_version": "", "app_version": ""}})
     };
-    let (s, v) = http.post("/v1/devices/register", body(&nonce, &sig), None).await;
+    let (s, v) = http
+        .post("/v1/devices/register", body(&nonce, &sig), None)
+        .await;
     assert_eq!(s, StatusCode::UNAUTHORIZED);
     assert_eq!(code(&v), "invalid_signature");
 
     // Signature for the login domain is not a registration proof.
     let nonce = http.challenge().await;
     let sig = sign_domain(&key, SignatureDomain::DeviceLogin, nonce.as_bytes());
-    let (s, v) = http.post("/v1/devices/register", body(&nonce, &sig), None).await;
+    let (s, v) = http
+        .post("/v1/devices/register", body(&nonce, &sig), None)
+        .await;
     assert_eq!(s, StatusCode::UNAUTHORIZED);
     assert_eq!(code(&v), "invalid_signature");
 
     // A nonce cannot be used twice, nor invented.
     let nonce = http.challenge().await;
     let sig = sign_domain(&key, SignatureDomain::DeviceRegistration, nonce.as_bytes());
-    let (s, _) = http.post("/v1/devices/register", body(&nonce, &sig), None).await;
+    let (s, _) = http
+        .post("/v1/devices/register", body(&nonce, &sig), None)
+        .await;
     assert_eq!(s, StatusCode::OK);
     let other = IdentityKey::generate();
-    let sig2 = sign_domain(&other, SignatureDomain::DeviceRegistration, nonce.as_bytes());
+    let sig2 = sign_domain(
+        &other,
+        SignatureDomain::DeviceRegistration,
+        nonce.as_bytes(),
+    );
     let body2 = json!({"public_key": other.public(), "kind": "quick_support", "nonce": nonce,
                        "signature": sig2, "info": {"hostname": "x", "os_name": "", "os_version": "", "app_version": ""}});
     let (s, v) = http.post("/v1/devices/register", body2, None).await;
@@ -151,7 +171,9 @@ async fn device_login_issues_bound_tokens_and_refuses_revoked_devices() {
         .await
         .unwrap();
     let key = IdentityKey::generate();
-    let (_, reg) = http.register(&key, DeviceKind::Agent, Some(&token), None).await;
+    let (_, reg) = http
+        .register(&key, DeviceKind::Agent, Some(&token), None)
+        .await;
     let device_id: uuid::Uuid = reg["device_id"].as_str().unwrap().parse().unwrap();
 
     // Unregistered keys cannot log in.
@@ -185,14 +207,20 @@ async fn device_login_issues_bound_tokens_and_refuses_revoked_devices() {
     // Revocation through the API (admin of the org).
     let access = http.access(&email).await;
     let (s, _) = http
-        .post(&format!("/v1/devices/{device_id}/revoke"), json!({"reason": "stolen laptop"}), Some(&access))
+        .post(
+            &format!("/v1/devices/{device_id}/revoke"),
+            json!({"reason": "stolen laptop"}),
+            Some(&access),
+        )
         .await;
     assert_eq!(s, StatusCode::NO_CONTENT);
     let (s, v) = http.device_login(&key).await;
     assert_eq!(s, StatusCode::FORBIDDEN);
     assert_eq!(code(&v), "device_revoked");
     // Re-registering a revoked identity is refused too.
-    let (s, v) = http.register(&key, DeviceKind::Agent, Some(&token), None).await;
+    let (s, v) = http
+        .register(&key, DeviceKind::Agent, Some(&token), None)
+        .await;
     assert_eq!(s, StatusCode::FORBIDDEN);
     assert_eq!(code(&v), "device_revoked");
     // The relay is told to refuse it.
@@ -227,11 +255,17 @@ async fn revocation_requires_permission() {
         .await
         .unwrap();
     let key = IdentityKey::generate();
-    let (_, reg) = http.register(&key, DeviceKind::Agent, Some(&token), None).await;
+    let (_, reg) = http
+        .register(&key, DeviceKind::Agent, Some(&token), None)
+        .await;
     let device_id = reg["device_id"].as_str().unwrap();
     let access = http.access(&tech_email).await;
     let (s, _) = http
-        .post(&format!("/v1/devices/{device_id}/revoke"), json!({}), Some(&access))
+        .post(
+            &format!("/v1/devices/{device_id}/revoke"),
+            json!({}),
+            Some(&access),
+        )
         .await;
     assert_eq!(s, StatusCode::FORBIDDEN);
     assert_eq!(http.device_login(&key).await.0, StatusCode::OK);

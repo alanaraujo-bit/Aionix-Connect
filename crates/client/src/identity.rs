@@ -79,13 +79,16 @@ impl FileIdentityStore {
         match self.protection {
             Protection::None => Ok(secret.to_vec()),
             #[cfg(windows)]
-            Protection::DpapiUser => aionix_platform::windows::dpapi::protect(secret, aionix_platform::DataScope::User)
-                .map_err(|e| ClientError::Local(e.to_string())),
-            #[cfg(windows)]
-            Protection::DpapiMachine => {
-                aionix_platform::windows::dpapi::protect(secret, aionix_platform::DataScope::Machine)
+            Protection::DpapiUser => {
+                aionix_platform::windows::dpapi::protect(secret, aionix_platform::DataScope::User)
                     .map_err(|e| ClientError::Local(e.to_string()))
             }
+            #[cfg(windows)]
+            Protection::DpapiMachine => aionix_platform::windows::dpapi::protect(
+                secret,
+                aionix_platform::DataScope::Machine,
+            )
+            .map_err(|e| ClientError::Local(e.to_string())),
         }
     }
 
@@ -93,9 +96,11 @@ impl FileIdentityStore {
         match protection {
             Protection::None => Ok(Zeroizing::new(blob.to_vec())),
             #[cfg(windows)]
-            Protection::DpapiUser | Protection::DpapiMachine => aionix_platform::windows::dpapi::unprotect(blob)
-                .map(Zeroizing::new)
-                .map_err(|e| ClientError::Local(e.to_string())),
+            Protection::DpapiUser | Protection::DpapiMachine => {
+                aionix_platform::windows::dpapi::unprotect(blob)
+                    .map(Zeroizing::new)
+                    .map_err(|e| ClientError::Local(e.to_string()))
+            }
         }
     }
 }
@@ -147,7 +152,9 @@ impl IdentityStore for FileIdentityStore {
                 opts.mode(0o600);
             }
             use std::io::Write;
-            let mut file = opts.open(&tmp).map_err(|e| ClientError::Local(e.to_string()))?;
+            let mut file = opts
+                .open(&tmp)
+                .map_err(|e| ClientError::Local(e.to_string()))?;
             file.write_all(&json)
                 .and_then(|_| file.sync_all())
                 .map_err(|e| ClientError::Local(e.to_string()))?;
@@ -165,14 +172,20 @@ pub struct MemoryIdentityStore {
 
 impl IdentityStore for MemoryIdentityStore {
     fn load(&self) -> Result<Option<StoredIdentity>, ClientError> {
-        Ok(self.inner.lock().unwrap().as_ref().map(|(s, r)| StoredIdentity {
-            key: IdentityKey::from_secret_bytes(s),
-            registration: r.clone(),
-        }))
+        Ok(self
+            .inner
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|(s, r)| StoredIdentity {
+                key: IdentityKey::from_secret_bytes(s),
+                registration: r.clone(),
+            }))
     }
 
     fn save(&self, identity: &StoredIdentity) -> Result<(), ClientError> {
-        *self.inner.lock().unwrap() = Some((*identity.key.secret_bytes(), identity.registration.clone()));
+        *self.inner.lock().unwrap() =
+            Some((*identity.key.secret_bytes(), identity.registration.clone()));
         Ok(())
     }
 }

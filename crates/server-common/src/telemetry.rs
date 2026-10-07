@@ -48,11 +48,13 @@ pub fn metrics() -> PrometheusHandle {
     static HANDLE: OnceLock<PrometheusHandle> = OnceLock::new();
     HANDLE
         .get_or_init(|| {
-            PrometheusBuilder::new().install_recorder().unwrap_or_else(|_| {
-                // Another recorder is already installed (tests embedding several
-                // services): fall back to a detached handle.
-                PrometheusBuilder::new().build_recorder().handle()
-            })
+            PrometheusBuilder::new()
+                .install_recorder()
+                .unwrap_or_else(|_| {
+                    // Another recorder is already installed (tests embedding several
+                    // services): fall back to a detached handle.
+                    PrometheusBuilder::new().build_recorder().handle()
+                })
         })
         .clone()
 }

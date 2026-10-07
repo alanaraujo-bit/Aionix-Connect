@@ -126,7 +126,12 @@ pub struct DeviceSession {
 const RENEW_MARGIN: Duration = Duration::from_secs(300);
 
 impl DeviceSession {
-    pub fn new(api: ApiClient, key: IdentityKey, registration: Registration, info: Option<DeviceInfo>) -> Self {
+    pub fn new(
+        api: ApiClient,
+        key: IdentityKey,
+        registration: Registration,
+        info: Option<DeviceInfo>,
+    ) -> Self {
         Self {
             api,
             key,
@@ -159,7 +164,11 @@ impl DeviceSession {
 
     async fn login(&self) -> Result<DeviceLoginResponse, ClientError> {
         let challenge = self.api.challenge().await?;
-        let signature = sign_domain(&self.key, SignatureDomain::DeviceLogin, challenge.nonce.as_bytes());
+        let signature = sign_domain(
+            &self.key,
+            SignatureDomain::DeviceLogin,
+            challenge.nonce.as_bytes(),
+        );
         self.api
             .device_login(&DeviceLoginRequest {
                 public_key: self.key.public(),

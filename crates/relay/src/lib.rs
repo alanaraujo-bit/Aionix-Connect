@@ -67,7 +67,10 @@ impl RelaySettings {
         let status_bind = env.parse_or("AIONIX_RELAY_STATUS_BIND", "0.0.0.0:9090".parse().unwrap());
         let raw = env.list("AIONIX_TOKEN_PUBLIC_KEYS");
         if raw.is_empty() {
-            env.problem("AIONIX_TOKEN_PUBLIC_KEYS", "required (output of `aionix-admin public-key`)");
+            env.problem(
+                "AIONIX_TOKEN_PUBLIC_KEYS",
+                "required (output of `aionix-admin public-key`)",
+            );
         }
         let token_keys = parse_public_keys(&raw).unwrap_or_else(|e| {
             env.problem("AIONIX_TOKEN_PUBLIC_KEYS", e.to_string());
@@ -201,7 +204,10 @@ impl AccessControl for RelayAccess {
             }
         };
         if claims.key.to_bytes() != *req.endpoint_id().as_bytes() {
-            return Self::deny(&self.stats.denied_key_mismatch, "grant issued to another key");
+            return Self::deny(
+                &self.stats.denied_key_mismatch,
+                "grant issued to another key",
+            );
         }
         if self.is_revoked(claims.sub).await {
             return Self::deny(&self.stats.denied_revoked, "device revoked");
@@ -284,14 +290,46 @@ fn status_of(stats: &RelayStats, m: &Metrics, started: Instant) -> RelayStatus {
 fn prometheus(s: &RelayStatus) -> String {
     let mut out = String::new();
     let mut gauge = |name: &str, kind: &str, help: &str, v: String| {
-        out.push_str(&format!("# HELP {name} {help}\n# TYPE {name} {kind}\n{name} {v}\n"));
+        out.push_str(&format!(
+            "# HELP {name} {help}\n# TYPE {name} {kind}\n{name} {v}\n"
+        ));
     };
-    gauge("aionix_relay_connections_active", "gauge", "Admitted relay connections currently open.", s.connections_active.to_string());
-    gauge("aionix_relay_connections_accepted_total", "counter", "Relay connections admitted.", s.connections_accepted_total.to_string());
-    gauge("aionix_relay_bytes_sent_total", "counter", "Bytes forwarded to clients.", s.bytes_sent_total.to_string());
-    gauge("aionix_relay_bytes_received_total", "counter", "Bytes received from clients.", s.bytes_received_total.to_string());
-    gauge("aionix_relay_packets_dropped_total", "counter", "Packets dropped (recipient gone).", s.packets_dropped_total.to_string());
-    gauge("aionix_relay_revocation_checks_unavailable_total", "counter", "Revocation checks skipped because Redis was unavailable.", s.revocation_checks_unavailable.to_string());
+    gauge(
+        "aionix_relay_connections_active",
+        "gauge",
+        "Admitted relay connections currently open.",
+        s.connections_active.to_string(),
+    );
+    gauge(
+        "aionix_relay_connections_accepted_total",
+        "counter",
+        "Relay connections admitted.",
+        s.connections_accepted_total.to_string(),
+    );
+    gauge(
+        "aionix_relay_bytes_sent_total",
+        "counter",
+        "Bytes forwarded to clients.",
+        s.bytes_sent_total.to_string(),
+    );
+    gauge(
+        "aionix_relay_bytes_received_total",
+        "counter",
+        "Bytes received from clients.",
+        s.bytes_received_total.to_string(),
+    );
+    gauge(
+        "aionix_relay_packets_dropped_total",
+        "counter",
+        "Packets dropped (recipient gone).",
+        s.packets_dropped_total.to_string(),
+    );
+    gauge(
+        "aionix_relay_revocation_checks_unavailable_total",
+        "counter",
+        "Revocation checks skipped because Redis was unavailable.",
+        s.revocation_checks_unavailable.to_string(),
+    );
     out.push_str("# HELP aionix_relay_denied_total Refused relay connections by reason.\n# TYPE aionix_relay_denied_total counter\n");
     for (reason, v) in [
         ("invalid_grant", s.denied.invalid_grant),
@@ -300,7 +338,9 @@ fn prometheus(s: &RelayStatus) -> String {
         ("rate_limited", s.denied.rate_limited),
         ("capacity", s.denied.capacity),
     ] {
-        out.push_str(&format!("aionix_relay_denied_total{{reason=\"{reason}\"}} {v}\n"));
+        out.push_str(&format!(
+            "aionix_relay_denied_total{{reason=\"{reason}\"}} {v}\n"
+        ));
     }
     out
 }
@@ -320,7 +360,9 @@ pub async fn spawn(settings: &RelaySettings) -> anyhow::Result<RunningRelay> {
             }
         }
         None => {
-            warn!("AIONIX_REDIS_URL not set: revoked devices are refused only once their relay grant expires");
+            warn!(
+                "AIONIX_REDIS_URL not set: revoked devices are refused only once their relay grant expires"
+            );
             None
         }
     };
@@ -358,22 +400,24 @@ pub async fn spawn_with(
     let metrics = server.metrics().server.clone();
     let started = Instant::now();
 
-    let mut checks: Vec<Box<dyn aionix_server_common::health::ReadinessCheck>> = vec![Box::new(
-        FnCheck::new("relay_listener", move || {
+    let mut checks: Vec<Box<dyn aionix_server_common::health::ReadinessCheck>> =
+        vec![Box::new(FnCheck::new("relay_listener", move || {
             Box::pin(async move {
                 let target = if relay_addr.ip().is_unspecified() {
                     SocketAddr::from(([127, 0, 0, 1], relay_addr.port()))
                 } else {
                     relay_addr
                 };
-                tokio::time::timeout(Duration::from_secs(2), tokio::net::TcpStream::connect(target))
-                    .await
-                    .map_err(|_| "relay listener timed out".to_owned())?
-                    .map(|_| ())
-                    .map_err(|e| format!("relay listener unreachable: {e}"))
+                tokio::time::timeout(
+                    Duration::from_secs(2),
+                    tokio::net::TcpStream::connect(target),
+                )
+                .await
+                .map_err(|_| "relay listener timed out".to_owned())?
+                .map(|_| ())
+                .map_err(|e| format!("relay listener unreachable: {e}"))
             })
-        }),
-    )];
+        }))];
     if let Some(conn) = redis_for_health {
         // Reported, but readiness does not depend on it: the relay keeps forwarding
         // (fail-open revocation, see SECURITY.md).
@@ -406,7 +450,10 @@ pub async fn spawn_with(
                 let s = status_of(&st2, &metrics, started);
                 async move {
                     (
-                        [(axum::http::header::CONTENT_TYPE, "text/plain; version=0.0.4")],
+                        [(
+                            axum::http::header::CONTENT_TYPE,
+                            "text/plain; version=0.0.4",
+                        )],
                         prometheus(&s),
                     )
                 }
@@ -414,7 +461,12 @@ pub async fn spawn_with(
         )
         .merge(
             Router::new()
-                .route("/healthz", get(|| async { Json(serde_json::json!({"service": "aionix-relay", "alive": true})) }))
+                .route(
+                    "/healthz",
+                    get(|| async {
+                        Json(serde_json::json!({"service": "aionix-relay", "alive": true}))
+                    }),
+                )
                 .merge(readiness_only(health)),
         );
     let listener = tokio::net::TcpListener::bind(settings.status_bind).await?;

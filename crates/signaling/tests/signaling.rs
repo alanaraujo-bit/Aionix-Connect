@@ -130,7 +130,9 @@ async fn device_token(api: &TestApi, key: &IdentityKey) -> String {
 }
 
 async fn connect(addr: SocketAddr, token: Option<&str>) -> Result<Ws, u16> {
-    let mut req = format!("ws://{addr}/v1/signal").into_client_request().unwrap();
+    let mut req = format!("ws://{addr}/v1/signal")
+        .into_client_request()
+        .unwrap();
     if let Some(t) = token {
         req.headers_mut().insert(
             "authorization",
@@ -216,18 +218,33 @@ async fn signaling_authentication() {
     let dev = enroll_agent(&api, org).await;
 
     assert_eq!(connect(srv.addr, None).await.err(), Some(401));
-    assert_eq!(connect(srv.addr, Some("axt1.forged.token.x")).await.err(), Some(401));
-    // An access token (other type, same issuer) is not a device token.
-    let (_, login) = post(&api, "/v1/auth/login", json!({"email": email, "password": TEST_PASSWORD}), None).await;
     assert_eq!(
-        connect(srv.addr, login["access_token"].as_str()).await.err(),
+        connect(srv.addr, Some("axt1.forged.token.x")).await.err(),
+        Some(401)
+    );
+    // An access token (other type, same issuer) is not a device token.
+    let (_, login) = post(
+        &api,
+        "/v1/auth/login",
+        json!({"email": email, "password": TEST_PASSWORD}),
+        None,
+    )
+    .await;
+    assert_eq!(
+        connect(srv.addr, login["access_token"].as_str())
+            .await
+            .err(),
         Some(401)
     );
     // Valid device token.
     let token = device_token(&api, &dev.key).await;
     let mut ws = connect(srv.addr, Some(&token)).await.unwrap();
     match recv(&mut ws, true).await.unwrap() {
-        ServerMessage::Ready { device_id, friendly_id, ping_interval } => {
+        ServerMessage::Ready {
+            device_id,
+            friendly_id,
+            ping_interval,
+        } => {
             assert_eq!(device_id, dev.id);
             assert_eq!(friendly_id.compact(), dev.friendly);
             assert_eq!(ping_interval, 0); // 500 ms rounds down to 0 s in the announcement
@@ -236,9 +253,17 @@ async fn signaling_authentication() {
     }
     send(&mut ws, &ClientMessage::Goodbye).await;
     // Revoked device: refused at the door even with an unexpired token.
-    aionix_control_plane::devices::revoke(&api.state.db, api.state.bus.as_ref(), None, dev.id, None, "test", (None, None))
-        .await
-        .unwrap();
+    aionix_control_plane::devices::revoke(
+        &api.state.db,
+        api.state.bus.as_ref(),
+        None,
+        dev.id,
+        None,
+        "test",
+        (None, None),
+    )
+    .await
+    .unwrap();
     assert_eq!(connect(srv.addr, Some(&token)).await.err(), Some(403));
     srv.task.abort();
     api.stop().await;
@@ -257,7 +282,10 @@ async fn presence_follows_the_link_heartbeat_timeout_and_goodbye() {
 
     // Authenticated but no reachability yet: connecting.
     let mut ws = connect(srv.addr, Some(&token)).await.unwrap();
-    assert!(matches!(recv(&mut ws, false).await, Ok(ServerMessage::Ready { .. })));
+    assert!(matches!(
+        recv(&mut ws, false).await,
+        Ok(ServerMessage::Ready { .. })
+    ));
     assert_eq!(presence_of(&api, dev.id).await, PresenceState::Connecting);
     send(&mut ws, &presence_msg()).await;
     wait_presence(&api, dev.id, PresenceState::Online, Duration::from_secs(3)).await;
@@ -289,9 +317,19 @@ async fn presence_follows_the_link_heartbeat_timeout_and_goodbye() {
             send(&mut ws, &ClientMessage::Pong { id }).await;
         }
     }
-    assert_eq!(presence_of(&api, dev.id).await, PresenceState::Online, "heartbeats keep it online");
+    assert_eq!(
+        presence_of(&api, dev.id).await,
+        PresenceState::Online,
+        "heartbeats keep it online"
+    );
     send(&mut ws, &ClientMessage::Goodbye).await;
-    wait_presence(&api, dev.id, PresenceState::Offline, Duration::from_millis(800)).await;
+    wait_presence(
+        &api,
+        dev.id,
+        PresenceState::Offline,
+        Duration::from_millis(800),
+    )
+    .await;
 
     // Abrupt drop (no close handshake): connecting for the grace period, then offline.
     let mut ws = connect(srv.addr, Some(&token)).await.unwrap();
@@ -299,7 +337,13 @@ async fn presence_follows_the_link_heartbeat_timeout_and_goodbye() {
     send(&mut ws, &presence_msg()).await;
     wait_presence(&api, dev.id, PresenceState::Online, Duration::from_secs(3)).await;
     drop(ws);
-    wait_presence(&api, dev.id, PresenceState::Connecting, Duration::from_secs(3)).await;
+    wait_presence(
+        &api,
+        dev.id,
+        PresenceState::Connecting,
+        Duration::from_secs(3),
+    )
+    .await;
     wait_presence(&api, dev.id, PresenceState::Offline, Duration::from_secs(3)).await;
     srv.task.abort();
     api.stop().await;
@@ -356,7 +400,13 @@ async fn full_offer_flow_events_and_revocation_over_real_signaling() {
     wait_presence(&api, host.id, PresenceState::Online, Duration::from_secs(3)).await;
 
     // Technician workstation.
-    let (_, login) = post(&api, "/v1/auth/login", json!({"email": email, "password": TEST_PASSWORD}), None).await;
+    let (_, login) = post(
+        &api,
+        "/v1/auth/login",
+        json!({"email": email, "password": TEST_PASSWORD}),
+        None,
+    )
+    .await;
     let access = login["access_token"].as_str().unwrap().to_owned();
     let ws_key = IdentityKey::generate();
     let n = nonce(&api).await;
@@ -389,7 +439,12 @@ async fn full_offer_flow_events_and_revocation_over_real_signaling() {
     // The host receives the offer and accepts with its address.
     let (sid, ticket) = loop {
         match recv(&mut ws, true).await.unwrap() {
-            ServerMessage::SessionOffer { session_id, ticket, viewer, .. } => {
+            ServerMessage::SessionOffer {
+                session_id,
+                ticket,
+                viewer,
+                ..
+            } => {
                 assert_eq!(viewer.key, ws_key.public());
                 break (session_id, ticket);
             }
@@ -442,9 +497,17 @@ async fn full_offer_flow_events_and_revocation_over_real_signaling() {
     assert!(approved);
 
     // Revocation reaches the live link: DeviceRevoked + close 4003, offline at once.
-    aionix_control_plane::devices::revoke(&api.state.db, api.state.bus.as_ref(), None, host.id, Some(user), "test", (None, None))
-        .await
-        .unwrap();
+    aionix_control_plane::devices::revoke(
+        &api.state.db,
+        api.state.bus.as_ref(),
+        None,
+        host.id,
+        Some(user),
+        "test",
+        (None, None),
+    )
+    .await
+    .unwrap();
     let mut got_revoked = false;
     let code = loop {
         match recv(&mut ws, true).await {
@@ -455,7 +518,13 @@ async fn full_offer_flow_events_and_revocation_over_real_signaling() {
     };
     assert!(got_revoked);
     assert_eq!(code, close_code::DEVICE_REVOKED);
-    wait_presence(&api, host.id, PresenceState::Offline, Duration::from_secs(2)).await;
+    wait_presence(
+        &api,
+        host.id,
+        PresenceState::Offline,
+        Duration::from_secs(2),
+    )
+    .await;
     let s: String = sqlx::query_scalar("SELECT status FROM sessions WHERE id = $1")
         .bind(sid)
         .fetch_one(&api.state.db)
@@ -490,7 +559,13 @@ async fn signaling_restart_devices_reconnect_to_the_new_instance() {
         }
     };
     assert_eq!(code, close_code::SERVICE_RESTART);
-    wait_presence(&api, dev.id, PresenceState::Connecting, Duration::from_secs(2)).await;
+    wait_presence(
+        &api,
+        dev.id,
+        PresenceState::Connecting,
+        Duration::from_secs(2),
+    )
+    .await;
     // The draining instance refuses new links.
     assert_eq!(connect(first.addr, Some(&token)).await.err(), Some(503));
     first.task.abort();

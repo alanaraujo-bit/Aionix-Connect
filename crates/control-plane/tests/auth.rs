@@ -38,7 +38,10 @@ async fn login_me_refresh_rotation_and_logout() {
 
     // No token / garbage token.
     assert_eq!(http.get("/v1/me", None).await.0, StatusCode::UNAUTHORIZED);
-    assert_eq!(http.get("/v1/me", Some("axt1.x.y.z")).await.0, StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        http.get("/v1/me", Some("axt1.x.y.z")).await.0,
+        StatusCode::UNAUTHORIZED
+    );
 
     // Rotation.
     let (s, rotated) = http
@@ -54,7 +57,10 @@ async fn login_me_refresh_rotation_and_logout() {
         .post("/v1/auth/refresh", json!({"refresh_token": refresh1}), None)
         .await;
     assert_eq!(s, StatusCode::UNAUTHORIZED);
-    assert_eq!(http.get("/v1/me", Some(&access2)).await.0, StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        http.get("/v1/me", Some(&access2)).await.0,
+        StatusCode::UNAUTHORIZED
+    );
     let (s, _) = http
         .post("/v1/auth/refresh", json!({"refresh_token": refresh2}), None)
         .await;
@@ -71,10 +77,17 @@ async fn login_me_refresh_rotation_and_logout() {
     let (_, t) = http.login(&email, TEST_PASSWORD).await;
     let access3 = t["access_token"].as_str().unwrap().to_owned();
     let (s, _) = http
-        .post("/v1/auth/logout", json!({"refresh_token": t["refresh_token"]}), None)
+        .post(
+            "/v1/auth/logout",
+            json!({"refresh_token": t["refresh_token"]}),
+            None,
+        )
         .await;
     assert_eq!(s, StatusCode::NO_CONTENT);
-    assert_eq!(http.get("/v1/me", Some(&access3)).await.0, StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        http.get("/v1/me", Some(&access3)).await.0,
+        StatusCode::UNAUTHORIZED
+    );
 
     let audited: Vec<(String, String)> = sqlx::query_as(
         "SELECT action, outcome FROM audit_events WHERE action LIKE 'auth.%' ORDER BY id",
@@ -127,14 +140,27 @@ async fn expired_revoked_and_disabled_account_sessions_are_refused() {
     let (_, b) = http.login(&email, TEST_PASSWORD).await;
     let a = a["access_token"].as_str().unwrap().to_owned();
     let b = b["access_token"].as_str().unwrap().to_owned();
-    assert_eq!(http.post("/v1/auth/logout-all", json!({}), Some(&a)).await.0, StatusCode::NO_CONTENT);
-    assert_eq!(http.get("/v1/me", Some(&b)).await.0, StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        http.post("/v1/auth/logout-all", json!({}), Some(&a))
+            .await
+            .0,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        http.get("/v1/me", Some(&b)).await.0,
+        StatusCode::UNAUTHORIZED
+    );
 
     // Disabled account: existing logins die, new logins fail.
     let (_, c) = http.login(&email, TEST_PASSWORD).await;
     let c = c["access_token"].as_str().unwrap().to_owned();
-    aionix_control_plane::admin::disable_user(&api.state.db, user).await.unwrap();
-    assert_eq!(http.get("/v1/me", Some(&c)).await.0, StatusCode::UNAUTHORIZED);
+    aionix_control_plane::admin::disable_user(&api.state.db, user)
+        .await
+        .unwrap();
+    assert_eq!(
+        http.get("/v1/me", Some(&c)).await.0,
+        StatusCode::UNAUTHORIZED
+    );
     let (s, v) = http.login(&email, TEST_PASSWORD).await;
     assert_eq!(s, StatusCode::UNAUTHORIZED);
     assert_eq!(code(&v), "invalid_credentials");

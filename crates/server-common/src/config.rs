@@ -95,7 +95,10 @@ impl<'a> Env<'a> {
         }
         let lower = v.to_ascii_lowercase();
         if lower.contains("change-me") || lower.contains("changeme") || lower == "password" {
-            self.problem(name, "still contains the placeholder value from .env.example");
+            self.problem(
+                name,
+                "still contains the placeholder value from .env.example",
+            );
         } else if v.len() < min_len {
             self.problem(name, format!("must be at least {min_len} characters"));
         }
@@ -192,6 +195,9 @@ pub fn check_database_url(env: &mut Env<'_>, name: &str, url: &str) {
     if !(url.starts_with("postgres://") || url.starts_with("postgresql://")) {
         env.problem(name, "must start with postgres:// or postgresql://");
     }
+    if url.to_ascii_lowercase().contains("change-me") {
+        env.problem(name, "contains the placeholder password from .env.example");
+    }
 }
 
 pub fn check_redis_url(env: &mut Env<'_>, name: &str, url: &str) {
@@ -200,6 +206,9 @@ pub fn check_redis_url(env: &mut Env<'_>, name: &str, url: &str) {
     }
     if !(url.starts_with("redis://") || url.starts_with("rediss://")) {
         env.problem(name, "must start with redis:// or rediss://");
+    }
+    if url.to_ascii_lowercase().contains("change-me") {
+        env.problem(name, "contains the placeholder password from .env.example");
     }
 }
 
@@ -245,7 +254,10 @@ mod tests {
         let text = err.to_string();
         assert!(text.contains("MISSING"));
         assert!(text.contains("placeholder"));
-        assert!(!text.contains("change-me-please"), "secret value leaked: {text}");
+        assert!(
+            !text.contains("change-me-please"),
+            "secret value leaked: {text}"
+        );
     }
 
     #[test]
