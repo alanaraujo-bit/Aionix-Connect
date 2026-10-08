@@ -370,13 +370,28 @@ mod app {
 
     fn pwsh_script(repo: &Path, script: &str, args: &[&str]) -> Command {
         let shell = if which("pwsh") { "pwsh" } else { "powershell" };
+        // Redirected output would otherwise use the OEM code page and mangle accents.
+        let quote = |s: &str| format!("'{}'", s.replace('\'', "''"));
+        let mut command = format!(
+            "[Console]::OutputEncoding = [Text.Encoding]::UTF8; & {}",
+            quote(&repo.join(script).to_string_lossy())
+        );
+        for a in args {
+            command.push(' ');
+            // Switches stay bare; values are quoted literals.
+            if a.starts_with('-') && !a.contains(' ') {
+                command.push_str(a);
+            } else {
+                command.push_str(&quote(a));
+            }
+        }
+        command.push_str("; exit $LASTEXITCODE");
         let mut c = cmd(shell);
         c.arg("-NoProfile")
             .arg("-ExecutionPolicy")
             .arg("Bypass")
-            .arg("-File")
-            .arg(repo.join(script))
-            .args(args)
+            .arg("-Command")
+            .arg(command)
             .current_dir(repo);
         c
     }

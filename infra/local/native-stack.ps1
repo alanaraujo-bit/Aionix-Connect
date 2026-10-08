@@ -63,24 +63,13 @@ function Wait-Port([int] $Port, [int] $Seconds, [string] $What) {
     }
 }
 
+. (Join-Path $PSScriptRoot 'lib.ps1')
+
 function Start-Hidden([string] $Name, [string] $Exe, [string[]] $Arguments, [hashtable] $Env) {
-    foreach ($k in $Env.Keys) { [Environment]::SetEnvironmentVariable($k, $Env[$k], 'Process') }
-    $p = Start-Process -FilePath $Exe -ArgumentList $Arguments -WindowStyle Hidden -PassThru `
-        -RedirectStandardOutput (Join-Path $Logs "$Name.out.log") -RedirectStandardError (Join-Path $Logs "$Name.log")
-    foreach ($k in $Env.Keys) { [Environment]::SetEnvironmentVariable($k, $null, 'Process') }
-    Set-Content -Path (Join-Path $State "$Name.pid") -Value $p.Id
-    $p
+    Start-Detached -Name $Name -Exe $Exe -Arguments $Arguments -Env $Env -State $State -Logs $Logs
 }
 
-function Stop-Named([string] $Name) {
-    $pidFile = Join-Path $State "$Name.pid"
-    if (Test-Path $pidFile) {
-        $id = [int](Get-Content $pidFile)
-        Get-Process -Id $id -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-        Remove-Item $pidFile -Force
-    }
-}
-
+function Stop-Named([string] $Name) { Stop-Detached -Name $Name -State $State }
 function Start-Databases {
     New-Item -ItemType Directory -Force $Logs | Out-Null
     if (-not (Test-Path (Join-Path $PgBin 'postgres.exe'))) { throw "PostgreSQL não encontrado em $PgBin" }
@@ -97,6 +86,14 @@ function Start-Databases {
         Start-Hidden 'postgres' (Join-Path $PgBin 'postgres.exe') @('-D', "`"$PgData`"", '-p', '55432', '-c', 'listen_addresses=127.0.0.1', '-c', 'max_connections=300') @{} | Out-Null
         Wait-Port 55432 30 'PostgreSQL'
     }
+    # The port opens before recovery finishes; wait until it accepts connections.
+    $deadline = (Get-Date).AddSeconds(60)
+    do {
+        & (Join-Path $PgBin 'pg_isready.exe') -h 127.0.0.1 -p 55432 -q
+        if ($LASTEXITCODE -eq 0) { break }
+        Start-Sleep -Milliseconds 500
+    } while ((Get-Date) -lt $deadline)
+    if ($LASTEXITCODE -ne 0) { throw 'PostgreSQL não ficou pronto' }
     if (-not (Test-Port 56379)) {
         Write-Step 'Iniciando Redis (desenvolvimento)'
         Start-Hidden 'redis' (Join-Path $RedisDir 'redis-server.exe') @('--port', '56379', '--bind', '127.0.0.1') @{} | Out-Null
@@ -153,7 +150,13 @@ try {
         'Up' { Start-Stack }
         'Databases' { Start-Databases }
         'Status' { Show-Status }
-        'Down' { foreach ($n in 'cloudflared', 'caddy', 'aionix-relay', 'aionix-signaling', 'aionix-api', 'redis', 'postgres') { Stop-Named $n }; Write-Host 'parado' }
+        'Down' {
+            foreach ($n in 'cloudflared', 'caddy', 'aionix-relay', 'aionix-signaling', 'aionix-api', 'redis') { Stop-Named $n }
+            # Orderly shutdown: no crash recovery on the next start.
+            if (Test-Path (Join-Path $PgData 'postmaster.pid')) { & (Join-Path $PgBin 'pg_ctl.exe') stop -D $PgData -m fast *> $null }
+            Stop-Named 'postgres'
+            Write-Host 'parado'
+        }
     }
 }
 catch {

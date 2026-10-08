@@ -50,19 +50,12 @@ function Test-Port([int] $Port) {
     try { $c.ConnectAsync('127.0.0.1', $Port).Wait(300) -and $c.Connected } catch { $false } finally { $c.Dispose() }
 }
 
-function Stop-Named([string] $Name) {
-    $pidFile = Join-Path $State "$Name.pid"
-    if (Test-Path $pidFile) {
-        Get-Process -Id ([int](Get-Content $pidFile)) -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-        Remove-Item $pidFile -Force
-    }
-}
+. (Join-Path $PSScriptRoot 'lib.ps1')
+
+function Stop-Named([string] $Name) { Stop-Detached -Name $Name -State $State }
 
 function Start-Hidden([string] $Name, [string] $Exe, [string[]] $Arguments) {
-    $p = Start-Process -FilePath $Exe -ArgumentList $Arguments -WindowStyle Hidden -PassThru `
-        -RedirectStandardOutput (Join-Path $Logs "$Name.out.log") -RedirectStandardError (Join-Path $Logs "$Name.log")
-    Set-Content -Path (Join-Path $State "$Name.pid") -Value $p.Id
-    $p
+    Start-Detached -Name $Name -Exe $Exe -Arguments $Arguments -State $State -Logs $Logs
 }
 
 function Get-Status([string] $Url) {
