@@ -44,7 +44,8 @@ mod app {
     use tokio::process::Command;
 
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    const DETACHED_PROCESS: u32 = 0x0000_0008;
+    /// Services started by the scripts must not receive the launcher's console signals.
+    const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
 
     #[derive(Parser, Debug, Clone)]
     #[command(name = "aionix-launcher", about = "Aionix Connect Dev Launcher")]
@@ -58,6 +59,9 @@ mod app {
         /// Start everything as soon as the window opens.
         #[arg(long)]
         auto_start: bool,
+        /// Prepare an internet test (temporary tunnel + package for another computer).
+        #[arg(long)]
+        internet: bool,
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum, Serialize, Deserialize)]
@@ -164,11 +168,15 @@ mod app {
                 .collect(),
             log: VecDeque::new(),
             running: false,
-            mode: args.mode,
+            mode: if args.internet {
+                Some(Mode::Native)
+            } else {
+                args.mode
+            },
             docker_available: None,
             creds: None,
             started_at: None,
-            internet: false,
+            internet: args.internet,
             public_url: None,
         }));
         let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
@@ -531,7 +539,7 @@ mod app {
                     &["-Action", "Up", "-BinDir", &bin],
                 );
                 // The services must outlive this launcher.
-                c.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS);
+                c.creation_flags(CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP);
                 run_logged(
                     &s,
                     c,
@@ -708,7 +716,7 @@ mod app {
                 "infra/local/public-tunnel.ps1",
                 &["-Action", "Up", "-BinDir", &bin],
             );
-            c.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS);
+            c.creation_flags(CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP);
             if let Err(e) = run_logged(
                 &s,
                 c,

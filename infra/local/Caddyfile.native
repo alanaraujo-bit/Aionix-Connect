@@ -4,6 +4,8 @@
 {
 	admin off
 	auto_https off
+	# Only cloudflared (local) talks to it: no firewall exposure.
+	default_bind 127.0.0.1
 }
 
 :18088 {

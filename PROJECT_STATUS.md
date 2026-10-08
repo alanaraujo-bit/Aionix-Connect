@@ -13,6 +13,40 @@ Environment: one Windows 11 workstation. Docker Desktop/WSL2, PostgreSQL and Red
 executed. The dedicated Ubuntu server is temporarily unavailable; the workstation is the
 intended development/staging server once Docker Desktop is installed.
 
+## Update 2026-10-08 — first running, user-testable build
+
+Workstation: WSL2 platform features + WSL + Docker Desktop 4.94 installed
+(`infra/local/setup-workstation.ps1`, one UAC approval); **a reboot is pending** before
+Docker can run. `infra/local/after-reboot.ps1` is registered (HKCU RunOnce) to start
+Docker, run the dev databases, the full test suite with integration required, and the
+staging stack after that reboot.
+
+Until then the server runs natively (`infra/local/native-stack.ps1`, DEVELOPMENT ONLY):
+the real aionix-api / aionix-signaling / aionix-relay binaries, official PostgreSQL 17.11
+Windows binaries, and Microsoft's archived Redis 3.0 for Windows (NOT the validated Redis
+7.4 — final Redis validation happens on Docker).
+
+Ran and verified on this machine:
+- `AIONIX_REQUIRE_INTEGRATION=1 cargo test --workspace` against real PostgreSQL 17 +
+  Redis 3.0: all integration tests ran (none skipped); one real bug found and fixed
+  (presence TTL expired before heartbeat-timeout detection, so devices skipped the
+  `Connecting` grace state — see ADR-0010).
+- New desktop apps (`crates/desktop`): **Aionix Connect** (host), **Aionix Connect
+  Técnico**, **Dev Launcher**. Full flow with real components: login → workstation
+  enrollment → presence Online → session request with real Control Plane permission
+  check → signed ticket → host `TicketValidator` → real consent window ("Permitir"
+  clicked by a person) → DXGI/WGC capture → Intel Quick Sync H.264 → Media Foundation
+  decode → rendered in the Technician (1920×1080, ~36 fps release build) → ended from
+  either side; session history (requested/connected/ended) and audit rows in PostgreSQL.
+- Internet path: temporary Cloudflare quick tunnel → local Caddy → API/signaling/relay
+  (`infra/local/public-tunnel.ps1`); a packaged client (`dist/Aionix-Connect-Cliente.zip`)
+  enrolled and went Online through the public address; a session through it connected.
+  Both ends were still this same PC — **cross-network media is not validated** until the
+  test with a second network.
+
+Still to run after the reboot (Docker): Redis 7.4 integration run, Compose startup and
+health, restart tests, `staging.ps1 Backup → Destroy → Restore` round trip.
+
 ## IMPLEMENTED
 
 Remote Session Foundation (unchanged): see ARCHITECTURE.md — capture, codec, input,

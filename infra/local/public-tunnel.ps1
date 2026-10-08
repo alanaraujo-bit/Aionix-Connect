@@ -134,6 +134,8 @@ Aionix Connect — teste de acesso remoto
 2. Abra "Aionix Connect.exe".
    O Windows pode avisar "O Windows protegeu o computador" porque este programa de
    teste não é assinado: clique em "Mais informações" e depois em "Executar assim mesmo".
+   Se o Windows perguntar sobre o Firewall, tanto faz: Permitir deixa a conexão mais
+   direta; Cancelar também funciona (o tráfego passa pelo relay, criptografado).
 3. Informe ao técnico o ID de 9 dígitos exibido na janela.
 4. Quando aparecer "Um técnico está solicitando acesso a este computador",
    confira o nome do técnico e clique em Permitir (ou Recusar).

@@ -684,10 +684,21 @@ mod app {
                                     ui.label(RichText::new(org).size(12.0).color(p.muted));
                                 });
                             }
-                            self.banner(ui, &p);
                         });
                     });
                 });
+            if let Some(label) = &self.args.environment_label {
+                egui::Panel::top("env-label")
+                    .exact_size(26.0)
+                    .frame(
+                        egui::Frame::new()
+                            .fill(p.warning.gamma_multiply(0.12))
+                            .inner_margin(egui::Margin::symmetric(20, 4)),
+                    )
+                    .show(ui, |ui| {
+                        ui.label(RichText::new(label).size(12.0).color(p.warning));
+                    });
+            }
             if logout {
                 if let Some(ws) = self.ws.take() {
                     let user = ws.user.clone();

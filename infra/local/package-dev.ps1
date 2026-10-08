@@ -29,6 +29,7 @@ foreach ($e in $Exes) {
     $src = Join-Path $Source "$e.exe"
     if (-not (Test-Path $src)) { throw "$e.exe não encontrado em $Source (compile em release antes)" }
     $dst = Join-Path $Dist "$e.exe"
+    if ((Test-Path $dst) -and (Get-FileHash $src).Hash -eq (Get-FileHash $dst).Hash) { continue }
     try { Copy-Item $src $dst -Force }
     catch { throw "não foi possível atualizar $e.exe — feche o Aionix Connect e tente de novo ($($_.Exception.Message))" }
 }

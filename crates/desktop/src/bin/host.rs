@@ -464,7 +464,7 @@ mod app {
         args: &Args,
         dir: &std::path::Path,
     ) -> Result<(Arc<DeviceSession>, aionix_client::identity::Registration), String> {
-        let api = ApiClient::new(server(&args)).map_err(|e| e.to_string())?;
+        let api = ApiClient::new(server(args)).map_err(|e| e.to_string())?;
         let store = FileIdentityStore::new(dir.join("identity.json"), Protection::DpapiUser);
         let enrollment = match args.enrollment_token.as_deref() {
             Some(t) if !t.is_empty() => Enrollment::Agent {
