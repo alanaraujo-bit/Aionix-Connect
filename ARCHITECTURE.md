@@ -23,8 +23,40 @@ Current state per component: [PROJECT_STATUS.md](PROJECT_STATUS.md). Decisions:
 | `input` | Scancode/Unicode input injection with held-key tracking and `release_all`. |
 | `platform` | Windows integration: input desktop, DPAPI, system info, clipboard, **consent window**. |
 | `remote-core` | Session engine: `session` (this document) and the `adaptive` quality controller. |
+| `server-common` | Server plumbing: env config validation, signing-key files, JSON logs, Prometheus, `/healthz` vs `/readyz`, trusted-proxy client IP, rate limiter, shutdown; `aionix-healthcheck`. |
+| `control-plane` | Control Plane (`aionix-api`, `aionix-admin`): PostgreSQL store and migrations, auth, devices, orgs/roles/permissions, session tickets, audit, Redis presence + bus. |
+| `signaling` | `aionix-signaling`: device WebSocket links, presence, offers, host session events. |
+| `relay` | `aionix-relay`: iroh relay server behind Aionix access control. |
+| `client` | Control Plane client for the desktop apps: enrollment, device sessions, signaling client, `ControlPlaneAuthority`. |
 
-`apps/`, `services/`, `packages/`, `infra/`, `tools/` are placeholders without code.
+`infra/` holds the Docker image, Compose stack, Caddy config and deployment scripts
+(SERVER.md, DEPLOYMENT.md). `apps/`, `services/`, `packages/`, `tools/` are
+placeholders without code.
+
+## Server (control plane and data plane)
+
+```text
+ desktop apps (aionix-client)                     Aionix Connect Server (Docker Compose)
+┌────────────────────────────┐   HTTPS /v1/*    ┌───────┐   ┌────────────┐   ┌────────────┐
+│ ControlPlaneAuthority ─────┼─────────────────▶│       ├──▶│ aionix-api ├──▶│ PostgreSQL │
+│ DeviceSession / enroll     │                  │ Caddy │   └─────┬──────┘   └─────▲──────┘
+│ SignalingClient ───────────┼─ WSS /v1/signal ▶│ (TLS) ├──▶ aionix-signaling ──────┘
+│                            │                  │       │         │  presence/bus
+│ Transport (iroh QUIC) ═════╪══ /relay ═══════▶│       ├──▶ aionix-relay     Redis (ephemeral)
+└────────────────────────────┘   E2E encrypted  └───────┘
+         ▲  direct QUIC (LAN / hole punched), end-to-end encrypted  ▼  other device
+```
+
+- **Control plane** (API + signaling + PostgreSQL + Redis): accounts, devices, presence,
+  authorization, tickets, audit. JSON only.
+- **Data plane**: peer-to-peer QUIC, or the relay forwarding ciphertext. The REST API
+  never carries remote desktop data.
+- Session flow: technician `ControlPlaneAuthority` → `POST /v1/sessions` (user,
+  workstation, organization permission, presence checks; ticket signed) → `SessionOffer`
+  over signaling → host `HostOfferHandler` pins the session id in `TicketValidator` and
+  answers with its address → technician connects with the ticket → host validates it
+  (unchanged, ADR-0006) → visible approval (ADR-0007) → host reports the decision as
+  session events. Details: ADR-0009 … ADR-0014, SERVER.md.
 
 ## Remote session foundation (`remote-core::session`)
 
@@ -71,8 +103,9 @@ id, host key, host address). The host's `TicketValidator` checks signature, type
 target device (id + key), technician key = transport peer key, session id, mode
 (assisted only), `view` permission, and replay (token id and session id, consumed only
 when everything else passed). Friendly ids only select the target inside the authority.
-`DevelopmentAuthority` (feature `dev-authority`, tests/examples only) stands in for the
-Control Plane.
+In production the provider is `aionix_client::authority::ControlPlaneAuthority`
+(ADR-0012); `DevelopmentAuthority` (feature `dev-authority`) remains for tests and
+examples only.
 
 ### Approval
 
@@ -129,3 +162,7 @@ they are not cancellation safe.
   only for the approval click, `SendInput` and the system clipboard.
 - Manual: `consent_probe` and `dev_loopback_session` examples show the real prompt;
   `cargo test -p aionix-platform consent -- --ignored` opens it briefly.
+- Server: unit tests per crate; integration tests against real PostgreSQL/Redis
+  (`compose.yaml`, one fresh database per test, migrations from empty) for auth,
+  enrollment, sessions, presence, signaling (real WebSocket clients) and the client
+  end-to-end flow; relay tests with real iroh endpoints. See SERVER.md.
