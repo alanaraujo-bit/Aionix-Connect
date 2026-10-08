@@ -13,8 +13,12 @@ more than one signaling instance. Signaling must never carry screen content.
 
 - `aionix-signaling` is its own process. Devices keep one WebSocket (`/v1/signal`,
   bearer device token) carrying only JSON control messages.
-- Presence lives in Redis: one record per device with a TTL equal to the heartbeat
-  timeout (45 s), owned by the link's connection id. Lua scripts make every update
+- Presence lives in Redis: one record per device with a TTL of the heartbeat timeout
+  plus two ping intervals (75 s by default), owned by the link's connection id. The
+  margin matters: a silent link is detected on the ping tick after the timeout, and its
+  record must still exist then to be handed over to the `Connecting` grace period
+  (found by the integration tests against real Redis; with TTL = timeout the record
+  expired first and the device skipped `Connecting`). Lua scripts make every update
   conditional on ownership, so a late heartbeat or close of a superseded link cannot
   change the state set by the newer link.
 - States: `Connecting` (authenticated, reachability not yet published; or lost

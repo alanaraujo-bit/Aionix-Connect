@@ -83,6 +83,17 @@ pub struct Timing {
     pub reconnect_grace: Duration,
 }
 
+impl Timing {
+    /// TTL of a link's presence record. A silent link is only detected on the ping tick
+    /// after `heartbeat_timeout`, up to one `ping_interval` later; the record must outlive
+    /// that moment (plus one more interval of slack for store latency) so the link can
+    /// still hand it over to the `Connecting` grace period instead of having it vanish
+    /// first. If the signaling process dies, the record expires on its own after this.
+    pub fn presence_ttl(&self) -> Duration {
+        self.heartbeat_timeout + self.ping_interval * 2
+    }
+}
+
 impl Default for Timing {
     fn default() -> Self {
         Self {
@@ -437,7 +448,7 @@ async fn run_link(
     let (mut sink, mut stream) = socket.split();
     let (tx, mut rx) = mpsc::channel::<Outgoing>(64);
     let mut record = PresenceRecord::connecting(conn_id, &sig.instance);
-    let ttl = sig.timing.heartbeat_timeout;
+    let ttl = sig.timing.presence_ttl();
 
     match sig.presence.claim(device, &record, ttl).await {
         Ok(Some(_previous)) => {
@@ -635,7 +646,7 @@ async fn send(
 async fn heartbeat(sig: &Signaling, device: Uuid, record: &PresenceRecord) -> bool {
     match sig
         .presence
-        .refresh(device, record, sig.timing.heartbeat_timeout)
+        .refresh(device, record, sig.timing.presence_ttl())
         .await
     {
         Ok(owned) => owned,
