@@ -37,3 +37,6 @@ desktop.ini
 *.log
 /bench-results/*.json
 !/bench-results/.gitkeep
+
+# Local validation shortcut (infra/local/package-dev.ps1)
+/Aionix Connect Dev Launcher.lnk

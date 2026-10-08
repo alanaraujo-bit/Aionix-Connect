@@ -137,7 +137,20 @@ pub async fn record_event(
     .await?;
 
     let now = OffsetDateTime::now_utc();
-    if let Some(next) = next_status(&p.status, kind, reporter) {
+    let next = next_status(&p.status, kind, reporter);
+    if next.is_none()
+        && let Some(t) = transport
+        && !is_terminal(&p.status)
+    {
+        // Path reports (`transport_changed`, `reconnected`) keep the session's current
+        // transport accurate without changing its status.
+        sqlx::query("UPDATE sessions SET transport = $2 WHERE id = $1")
+            .bind(session)
+            .bind(transport_str(t))
+            .execute(&mut *tx)
+            .await?;
+    }
+    if let Some(next) = next {
         sqlx::query(
             "UPDATE sessions SET status = $2,
                  approved_at  = CASE WHEN $2 = 'approved' THEN $3 ELSE approved_at END,

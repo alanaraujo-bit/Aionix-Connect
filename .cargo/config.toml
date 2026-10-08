@@ -1,0 +1,4 @@
+# Windows executables link the C runtime statically, so the desktop applications run on
+# a clean Windows installation without the Visual C++ redistributable.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

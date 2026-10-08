@@ -15,6 +15,11 @@
       Down     stop the stack (data is kept)
       Backup   archive identical in format to infra/scripts/backup.sh (database + key + env),
                restorable on Ubuntu with restore.sh / deploy-server.ps1 -RestoreBackup
+      Restore  restore such an archive here (-BackupFile). The signing key is always
+               restored (enrolled devices pinned its public key); -WithConfig also
+               restores .env (same-host disaster recovery). A safety backup comes first.
+      Destroy  disaster simulation for restore tests: removes the containers and the
+               database volume and moves config/secrets aside (asks unless -Yes)
       Logs     follow the logs of the server services
       Admin    run aionix-admin with the remaining arguments
 
@@ -25,10 +30,13 @@
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('Init', 'Up', 'Status', 'Down', 'Backup', 'Logs', 'Admin')]
+    [ValidateSet('Init', 'Up', 'Status', 'Down', 'Backup', 'Restore', 'Destroy', 'Logs', 'Admin')]
     [string] $Action = 'Status',
     [int] $HttpPort = 8080,
     [string] $PublicHost,
+    [string] $BackupFile,
+    [switch] $WithConfig,
+    [switch] $Yes,
     [Parameter(ValueFromRemainingArguments)] [string[]] $Rest
 )
 
@@ -202,12 +210,107 @@ function Backup-Staging {
         $archive = Join-Path $dest "$name.tar.gz"
         & tar.exe -C $work -czf $archive $name
         if ($LASTEXITCODE -ne 0) { throw 'tar falhou' }
+        $script:LastBackup = $archive
         Write-Host "`nBackup: $archive" -ForegroundColor Green
         Write-Host 'Contém a chave de assinatura e as senhas: guarde-o com cuidado.'
         Write-Host 'Migrar para o Ubuntu: infra\deploy-server.ps1 -Server usuario@host -Domain ... -RestoreBackup <arquivo>'
     } finally {
         Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue
     }
+}
+
+function Test-PostgresRunning {
+    if (-not (Test-Path $EnvFile)) { return $false }
+    $running = & docker compose -f $ComposeFile --env-file $EnvFile ps --status running --services 2>$null
+    return ($running -contains 'postgres')
+}
+
+function Confirm-Action([string] $Question) {
+    if ($Yes) { return }
+    $answer = Read-Host "$Question [s/N]"
+    if ($answer -ne 's') { throw 'cancelado' }
+}
+
+function Restore-Staging {
+    Assert-Docker
+    if (-not $BackupFile -or -not (Test-Path $BackupFile)) { throw "arquivo de backup não encontrado: $BackupFile" }
+    if ($BackupFile -like '*.enc') { throw 'backups criptografados: restaure no Ubuntu (restore.sh) ou decifre antes' }
+    $work = Join-Path $State "restore-work-$([Guid]::NewGuid().ToString('N').Substring(0, 8))"
+    New-Item -ItemType Directory -Force $work | Out-Null
+    try {
+        Write-Step 'Verificando o arquivo de backup'
+        & tar.exe -C $work -xzf $BackupFile
+        if ($LASTEXITCODE -ne 0) { throw 'não foi possível extrair o arquivo' }
+        $dir = Get-ChildItem $work -Directory | Where-Object Name -like 'aionix-backup-*' | Select-Object -First 1
+        if (-not $dir -or -not (Test-Path (Join-Path $dir.FullName 'MANIFEST'))) { throw 'arquivo não é um backup Aionix (MANIFEST ausente)' }
+        $manifest = Get-Content (Join-Path $dir.FullName 'MANIFEST')
+        if ($manifest -notcontains 'format=aionix-backup/1') { throw 'formato de backup desconhecido' }
+        foreach ($line in $manifest | Where-Object { $_ -match '^[0-9a-f]{64}  ' }) {
+            $hash, $rel = $line -split '  ', 2
+            $path = Join-Path $dir.FullName ($rel.TrimStart('.', '/') -replace '/', '\')
+            if (-not (Test-Path $path)) { throw "arquivo ausente no backup: $rel" }
+            if ((Get-FileHash $path -Algorithm SHA256).Hash.ToLower() -ne $hash) { throw "falha de integridade: $rel" }
+        }
+        $manifest | Where-Object { $_ -match '^(created_at|host|version|migrations)=' } | ForEach-Object { Write-Host "  $_" }
+        Confirm-Action 'O banco de dados atual será SUBSTITUÍDO. Continuar?'
+
+        if (Test-PostgresRunning) {
+            Write-Step 'Backup de segurança do estado atual'
+            try { Backup-Staging } catch { Write-Host "  aviso: backup de segurança falhou: $($_.Exception.Message)" -ForegroundColor Yellow }
+        }
+        foreach ($d in 'config\secrets', 'backups') { New-Item -ItemType Directory -Force (Join-Path $State $d) | Out-Null }
+        $stamp = Get-Date -Format 'yyyyMMddHHmmss'
+        if ($WithConfig -or -not (Test-Path $EnvFile)) {
+            if (Test-Path $EnvFile) { Copy-Item $EnvFile "$EnvFile.before-restore.$stamp" }
+            Copy-Item (Join-Path $dir.FullName 'config\.env') $EnvFile -Force
+            # Paths in the archive belong to the host that made it; keep this host's.
+            Set-EnvValue 'AIONIX_SOURCE_DIR' (Fwd $Repo)
+            Set-EnvValue 'AIONIX_CONFIG_DIR' (Fwd $Config)
+            Set-EnvValue 'AIONIX_DATA_DIR' (Fwd (Join-Path $State 'data'))
+            Set-EnvValue 'AIONIX_LOG_DIR' (Fwd (Join-Path $State 'logs'))
+            Write-Host '  config/.env restaurado'
+        }
+        if (Test-Path $KeyFile) { Move-Item $KeyFile "$KeyFile.before-restore.$stamp" }
+        Copy-Item (Join-Path $dir.FullName 'config\secrets\token-signing.key') $KeyFile
+        # The public key in .env must match the restored signing key.
+        Set-EnvValue 'AIONIX_TOKEN_PUBLIC_KEYS' ''
+        Write-Host '  chave de assinatura restaurada'
+        foreach ($d in 'data\caddy', 'data\prometheus', 'logs\caddy') { New-Item -ItemType Directory -Force (Join-Path $State $d) | Out-Null }
+
+        Write-Step 'Parando serviços da aplicação'
+        & docker compose -f $ComposeFile --env-file $EnvFile stop caddy aionix-api aionix-signaling aionix-relay *> $null
+        Invoke-Compose up -d postgres redis
+        $deadline = (Get-Date).AddMinutes(2)
+        do {
+            Start-Sleep -Seconds 2
+            & docker compose -f $ComposeFile --env-file $EnvFile exec -T postgres pg_isready -U aionix -d postgres -h 127.0.0.1 *> $null
+        } until ($LASTEXITCODE -eq 0 -or (Get-Date) -gt $deadline)
+
+        Write-Step 'Restaurando PostgreSQL'
+        Invoke-Compose exec -T postgres psql -U aionix -d postgres -v ON_ERROR_STOP=1 -c 'DROP DATABASE IF EXISTS aionix WITH (FORCE)' -c 'CREATE DATABASE aionix OWNER aionix'
+        Invoke-Compose cp (Join-Path $dir.FullName 'postgres.dump') postgres:/tmp/aionix-restore.dump
+        Invoke-Compose exec -T postgres pg_restore -U aionix -d aionix --no-owner --no-privileges --exit-on-error /tmp/aionix-restore.dump
+        Invoke-Compose exec -T postgres rm -f /tmp/aionix-restore.dump
+        Write-Host "`nBanco restaurado; iniciando a pilha..." -ForegroundColor Green
+    } finally {
+        Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue
+    }
+    Start-Staging
+}
+
+function Destroy-Staging {
+    Assert-Docker
+    Confirm-Action 'Remover containers, o volume do PostgreSQL e afastar config/segredos (simulação de desastre)?'
+    if (Test-Path $EnvFile) {
+        Write-Step 'Removendo containers e o volume do banco'
+        & docker compose -f $ComposeFile --env-file $EnvFile --profile tools --profile monitoring down -v --remove-orphans
+    }
+    $aside = Join-Path $State "destroyed-$(Get-Date -Format 'yyyyMMddHHmmss')"
+    if (Test-Path $Config) {
+        Move-Item $Config $aside
+        Write-Host "  config e segredos afastados para $aside"
+    }
+    Write-Host 'Instância destruída (os backups em .staging\backups foram mantidos).' -ForegroundColor Yellow
 }
 
 try {
@@ -217,6 +320,8 @@ try {
         'Status' { Show-Status }
         'Down' { Assert-Docker; Invoke-Compose down }
         'Backup' { Backup-Staging }
+        'Restore' { Restore-Staging }
+        'Destroy' { Destroy-Staging }
         'Logs' { Assert-Docker; Invoke-Compose logs -f --tail 100 aionix-api aionix-signaling aionix-relay }
         'Admin' { Assert-Docker; Invoke-Compose --profile tools run --rm aionix-admin aionix-admin @Rest }
     }

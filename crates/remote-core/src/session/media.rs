@@ -532,9 +532,15 @@ impl ClipboardAccess for MemoryClipboard {
 /// Change detection for one side of the clipboard synchronization. Only changes made
 /// during the session are sent (the content present when the session starts is not),
 /// and writes caused by the peer are not echoed back.
+///
+/// Text identical to the last text exchanged in either direction is not sent either:
+/// when both peers share one clipboard (both ends on the same machine, or a clipboard
+/// manager rewriting the same content) the peer's write would otherwise come back as a
+/// "local change" and bounce between the peers forever.
 pub(crate) struct ClipboardSync {
     clipboard: Arc<dyn ClipboardAccess>,
     last_seen: u64,
+    last_synced: Option<String>,
 }
 
 impl ClipboardSync {
@@ -543,6 +549,7 @@ impl ClipboardSync {
         Self {
             clipboard,
             last_seen,
+            last_synced: None,
         }
     }
 
@@ -554,7 +561,14 @@ impl ClipboardSync {
         }
         self.last_seen = seq;
         let text = self.clipboard.read_text()?;
-        (!text.is_empty() && text.len() <= limits::MAX_CLIPBOARD_TEXT).then_some(text)
+        if text.is_empty()
+            || text.len() > limits::MAX_CLIPBOARD_TEXT
+            || self.last_synced.as_deref() == Some(text.as_str())
+        {
+            return None;
+        }
+        self.last_synced = Some(text.clone());
+        Some(text)
     }
 
     /// Applies text received from the peer. Blocking.
@@ -562,6 +576,7 @@ impl ClipboardSync {
         if text.len() > limits::MAX_CLIPBOARD_TEXT {
             return Err("clipboard text too large".into());
         }
+        self.last_synced = Some(text.to_owned());
         let seq = self.clipboard.write_text(text)?;
         self.last_seen = seq;
         Ok(())
@@ -615,6 +630,21 @@ mod tests {
         assert_eq!(sync.poll(), None, "peer's text is not echoed back");
         let huge = "x".repeat(limits::MAX_CLIPBOARD_TEXT + 1);
         assert!(sync.apply_remote(&huge).is_err());
+    }
+
+    #[test]
+    fn clipboard_shared_by_both_peers_does_not_bounce() {
+        // Host and technician on one machine: one system clipboard, two syncs.
+        let shared = Arc::new(MemoryClipboard::new());
+        let mut host = ClipboardSync::new(shared.clone());
+        let mut tech = ClipboardSync::new(shared.clone());
+        shared.set("copiado no host");
+        let sent = host.poll().expect("host sends its change");
+        tech.apply_remote(&sent).unwrap();
+        assert_eq!(host.poll(), None, "the peer's write is not sent back");
+        assert_eq!(tech.poll(), None);
+        shared.set("outro texto");
+        assert_eq!(tech.poll().as_deref(), Some("outro texto"));
     }
 
     #[test]

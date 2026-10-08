@@ -1,0 +1,56 @@
+[package]
+name = "aionix-desktop"
+description = "Aionix Connect desktop applications: Technician, host (Aionix Connect) and the development launcher"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "aionix-technician"
+path = "src/bin/technician.rs"
+
+[[bin]]
+name = "aionix-host"
+path = "src/bin/host.rs"
+
+[[bin]]
+name = "aionix-launcher"
+path = "src/bin/launcher.rs"
+
+[dependencies]
+aionix-brand = { workspace = true }
+aionix-shared = { workspace = true }
+aionix-crypto = { workspace = true }
+aionix-control-api = { workspace = true }
+aionix-protocol = { workspace = true }
+aionix-transport = { workspace = true }
+aionix-remote-core = { workspace = true }
+aionix-client = { workspace = true }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+clap = { workspace = true }
+eframe = "0.36"
+egui = "0.36"
+futures = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+time = { workspace = true, features = ["local-offset"] }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+uuid = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+aionix-platform = { workspace = true }
+aionix-capture = { workspace = true }
+windows = { workspace = true, features = [
+    "Win32_Foundation",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Graphics_Dwm",
+] }
+
+[dev-dependencies]
+aionix-control-plane = { workspace = true, features = ["test-support"] }

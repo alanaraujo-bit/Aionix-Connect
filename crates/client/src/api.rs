@@ -5,9 +5,9 @@ use std::time::Duration;
 use aionix_control_api::{
     ApiError, DEVICE_TOKEN_HEADER, ErrorCode,
     rest::{
-        AuthTokens, Challenge, CreateSessionRequest, CreateSessionResponse, DeviceLoginRequest,
-        DeviceLoginResponse, DeviceLookup, LoginRequest, RefreshRequest, RegisterDeviceRequest,
-        RegisterDeviceResponse, ServerInfo, SessionEventReport, UserProfile,
+        AuthTokens, Challenge, CreateSessionRequest, CreateSessionResponse, DeviceList,
+        DeviceLoginRequest, DeviceLoginResponse, DeviceLookup, LoginRequest, RefreshRequest,
+        RegisterDeviceRequest, RegisterDeviceResponse, ServerInfo, SessionEventReport, UserProfile,
     },
 };
 use aionix_shared::FriendlyId;
@@ -195,6 +195,15 @@ impl ApiClient {
     pub async fn lookup(&self, access: &str, f: FriendlyId) -> Result<DeviceLookup, ClientError> {
         self.call(
             self.req(Method::GET, &format!("/v1/devices/lookup/{}", f.compact()))
+                .bearer_auth(access),
+        )
+        .await
+    }
+
+    /// Devices of an organization with their presence (`GET /v1/orgs/{org}/devices`).
+    pub async fn org_devices(&self, access: &str, org: Uuid) -> Result<DeviceList, ClientError> {
+        self.call(
+            self.req(Method::GET, &format!("/v1/orgs/{org}/devices"))
                 .bearer_auth(access),
         )
         .await
