@@ -603,8 +603,6 @@ async fn run_link(
             }
         }
     }
-    sig.link_count.fetch_sub(1, Ordering::SeqCst);
-    metrics::gauge!("aionix_signaling_links").set(sig.link_count() as f64);
     let release = match end {
         End::Offline => sig.presence.release(device, conn_id, None).await,
         End::Lost => {
@@ -618,6 +616,10 @@ async fn run_link(
         warn!(error = %e, "could not release presence");
     }
     let _ = devices::mark_seen(&sig.db, device).await;
+    // Counted down only after presence was released, so `drain` returning means every
+    // device already shows Connecting (not a stale Online).
+    sig.link_count.fetch_sub(1, Ordering::SeqCst);
+    metrics::gauge!("aionix_signaling_links").set(sig.link_count() as f64);
     info!(%conn_id, end = ?end, close = ?close.map(|c| c.0), "device link closed");
 }
 

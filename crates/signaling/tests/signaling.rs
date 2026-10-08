@@ -300,7 +300,14 @@ async fn presence_follows_the_link_heartbeat_timeout_and_goodbye() {
         }
     };
     assert_eq!(code, close_code::HEARTBEAT_TIMEOUT);
-    assert_eq!(presence_of(&api, dev.id).await, PresenceState::Connecting);
+    // The server releases presence right after sending the close frame.
+    wait_presence(
+        &api,
+        dev.id,
+        PresenceState::Connecting,
+        Duration::from_millis(800),
+    )
+    .await;
     wait_presence(&api, dev.id, PresenceState::Offline, Duration::from_secs(3)).await;
 
     // Reconnect, answer pings for a while (stays online), then say goodbye.
