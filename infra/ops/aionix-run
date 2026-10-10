@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# Runs one operation and writes it to the operations audit log, live.
+#
+#   sudo aionix-run "<label>" -- <command> [args...]
+#   sudo aionix-run "<label>" < script.sh        (script read from stdin, run with bash)
+#
+# Every line (command, stdout, stderr, start/end, exit code, duration) goes to stdout
+# AND to /var/log/aionix-ops/ops.log as it is produced, so `aionix-watch` (tmux window
+# "ops" of session aionix-setup) shows it in real time. Secrets are redacted in the log
+# AND in the echoed output; the command itself still runs with the real values.
+
+set -o pipefail
+
+LOG_DIR=/var/log/aionix-ops
+LOG="$LOG_DIR/ops.log"
+
+[ "$(id -u)" -eq 0 ] || exec sudo -n "$0" "$@"
+
+label="${1:?uso: aionix-run <label> -- <comando...>  |  aionix-run <label> < script}"
+shift
+[ "${1:-}" = "--" ] && shift
+
+install -d -m 0750 -o root -g adm "$LOG_DIR"
+[ -f "$LOG" ] || install -m 0640 -o root -g adm /dev/null "$LOG"
+
+host="$(hostname)"
+op="$(date +%H%M%S)-$$"
+# sudo drops SSH_CLIENT; `who -m` still knows the origin of the controlling session.
+origin="$(who -m 2>/dev/null | sed -nE 's/.*\(([^)]+)\).*/\1/p')"
+caller="${SUDO_USER:-root}@${origin:-${SSH_CLIENT%% *}}"
+[ "${caller##*@}" ] || caller="${caller}ssh"
+
+# Masks values of KEY=…/KEY: … where KEY looks secret, URL credentials, bearer tokens
+# and private-key blocks.
+redact() {
+    sed -u -E \
+        -e 's/(([A-Za-z0-9_]*(PASS|PASSWORD|PASSWD|SECRET|TOKEN|PRIVATE|APIKEY|API_KEY|SIGNING)[A-Za-z0-9_]*)[[:space:]]*[=:][[:space:]]*)("[^"]*"|'"'"'[^'"'"']*'"'"'|[^[:space:]]+)/\1***/Ig' \
+        -e 's#([a-z]+://[^:/@[:space:]]+:)[^@[:space:]]+@#\1***@#Ig' \
+        -e 's/(Bearer[[:space:]]+)[A-Za-z0-9._~+\/=-]+/\1***/Ig' \
+        -e '/BEGIN [A-Z ]*PRIVATE KEY/,/END [A-Z ]*PRIVATE KEY/c\*** PRIVATE KEY REDACTED ***'
+}
+
+# Prefixes each line with a timestamp and the op id, then appends it to the log.
+stamp() {
+    local kind="$1" line
+    while IFS= read -r line || [ -n "$line" ]; do
+        printf '%(%H:%M:%S)T %s %s %s\n' -1 "$op" "$kind" "$line"
+    done | redact | tee -a "$LOG"
+}
+
+C_B=$'\e[1;36m'; C_OK=$'\e[1;32m'; C_ERR=$'\e[1;31m'; C_0=$'\e[0m'
+
+tmp=""
+if [ $# -eq 0 ]; then
+    tmp="$(mktemp /tmp/aionix-op.XXXXXX)"
+    cat > "$tmp"
+    set -- bash "$tmp"
+    display="bash <script>"
+else
+    display="$*"
+fi
+
+{
+    echo "${C_B}━━━━ BEGIN [$label] host=$host by=$caller ━━━━${C_0}"
+    echo "\$ $display"
+    if [ -n "$tmp" ]; then sed 's/^/  | /' "$tmp"; fi
+} | stamp '>>'
+
+start=$(date +%s)
+# stdout and stderr are logged separately (ERR marks stderr lines).
+{ "$@" 2> >(stamp 'ERR' >&2) | stamp '   '; } < /dev/null
+rc=${PIPESTATUS[0]}
+wait
+dur=$(( $(date +%s) - start ))
+
+if [ "$rc" -eq 0 ]; then
+    echo "${C_OK}━━━━ END   [$label] OK  (${dur}s) ━━━━${C_0}" | stamp '<<'
+else
+    echo "${C_ERR}━━━━ END   [$label] FAILED rc=$rc (${dur}s) ━━━━${C_0}" | stamp '<<'
+fi
+[ -n "$tmp" ] && rm -f "$tmp"
+exit "$rc"

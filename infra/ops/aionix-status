@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# One-screen server status (used by `watch` in the tmux window "monitor").
+# Read-only; safe to run as any user (Docker sections need the docker group or root).
+
+# Docker via passwordless sudo: the observer session does not need the docker group.
+if command docker info >/dev/null 2>&1; then _DSUDO=; else _DSUDO="sudo -n"; fi
+docker() { $_DSUDO docker "$@"; }
+
+C_H=$'\e[1;36m'; C_OK=$'\e[32m'; C_BAD=$'\e[31m'; C_DIM=$'\e[2m'; C_0=$'\e[0m'
+h() { printf '%s── %s %s\n' "$C_H" "$*" "$C_0"; }
+ok()  { printf '  %-12s %s%s%s\n' "$1" "$C_OK" "$2" "$C_0"; }
+bad() { printf '  %-12s %s%s%s\n' "$1" "$C_BAD" "$2" "$C_0"; }
+
+printf '%s%s  %s  up %s%s\n' "$C_H" "$(hostname)" "$(date '+%F %T')" "$(uptime -p | sed 's/^up //')" "$C_0"
+
+h "CPU / memória"
+read -r l1 l5 l15 _ < /proc/loadavg
+printf '  load %s %s %s   (%s CPUs)\n' "$l1" "$l5" "$l15" "$(nproc)"
+# CPU busy % over 1 s from /proc/stat.
+read -r _ a b c d e f g _ < /proc/stat; t1=$((a+b+c+d+e+f+g)); i1=$((d+e))
+sleep 1
+read -r _ a b c d e f g _ < /proc/stat; t2=$((a+b+c+d+e+f+g)); i2=$((d+e))
+printf '  cpu  %s%%\n' $(( (100 * ((t2-t1) - (i2-i1))) / ((t2-t1) > 0 ? (t2-t1) : 1) ))
+free -h | awk 'NR==1{print "  " $0} NR>1{print "  " $0}'
+
+h "Disco"
+df -h -x tmpfs -x devtmpfs -x overlay -x squashfs -x efivarfs | sed 's/^/  /'
+
+h "Rede (total desde o boot)"
+awk 'NR>2 && $1 !~ /^(lo|veth|br-|docker)/ {gsub(":","",$1); printf "  %-10s rx %8.1f MiB  tx %8.1f MiB\n", $1, $2/1048576, $10/1048576}' /proc/net/dev
+
+h "Docker"
+if command -v docker >/dev/null 2>&1; then
+    if docker info >/dev/null 2>&1; then
+        docker ps -a --format '  {{printf "%-28s" .Names}} {{.Status}}' 2>/dev/null | head -20
+        [ -z "$(docker ps -aq 2>/dev/null)" ] && echo "  (nenhum container)"
+    else
+        bad docker "daemon inacessível"
+    fi
+else
+    printf '  %snão instalado%s\n' "$C_DIM" "$C_0"
+fi
+
+h "Serviços Aionix"
+health() { # name container
+    local s
+    s="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$2" 2>/dev/null)" || { printf '  %-12s %s—%s\n' "$1" "$C_DIM" "$C_0"; return; }
+    case "$s" in healthy|running) ok "$1" "$s" ;; *) bad "$1" "$s" ;; esac
+}
+if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    for svc in postgres redis aionix-api aionix-signaling aionix-relay caddy; do
+        c="$(docker ps -a --filter "label=com.docker.compose.service=$svc" --format '{{.Names}}' | head -1)"
+        health "$svc" "${c:-none}"
+    done
+fi
+if curl -fsS -m 3 -o /dev/null http://127.0.0.1/v1/healthz 2>/dev/null; then ok "api via proxy" "OK"
+else printf '  %-12s %s—%s\n' "api via proxy" "$C_DIM" "$C_0"; fi
+
+h "Últimas operações"
+tail -n 6 /var/log/aionix-ops/ops.log 2>/dev/null | cut -c1-150 | sed 's/^/  /' || echo "  (sem acesso ao log)"
