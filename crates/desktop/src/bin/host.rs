@@ -169,7 +169,7 @@ mod app {
         if args.server.is_none() {
             args.server = Some(
                 file.server
-                    .unwrap_or_else(|| "http://127.0.0.1:8080".into()),
+                    .unwrap_or_else(|| common::DEFAULT_SERVER.into()),
             );
         }
         if args.signal_url.is_none() {
@@ -233,7 +233,7 @@ mod app {
     }
 
     fn server(args: &Args) -> &str {
-        args.server.as_deref().unwrap_or("http://127.0.0.1:8080")
+        args.server.as_deref().unwrap_or(common::DEFAULT_SERVER)
     }
 
     fn device_info() -> DeviceInfo {

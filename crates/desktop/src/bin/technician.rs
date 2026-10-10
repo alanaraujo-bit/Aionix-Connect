@@ -66,7 +66,7 @@ mod app {
     #[derive(Parser, Debug, Clone)]
     #[command(name = "aionix-technician", about = "Aionix Connect Técnico")]
     struct Args {
-        #[arg(long, env = "AIONIX_SERVER", default_value = "http://127.0.0.1:8080")]
+        #[arg(long, env = "AIONIX_SERVER", default_value = common::DEFAULT_SERVER)]
         server: String,
         #[arg(long)]
         data_dir: Option<PathBuf>,

@@ -14,6 +14,21 @@ use aionix_remote_core::session::state::{RejectReason, SessionState, SessionStat
 use aionix_transport::{RelayEndpoint, Transport, TransportConfig};
 use tracing::{info, warn};
 
+/// Server compiled into release builds (`AIONIX_DEFAULT_SERVER`, set by
+/// infra/release.ps1); the local development stack otherwise. `--server` and the
+/// host's `aionix-host.json` still override it.
+pub const DEFAULT_SERVER: &str = match option_env!("AIONIX_DEFAULT_SERVER") {
+    Some(s) => s,
+    None => "http://127.0.0.1:8080",
+};
+
+/// Update channel base URL (`AIONIX_UPDATE_BASE`); development builds have none and
+/// never look for updates.
+pub const UPDATE_BASE: Option<&str> = option_env!("AIONIX_UPDATE_BASE");
+
+/// Version of this build (the workspace version).
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 /// `%LOCALAPPDATA%\Aionix Connect\<app>` unless the launcher passes `--data-dir`.
 pub fn data_dir(app: &str, explicit: Option<PathBuf>) -> PathBuf {
     explicit.unwrap_or_else(|| {
