@@ -71,6 +71,10 @@ if [ -n "$BIND" ]; then
     log "Caddy publicado somente em $BIND (80/443)"
 fi
 
+# Compose refuses to interpolate an empty AIONIX_TOKEN_PUBLIC_KEYS even for `build`;
+# the real value is derived from the built image in the next step.
+[ -n "$(env_get AIONIX_TOKEN_PUBLIC_KEYS || true)" ] || env_set AIONIX_TOKEN_PUBLIC_KEYS change-me-derived-after-build
+
 step "Build da imagem aionix-connect-server:$VERSION"
 DOCKER_BUILDKIT=1 dc build aionix-api
 
