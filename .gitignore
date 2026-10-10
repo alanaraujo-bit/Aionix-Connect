@@ -44,3 +44,4 @@ desktop.ini
 # Local tooling
 .impeccable/review/
 .claude/launch.json
+.impeccable/questions/
