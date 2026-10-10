@@ -53,12 +53,20 @@ if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
         health "$svc" "${c:-none}"
     done
 fi
-# Caddy may be bound to the LAN address only: try loopback, then each local IPv4.
+# Probe the public site name (from .env when readable) through the LAN-bound proxy;
+# fall back to plain HTTP on loopback and each local IPv4.
+site="$(sed -n 's/^AIONIX_SITE_ADDRESS=//p' /opt/aionix-connect/config/.env 2>/dev/null)"
 proxy=""
-for ip in 127.0.0.1 $(hostname -I 2>/dev/null); do
-    case "$ip" in *:*) continue ;; esac
-    if t="$(curl -fsS -m 2 -o /dev/null -w '%{time_total}' "http://$ip/healthz" 2>/dev/null)"; then proxy="$ip ${t}s"; break; fi
-done
+case "$site" in
+    ""|:*) ;;
+    *) if t="$(curl -fsS -m 3 -o /dev/null -w '%{time_total}' "https://$site/healthz" 2>/dev/null)"; then proxy="https://$site ${t}s"; fi ;;
+esac
+if [ -z "$proxy" ]; then
+    for ip in 127.0.0.1 $(hostname -I 2>/dev/null); do
+        case "$ip" in *:*) continue ;; esac
+        if t="$(curl -fsS -m 2 -o /dev/null -w '%{time_total}' "http://$ip/healthz" 2>/dev/null)"; then proxy="$ip ${t}s"; break; fi
+    done
+fi
 if [ -n "$proxy" ]; then ok "api (proxy)" "OK  $proxy"; else bad "api (proxy)" "sem resposta"; fi
 
 h "Últimas operações"

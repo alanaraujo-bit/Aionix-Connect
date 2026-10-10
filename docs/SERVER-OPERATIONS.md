@@ -30,7 +30,11 @@ deployed with:
 | aionix-api / signaling / relay | healthy | `/v1/server/info` 200 · `/v1/signal` WS without token 401 · `/ping` 200 · `/generate_204` 204 |
 | caddy 2.10 | running | `http://192.168.18.110/healthz` 200; `/readyz`, `/metrics`, unknown routes 404 |
 
-Mode: **LAN, plain HTTP** (no domain/TLS yet). Caddy publishes 80/443 **only on
+Mode (2026-10-10): **public HTTPS at `https://connect.aionixdev.com`** — DNS A record
+(Hostinger) → 138.0.54.176 (fixed IP), ONT Huawei EG8145X6 port mapping `Aionix_Connect`
+(TCP/UDP 443, TCP 80 → 192.168.18.110), Let's Encrypt certificate via Caddy (tls-alpn-01),
+HTTP→HTTPS 308. Verified from Brazil, Germany, Romania, Vietnam and Iran, and from the LAN
+(NAT loopback works). Caddy publishes 80/443 **only on
 192.168.18.110** (`AIONIX_HTTP_PORT`/`AIONIX_HTTPS_PORT` in `.env`), so nothing listens on
 the server's public IPv6 address. Docker-published ports bypass UFW; the bind address is
 what limits exposure.
@@ -98,5 +102,6 @@ source `dashboard/`).
 3. **Off-disk backups** — use the 1 TB HDD (currently NTFS; formatting it erases its
    contents) or another destination; consider encryption via `AIONIX_BACKUP_PASSPHRASE_FILE` in `.env`.
 4. **Restore drill** of today's backup into a scratch stack.
-5. **Domain + TLS** when the server must be reachable from the internet (router port
-   forward, DNS, `-Domain`/`-AcmeEmail`), after which the LAN bind is replaced.
+5. Desktop packages for the public server: `infra/package-apps.ps1 -Server
+   https://connect.aionixdev.com -Name internet` (the earlier LAN packages that point at
+   `http://192.168.18.110` no longer work: Caddy now serves only the domain).
