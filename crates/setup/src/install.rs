@@ -131,7 +131,19 @@ pub fn uninstall(p: &ProductInfo, remove_data: bool, progress: Progress<'_>) -> 
     #[cfg(windows)]
     win::close_running(&exe);
 
-    progress(0.35, "Removendo atalhos");
+    // The app goes first: if it cannot be removed, nothing else has been touched and the
+    // "Apps & features" entry is still there to try again.
+    progress(0.3, "Removendo o aplicativo");
+    if exe.exists() {
+        std::fs::remove_file(&exe).map_err(|_| {
+            format!(
+                "Feche o {} e tente novamente (o aplicativo ainda está aberto).",
+                p.display
+            )
+        })?;
+    }
+
+    progress(0.45, "Removendo atalhos");
     #[cfg(windows)]
     {
         let _ = std::fs::remove_file(start_menu_dir().join(format!("{}.lnk", p.display)));
@@ -147,19 +159,11 @@ pub fn uninstall(p: &ProductInfo, remove_data: bool, progress: Progress<'_>) -> 
         }
     }
 
-    progress(0.55, "Removendo o registro do Windows");
+    progress(0.6, "Removendo o registro do Windows");
     #[cfg(windows)]
     win::unregister(p);
 
     progress(0.75, "Removendo arquivos");
-    if exe.exists() {
-        std::fs::remove_file(&exe).map_err(|_| {
-            format!(
-                "Feche o {} e tente novamente (o aplicativo ainda está aberto).",
-                p.display
-            )
-        })?;
-    }
     if remove_data {
         let _ = std::fs::remove_dir_all(data_dir(p));
     }
@@ -378,8 +382,8 @@ mod win {
         }
     }
 
-    /// Asks a running copy of `exe` to close (window close, like the user would), then
-    /// gives it a few seconds.
+    /// Asks a running copy of `exe` to close (window close, like the user would), gives
+    /// it a few seconds, then ends it if it is still holding the file.
     pub fn close_running(exe: &Path) {
         let name = exe
             .file_name()
@@ -388,16 +392,30 @@ mod win {
         if name.is_empty() {
             return;
         }
-        let _ = std::process::Command::new("taskkill")
-            .args(["/IM", &name])
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status();
-        for _ in 0..30 {
-            if std::fs::OpenOptions::new().write(true).open(exe).is_ok() || !exe.exists() {
-                return;
+        let released = || {
+            for _ in 0..30 {
+                if std::fs::OpenOptions::new().write(true).open(exe).is_ok() || !exe.exists() {
+                    return true;
+                }
+                std::thread::sleep(Duration::from_millis(200));
             }
-            std::thread::sleep(Duration::from_millis(200));
+            false
+        };
+        let taskkill = |force: bool| {
+            let mut cmd = std::process::Command::new("taskkill");
+            if force {
+                cmd.arg("/F");
+            }
+            let _ = cmd
+                .args(["/IM", &name])
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status();
+        };
+        taskkill(false);
+        if !released() {
+            taskkill(true);
+            released();
         }
     }
 
@@ -412,8 +430,10 @@ mod win {
             file.display(),
             dir.display()
         );
+        // raw_arg: `args` would escape the inner quotes as \" (MSVCRT rules), which
+        // cmd.exe does not understand, so paths with spaces were never deleted.
         let _ = std::process::Command::new("cmd")
-            .args(["/d", "/c", &script])
+            .raw_arg(format!("/d /s /c \"{script}\""))
             .current_dir(std::env::temp_dir())
             .creation_flags(CREATE_NO_WINDOW)
             .spawn();
