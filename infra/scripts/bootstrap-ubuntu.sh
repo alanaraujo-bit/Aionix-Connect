@@ -95,6 +95,8 @@ install -d -m 0750 "$ROOT/data"
 # postgres/caddy/prometheus manage their own ownership inside these directories.
 install -d -m 0700 "$ROOT/data/postgres" "$ROOT/data/caddy" "$ROOT/data/prometheus"
 if [ -n "$OPERATOR" ]; then
+    # The deploy (run as the operator) maintains $ROOT/current.
+    chown "$OPERATOR":aionix "$ROOT"
     chown "$OPERATOR":aionix "$ROOT/compose" "$ROOT/scripts" "$ROOT/releases" "$ROOT/logs" \
         "$ROOT/logs/caddy" "$ROOT/config" "$ROOT/config/secrets" "$ROOT/backups"
 fi

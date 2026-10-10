@@ -185,7 +185,8 @@ services:
       - "${AIONIX_HTTPS_PORT:-443}:443/udp"
     environment:
       AIONIX_SITE_ADDRESS: "${AIONIX_SITE_ADDRESS:?AIONIX_SITE_ADDRESS is required}"
-      ACME_EMAIL: "${ACME_EMAIL:-}"
+      # Never empty: Caddy only applies the Caddyfile default when the variable is unset.
+      ACME_EMAIL: "${ACME_EMAIL:-ops@example.invalid}"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - "${AIONIX_DATA_DIR}/caddy:/data"

@@ -1,0 +1,324 @@
+#!/usr/bin/env python3
+"""Pushes a sanitized server snapshot to the public status dashboard.
+
+Runs as aionix-telemetry.service. Every INTERVAL seconds it POSTs JSON to INGEST_URL
+with "Authorization: Bearer INGEST_TOKEN" (both from /etc/aionix-telemetry.env).
+
+Only aggregate, non-sensitive data leaves the server: resource usage, container
+names/states, service health and versions. Never IP addresses, environment values,
+logs, users or anything from the database.
+"""
+
+import json
+import os
+import re
+import shutil
+import socket
+import subprocess
+import threading
+import time
+import urllib.error
+import urllib.request
+
+INGEST_URL = os.environ.get("INGEST_URL", "")
+INGEST_TOKEN = os.environ.get("INGEST_TOKEN", "")
+INTERVAL = float(os.environ.get("INTERVAL", "10"))
+NET_IFACE = os.environ.get("NET_IFACE", "")
+HEALTH_URL = os.environ.get("HEALTH_URL", "")
+SERVER_LABEL = os.environ.get("SERVER_LABEL", socket.gethostname())
+ENV_FILE = "/opt/aionix-connect/config/.env"
+
+AIONIX_SERVICES = ["caddy", "aionix-api", "aionix-signaling", "aionix-relay", "postgres", "redis"]
+
+
+def read(path, default=""):
+    try:
+        with open(path) as f:
+            return f.read()
+    except OSError:
+        return default
+
+
+def run(cmd, timeout=8):
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout).stdout
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+# --- CPU ---------------------------------------------------------------------------
+
+def cpu_times():
+    out = {}
+    for line in read("/proc/stat").splitlines():
+        if line.startswith("cpu"):
+            name, *vals = line.split()
+            vals = list(map(int, vals[:8]))
+            idle = vals[3] + vals[4]
+            out[name] = (sum(vals), idle)
+    return out
+
+
+_prev_cpu = cpu_times()
+
+
+def cpu_usage():
+    global _prev_cpu
+    cur = cpu_times()
+    pct = {}
+    for k, (tot, idle) in cur.items():
+        pt, pi = _prev_cpu.get(k, (tot, idle))
+        dt = tot - pt
+        pct[k] = round(100.0 * (dt - (idle - pi)) / dt, 1) if dt > 0 else 0.0
+    _prev_cpu = cur
+    cores = [pct[k] for k in sorted((k for k in pct if k != "cpu"), key=lambda s: int(s[3:]))]
+    return pct.get("cpu", 0.0), cores
+
+
+def cpu_model():
+    m = re.search(r"model name\s*:\s*(.+)", read("/proc/cpuinfo"))
+    return re.sub(r"\s+", " ", m.group(1)).replace("(R)", "").replace("(TM)", "").strip() if m else ""
+
+
+def cpu_freq_mhz():
+    vals = [float(x) for x in re.findall(r"cpu MHz\s*:\s*([\d.]+)", read("/proc/cpuinfo"))]
+    return round(sum(vals) / len(vals)) if vals else None
+
+
+# --- memory / disk / net / sensors ----------------------------------------------------
+
+def meminfo():
+    m = {}
+    for line in read("/proc/meminfo").splitlines():
+        k, _, v = line.partition(":")
+        m[k] = int(v.split()[0]) * 1024 if v.split() else 0
+    total, avail = m.get("MemTotal", 0), m.get("MemAvailable", 0)
+    return {
+        "total": total, "used": total - avail, "available": avail,
+        "cached": m.get("Cached", 0) + m.get("Buffers", 0),
+        "swapTotal": m.get("SwapTotal", 0), "swapUsed": m.get("SwapTotal", 0) - m.get("SwapFree", 0),
+    }
+
+
+def disks():
+    fs = []
+    seen = set()
+    for line in read("/proc/mounts").splitlines():
+        dev, mnt, typ = line.split()[:3]
+        if not dev.startswith("/dev/") or typ in ("squashfs", "iso9660") or dev in seen:
+            continue
+        if mnt.startswith(("/snap", "/var/lib/docker", "/run")):
+            continue
+        seen.add(dev)
+        try:
+            u = shutil.disk_usage(mnt)
+        except OSError:
+            continue
+        fs.append({"mount": mnt, "fs": typ, "total": u.total, "used": u.used})
+    devices = []
+    try:
+        lsblk = json.loads(run(["lsblk", "-J", "-b", "-d", "-o", "NAME,SIZE,MODEL,ROTA,TYPE"]) or "{}")
+        for d in lsblk.get("blockdevices", []):
+            if d.get("type") == "disk":
+                devices.append({"name": d["name"], "size": int(d.get("size") or 0),
+                                "model": (d.get("model") or "").strip(), "hdd": bool(int(d.get("rota") or 0))})
+    except (ValueError, KeyError):
+        pass
+    return fs, devices
+
+
+def default_iface():
+    if NET_IFACE:
+        return NET_IFACE
+    for line in read("/proc/net/route").splitlines()[1:]:
+        p = line.split()
+        if len(p) > 2 and p[1] == "00000000":
+            return p[0]
+    return ""
+
+
+def net_bytes(iface):
+    for line in read("/proc/net/dev").splitlines()[2:]:
+        name, _, rest = line.partition(":")
+        if name.strip() == iface:
+            v = rest.split()
+            return int(v[0]), int(v[8])
+    return 0, 0
+
+
+def disk_io():
+    r = w = 0
+    for line in read("/proc/diskstats").splitlines():
+        p = line.split()
+        if len(p) > 9 and re.fullmatch(r"sd[a-z]+|nvme\d+n\d+|vd[a-z]+", p[2]):
+            r += int(p[5]) * 512
+            w += int(p[9]) * 512
+    return r, w
+
+
+def temperatures():
+    """Highest CPU package/core temperature (°C) and the list of package temps."""
+    temps = []
+    base = "/sys/class/hwmon"
+    try:
+        for hw in os.listdir(base):
+            d = os.path.join(base, hw)
+            name = read(os.path.join(d, "name")).strip()
+            if name not in ("coretemp", "k10temp", "zenpower"):
+                continue
+            for f in os.listdir(d):
+                if f.startswith("temp") and f.endswith("_input"):
+                    label = read(os.path.join(d, f.replace("_input", "_label"))).strip()
+                    v = int(read(os.path.join(d, f), "0") or 0) / 1000
+                    if v > 0:
+                        temps.append((label, v))
+    except OSError:
+        pass
+    if not temps:
+        return None, []
+    pkgs = [round(v, 1) for l, v in temps if l.lower().startswith(("package", "tctl", "tdie"))]
+    return round(max(v for _, v in temps), 1), pkgs
+
+
+def tcp_established():
+    n = 0
+    for f in ("/proc/net/tcp", "/proc/net/tcp6"):
+        n += sum(1 for line in read(f).splitlines()[1:] if line.split()[3] == "01")
+    return n
+
+
+# --- docker / services -----------------------------------------------------------------
+
+_docker_stats = {}
+_docker_lock = threading.Lock()
+
+
+def docker_stats_loop():
+    """`docker stats` takes ~2 s, so it runs in its own thread every 20 s."""
+    while True:
+        out = run(["docker", "stats", "--no-stream", "--format", "{{json .}}"], timeout=30)
+        stats = {}
+        for line in out.splitlines():
+            try:
+                s = json.loads(line)
+                stats[s["Name"]] = {"cpu": float(s["CPUPerc"].rstrip("%") or 0),
+                                    "mem": s["MemUsage"].split("/")[0].strip()}
+            except (ValueError, KeyError):
+                pass
+        with _docker_lock:
+            _docker_stats.clear()
+            _docker_stats.update(stats)
+        time.sleep(20)
+
+
+def containers():
+    out = run(["docker", "ps", "-a", "--format", "{{json .}}"])
+    items = []
+    for line in out.splitlines():
+        try:
+            c = json.loads(line)
+        except ValueError:
+            continue
+        labels = dict(kv.split("=", 1) for kv in c.get("Labels", "").split(",") if "=" in kv)
+        status = c.get("Status", "")
+        health = "healthy" if "(healthy)" in status else "unhealthy" if "(unhealthy)" in status \
+            else "starting" if "health: starting" in status else None
+        with _docker_lock:
+            st = _docker_stats.get(c["Names"], {})
+        image = c.get("Image", "")
+        items.append({
+            "name": c["Names"], "service": labels.get("com.docker.compose.service", ""),
+            "image": image.split("@")[0], "state": c.get("State", ""), "health": health,
+            "status": re.sub(r"\s*\((healthy|unhealthy|health: starting)\)", "", status),
+            "cpu": st.get("cpu"), "mem": st.get("mem"),
+        })
+    return items
+
+
+def docker_version():
+    return run(["docker", "version", "--format", "{{.Server.Version}}"]).strip()
+
+
+def aionix_version():
+    m = re.search(r"^AIONIX_VERSION=(.+)$", read(ENV_FILE), re.M)
+    return m.group(1).strip() if m else ""
+
+
+def health_probe():
+    if not HEALTH_URL:
+        return None
+    t = time.monotonic()
+    try:
+        with urllib.request.urlopen(HEALTH_URL, timeout=3) as r:
+            ok = 200 <= r.status < 300
+    except (urllib.error.URLError, OSError):
+        ok = False
+    return {"ok": ok, "ms": round((time.monotonic() - t) * 1000, 1)}
+
+
+def ufw_active():
+    return "Status: active" in run(["ufw", "status"])
+
+
+def os_name():
+    m = re.search(r'^PRETTY_NAME="?([^"\n]+)', read("/etc/os-release"), re.M)
+    return m.group(1) if m else ""
+
+
+# --- main loop -------------------------------------------------------------------------
+
+def main():
+    if not INGEST_URL or not INGEST_TOKEN:
+        raise SystemExit("INGEST_URL e INGEST_TOKEN são obrigatórios (/etc/aionix-telemetry.env)")
+    threading.Thread(target=docker_stats_loop, daemon=True).start()
+    iface = default_iface()
+    static = {"label": SERVER_LABEL, "os": os_name(), "kernel": os.uname().release,
+              "cpuModel": cpu_model(), "cores": os.cpu_count()}
+    prev_net, prev_io, prev_t = net_bytes(iface), disk_io(), time.monotonic()
+    slow, slow_at = {}, 0.0
+    time.sleep(1)
+    while True:
+        started = time.monotonic()
+        try:
+            now = time.monotonic()
+            dt = max(now - prev_t, 0.001)
+            rx, tx = net_bytes(iface)
+            rd, wr = disk_io()
+            total_cpu, cores = cpu_usage()
+            temp, pkg = temperatures()
+            if now - slow_at > 60:
+                fs, devices = disks()
+                slow = {"fs": fs, "devices": devices, "dockerVersion": docker_version(),
+                        "aionixVersion": aionix_version(), "firewall": ufw_active()}
+                slow_at = now
+            ctr = containers()
+            svc = {s: next(({"state": c["state"], "health": c["health"]} for c in ctr if c["service"] == s), None)
+                   for s in AIONIX_SERVICES}
+            snap = {
+                "v": 1, "ts": int(time.time() * 1000), **static, **slow,
+                "uptime": float(read("/proc/uptime", "0").split()[0]),
+                "load": [float(x) for x in read("/proc/loadavg").split()[:3]],
+                "cpu": total_cpu, "perCore": cores, "freqMhz": cpu_freq_mhz(),
+                "temp": temp, "pkgTemps": pkg,
+                "mem": meminfo(),
+                "net": {"rx": max(rx - prev_net[0], 0) / dt, "tx": max(tx - prev_net[1], 0) / dt,
+                        "rxTotal": rx, "txTotal": tx},
+                "io": {"read": max(rd - prev_io[0], 0) / dt, "write": max(wr - prev_io[1], 0) / dt},
+                "tcp": tcp_established(),
+                "procs": sum(1 for p in os.listdir("/proc") if p.isdigit()),
+                "containers": ctr, "services": svc, "health": health_probe(),
+            }
+            prev_net, prev_io, prev_t = (rx, tx), (rd, wr), now
+            req = urllib.request.Request(
+                INGEST_URL, data=json.dumps(snap, separators=(",", ":")).encode(), method="POST",
+                headers={"Content-Type": "application/json", "Authorization": f"Bearer {INGEST_TOKEN}",
+                         "User-Agent": "aionix-telemetry/1"})
+            with urllib.request.urlopen(req, timeout=8) as r:
+                r.read()
+        except Exception as e:  # keep running whatever happens; journal shows why
+            print(f"telemetry: {type(e).__name__}: {e}", flush=True)
+        time.sleep(max(INTERVAL - (time.monotonic() - started), 1))
+
+
+if __name__ == "__main__":
+    main()
