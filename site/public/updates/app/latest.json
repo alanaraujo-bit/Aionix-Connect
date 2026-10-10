@@ -1,13 +1,13 @@
 {
   "product": "app",
-  "version": "0.2.2",
-  "published_at": "2026-10-10T12:02:35.727106Z",
+  "version": "0.2.3",
+  "published_at": "2026-10-10T12:27:34.6497865Z",
   "notes": [
-    "Teste de atualização automática (2)"
+    "Desinstalador mais seguro: não deixa a instalação pela metade e remove a própria pasta"
   ],
   "installer": {
-    "url": "https://aionixconnect.aionixdev.com/releases/0.2.2/Aionix-Connect-Setup-0.2.2.exe",
+    "url": "https://aionixconnect.aionixdev.com/releases/0.2.3/Aionix-Connect-Setup-0.2.3.exe",
     "size": 34882048,
-    "sha256": "34e634ff863d2a6209f8379060537dc1fd9a012e95b4bc0509d393075b7e8adf"
+    "sha256": "91722ddf5a792b7cee4e87018fc998eadecd0ca371fd27e0f014a6d3c25af969"
   }
 }
