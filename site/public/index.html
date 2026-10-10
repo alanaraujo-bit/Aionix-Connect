@@ -604,7 +604,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   const copy = $('#copy-client');
   copy.addEventListener('click', async (e) => {
     e.preventDefault();
-    const url = links.app || location.origin + '/#download';
+    // Stable link: always redirects to the current installer (see infra/release.ps1).
+    const url = location.origin + '/download';
     try { await navigator.clipboard.writeText(url); copy.textContent = 'Link copiado'; }
     catch { copy.textContent = url; }
     setTimeout(() => (copy.textContent = 'Copiar link de download'), 2400);

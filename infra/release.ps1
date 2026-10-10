@@ -96,7 +96,17 @@ try {
     }
     Remove-Item Env:AIONIX_SETUP_PAYLOAD, Env:AIONIX_DEFAULT_SERVER, Env:AIONIX_UPDATE_BASE -ErrorAction SilentlyContinue
 
-    Run git @('add', 'site/public/updates')
+    # Stable link (/download) to the current installer: links sent to clients keep
+    # working after the next release replaces releases/<version>/.
+    $vj = Join-Path $SiteDir 'vercel.json'
+    $cfg = Get-Content $vj -Raw | ConvertFrom-Json
+    $current = "/releases/$Version/$($products[0].file)"
+    $cfg | Add-Member -NotePropertyName redirects -NotePropertyValue @(
+        [pscustomobject]@{ source = '/download'; destination = $current; permanent = $false }
+    ) -Force
+    $cfg | ConvertTo-Json -Depth 10 | Set-Content $vj -Encoding utf8NoBOM
+
+    Run git @('add', 'site/public/updates', 'site/vercel.json')
     & git diff --cached --quiet
     if ($LASTEXITCODE -ne 0) { Run git @('commit', '-q', '-m', "Update channel v$Version") }
 
