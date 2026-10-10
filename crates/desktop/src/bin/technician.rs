@@ -137,6 +137,11 @@ mod app {
     struct InputState {
         focused: bool,
         last_pos: Option<(i32, i32)>,
+        /// Local pointer over the remote image while controlling. The cursor is drawn
+        /// here immediately (with the remote shape) instead of waiting a round trip for
+        /// the host to report its new position — on a 80-100 ms link that wait is what
+        /// makes the pointer feel like rubber.
+        local_pointer: Option<Pos2>,
         mods: egui::Modifiers,
         last_key_unmapped: bool,
     }
@@ -1025,11 +1030,17 @@ mod app {
             let id = ui.id().with("remote-viewer");
             let resp = ui.interact(img, id, Sense::click_and_drag());
             if !(allowed && s.control) {
+                s.input.local_pointer = None;
                 if s.input.focused {
                     release_all(s);
                 }
                 return;
             }
+            s.input.local_pointer = if resp.hovered() || resp.is_pointer_button_down_on() {
+                ui.input(|i| i.pointer.hover_pos()).map(|p| p.clamp(img.min, img.max))
+            } else {
+                None
+            };
             if resp.clicked() || resp.drag_started() || resp.is_pointer_button_down_on() {
                 resp.request_focus();
             }
@@ -1067,7 +1078,9 @@ mod app {
                 let y = ((pos.y - img.min.y) / img.height() * sh).clamp(0.0, sh - 1.0);
                 (x as i32, y as i32)
             };
-            if resp.hovered() || resp.is_pointer_button_down_on() {
+            // Hide the OS pointer only when the remote cursor can be drawn in its place.
+            let have_shape = s.cursor.as_ref().is_some_and(|c| s.cursors.contains_key(&c.shape_id));
+            if have_shape && (resp.hovered() || resp.is_pointer_button_down_on()) {
                 ui.ctx().set_cursor_icon(egui::CursorIcon::None);
             }
             let events = ui.input(|i| i.events.clone());
@@ -1223,10 +1236,12 @@ mod app {
             .map(|st| (st.source_width as f32, st.source_height as f32))
             .unwrap_or((img.width(), img.height()));
         let scale = img.width() / sw;
-        let pos = Pos2::new(
-            img.min.x + c.x as f32 * scale,
-            img.min.y + c.y as f32 * (img.height() / sh),
-        );
+        let pos = s.input.local_pointer.unwrap_or_else(|| {
+            Pos2::new(
+                img.min.x + c.x as f32 * scale,
+                img.min.y + c.y as f32 * (img.height() / sh),
+            )
+        });
         let size = shape.size * scale.clamp(0.6, 1.5);
         let min = pos - shape.hotspot * (size.x / shape.size.x);
         ui.painter().image(
