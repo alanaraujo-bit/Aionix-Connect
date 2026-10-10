@@ -2,9 +2,9 @@
 
     python -I infra/branding/make-icons.py
 
-Writes branding/icons/{host,technician,setup}.ico and branding/icons/*-512.png. The mark
-is the same "A" monogram the apps draw at runtime (crates/desktop/src/icon.rs), on a
-diagonal gradient: blue for the computer being supported, violet for the technician.
+Writes branding/icons/setup.ico (app, installer) and branding/icons/setup-512.png. The
+mark is the same "A" monogram the app draws at runtime (crates/desktop/src/icon.rs), on a
+diagonal blue→violet gradient: one app for both sides of a support session.
 Rendered at 1024 px and downsampled per size so small icons stay crisp.
 """
 
@@ -17,8 +17,6 @@ OUT = ROOT / "branding" / "icons"
 
 VARIANTS = {
     # name: (gradient start, gradient end)
-    "host": ((0x6A, 0x97, 0xFF), (0x2D, 0x55, 0xE6)),
-    "technician": ((0xA3, 0x7B, 0xFF), (0x55, 0x38, 0xDB)),
     "setup": ((0x5E, 0x8C, 0xFF), (0x7A, 0x45, 0xF0)),
 }
 SIZES = [16, 20, 24, 32, 40, 48, 64, 96, 128, 256]

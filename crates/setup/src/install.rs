@@ -7,12 +7,10 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-/// Static description of one installable product.
+/// Static description of the installable product.
 #[derive(Debug, Clone, Copy)]
 pub struct ProductInfo {
-    /// `host` | `technician` (update channel slug).
-    pub slug: &'static str,
-    /// Name shown everywhere ("Aionix Connect", "Aionix Connect Técnico").
+    /// Name shown everywhere.
     pub display: &'static str,
     /// Install folder name under `%LOCALAPPDATA%\Programs`.
     pub dir_name: &'static str,
@@ -20,40 +18,23 @@ pub struct ProductInfo {
     pub exe_name: &'static str,
     /// HKCU\...\Uninstall\<key>.
     pub reg_key: &'static str,
-    /// Data folder name under `%LOCALAPPDATA%\Aionix Connect`.
-    pub data_name: &'static str,
     /// Tagline on the installer.
     pub tagline: &'static str,
 }
 
-pub const HOST: ProductInfo = ProductInfo {
-    slug: "host",
+/// Aionix Connect: one app to receive and to give remote support.
+pub const APP: ProductInfo = ProductInfo {
     display: "Aionix Connect",
     dir_name: "Aionix Connect",
     exe_name: "Aionix Connect.exe",
     reg_key: "AionixConnect",
-    data_name: "host",
-    tagline: "Receba suporte remoto com segurança. Ninguém acessa sem a sua permissão.",
-};
-
-pub const TECHNICIAN: ProductInfo = ProductInfo {
-    slug: "technician",
-    display: "Aionix Connect Técnico",
-    dir_name: "Aionix Connect Tecnico",
-    exe_name: "Aionix Connect Tecnico.exe",
-    reg_key: "AionixConnectTechnician",
-    data_name: "technician",
-    tagline: "Acesse e ajude computadores à distância, com vídeo fluido e criptografia de ponta a ponta.",
+    tagline: "Receba e dê suporte remoto com segurança. Ninguém acessa um computador sem a permissão de quem está nele.",
 };
 
 pub const UNINSTALLER: &str = "Desinstalar.exe";
 
 pub fn product() -> ProductInfo {
-    if env!("AIONIX_SETUP_PRODUCT") == "technician" {
-        TECHNICIAN
-    } else {
-        HOST
-    }
+    APP
 }
 
 pub fn payload() -> &'static [u8] {
@@ -72,11 +53,10 @@ pub fn default_install_dir(p: &ProductInfo) -> PathBuf {
     local_appdata().join("Programs").join(p.dir_name)
 }
 
-/// `%LOCALAPPDATA%\Aionix Connect\<app>` (identity, logs, settings).
-pub fn data_dir(p: &ProductInfo) -> PathBuf {
-    local_appdata()
-        .join(&aionix_brand::brand().identifiers.data_dir_name)
-        .join(p.data_name)
+/// `%LOCALAPPDATA%\Aionix Connect`: the receiving identity (the 9-digit ID), the
+/// stored login, settings, logs and downloaded updates.
+pub fn data_dir(_p: &ProductInfo) -> PathBuf {
+    local_appdata().join(&aionix_brand::brand().identifiers.data_dir_name)
 }
 
 /// What is currently installed, if anything.

@@ -15,8 +15,9 @@ landing page plus downloads and the update channel files; nothing needs a server
 ## Users
 
 IT / support technicians — initially the owner and two friends — who give remote support
-to their clients. They install **Aionix Connect Técnico**; the person being helped (the
-client, often non-technical) installs **Aionix Connect** and reads out a 9-digit ID.
+to their clients, and the people they help. Everyone installs the same app,
+**Aionix Connect** (like AnyDesk): it always shows this computer's 9-digit ID for
+receiving help, and connects to other computers by ID after signing in once.
 Future: a commercial product for support professionals.
 
 ## Product Purpose
@@ -34,9 +35,10 @@ with an encrypted relay fallback, and updates signed with the project's own rele
 
 ## Operating Context
 
-The technician downloads both installers from the site; sends the client the client
-download link; the client opens Aionix Connect and tells the 9-digit ID; the technician
-connects by ID; the client clicks "Permitir". Windows only.
+Both sides download the same installer from the site. The client opens Aionix Connect
+and reads out the ID; the technician types it in "Acessar outro computador" (signed in);
+the client clicks "Permitir". Receiving help needs no account; connecting does
+(accounts are created by the server admin). Windows only.
 
 ## Capabilities and Constraints
 
@@ -49,8 +51,9 @@ connects by ID; the client clicks "Permitir". Windows only.
 
 ## Brand Commitments
 
-Name "Aionix Connect" / "Aionix Connect Técnico", company "Aionix" (branding/brand.json).
-"A" monogram icons: client blue, technician violet (branding/icons). App palette from
+Name "Aionix Connect", company "Aionix" (branding/brand.json). One "A" monogram icon on
+a blue→violet gradient (branding/icons/setup.*); blue marks the receiving side and
+violet the helping side inside the UI and site. App palette from
 crates/desktop/src/theme.rs (dark: bg #0d1015, accent #4f7cff). pt-BR voice, direct and
 calm.
 
@@ -63,5 +66,5 @@ testimonials, pricing or benchmarks beyond the measurements above — none may b
 
 1. Consent is visible: nothing happens on a client's computer without them allowing it.
 2. Trust is earned with mechanisms (encryption, signatures), not adjectives.
-3. Two downloads, zero confusion: who receives support vs. who gives it.
+3. One app, zero confusion: the same download receives and gives support.
 4. Updating should never require sending a file again.

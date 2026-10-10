@@ -9,7 +9,7 @@
 //! 3. waits for readiness;
 //! 4. provisions test data through `aionix-admin` (organization, technician account,
 //!    enrollment token) — credentials are generated and kept in `.data/dev/`;
-//! 5. opens Aionix Connect (host) and Aionix Connect Técnico.
+//! 5. opens Aionix Connect (one app: this computer's ID + access to other computers).
 //!
 //! Every step shows its state; the output of the scripts is kept in `.data/dev/logs/`.
 
@@ -140,14 +140,13 @@ mod app {
         dev: PathBuf,
     }
 
-    const STEP_TITLES: [&str; 7] = [
+    const STEP_TITLES: [&str; 6] = [
         "Verificar ambiente",
         "Iniciar servidor",
         "Aguardar prontidão dos serviços",
         "Preparar dados de teste",
         "Acesso pela internet (túnel temporário)",
-        "Abrir Aionix Connect (computador atendido)",
-        "Abrir Aionix Connect Técnico",
+        "Abrir Aionix Connect",
     ];
 
     pub fn main() {
@@ -495,14 +494,12 @@ mod app {
     async fn pipeline(s: Shared, paths: Arc<Paths>, mode: Mode) -> Result<(), String> {
         // 1. Environment
         set_step(&s, 0, StepState::Running);
-        for exe in ["aionix-host.exe", "aionix-technician.exe"] {
-            if !paths.bin.join(exe).is_file() {
-                return fail(
-                    &s,
-                    0,
-                    format!("{exe} não encontrado em {}", paths.bin.display()),
-                );
-            }
+        if !paths.bin.join("aionix-connect.exe").is_file() {
+            return fail(
+                &s,
+                0,
+                format!("aionix-connect.exe não encontrado em {}", paths.bin.display()),
+            );
         }
         if mode == Mode::Native {
             for exe in [
@@ -781,62 +778,46 @@ mod app {
             )
         };
         set_step(&s, 5, StepState::Running);
-        if internet {
+        if process_running("aionix-connect.exe") {
             set_step(
                 &s,
                 5,
-                StepState::Done("no computador do seu amigo (pacote gerado)".into()),
-            );
-        } else if process_running("aionix-host.exe") {
-            set_step(&s, 5, StepState::Done("já estava aberto".into()));
-        } else {
-            let mut c = std::process::Command::new(paths.bin.join("aionix-host.exe"));
-            c.arg("--server")
-                .arg(&server)
-                .arg("--data-dir")
-                .arg(apps.join("host"))
-                .arg("--environment-label")
-                .arg(&label);
-            if let Some(sig) = &signal {
-                c.arg("--signal-url").arg(sig);
-            }
-            c.env("AIONIX_ENROLLMENT_TOKEN", &token);
-            match c.spawn() {
-                Ok(_) => set_step(&s, 6, StepState::Done("aberto".into())),
-                Err(e) => return fail(&s, 6, e.to_string()),
-            }
-        }
-        tokio::time::sleep(Duration::from_secs(2)).await;
-        set_step(&s, 6, StepState::Running);
-        if process_running("aionix-technician.exe") {
-            set_step(
-                &s,
-                6,
                 StepState::Done(
                     "já estava aberto — feche-o e clique em Iniciar tudo para trocar de servidor"
                         .into(),
                 ),
             );
         } else {
-            let mut c = std::process::Command::new(paths.bin.join("aionix-technician.exe"));
+            // One app: receives support (enrolled with the test organization's token)
+            // and connects to others with the test account.
+            let mut c = std::process::Command::new(paths.bin.join("aionix-connect.exe"));
             c.arg("--server")
                 .arg(&server)
                 .arg("--data-dir")
-                .arg(apps.join("technician"))
+                .arg(&apps)
+                .arg("--environment-label")
+                .arg(&label)
                 .arg("--email")
                 .arg(&prov.email)
                 .arg("--auto-login")
-                .arg("--environment-label")
-                .arg(&label)
+                .arg("--multi-instance")
+                .env("AIONIX_ENROLLMENT_TOKEN", &token)
                 .env("AIONIX_DEV_PASSWORD", &prov.password);
+            if let Some(sig) = &signal {
+                c.arg("--signal-url").arg(sig);
+            }
             match c.spawn() {
-                Ok(_) => set_step(&s, 6, StepState::Done("aberto".into())),
-                Err(e) => return fail(&s, 6, e.to_string()),
+                Ok(_) => set_step(&s, 5, StepState::Done("aberto".into())),
+                Err(e) => return fail(&s, 5, e.to_string()),
             }
         }
         log(
             &s,
-            "Pronto. No Técnico, clique em Conectar no dispositivo e responda Permitir na janela de confirmação.",
+            if internet {
+                "Pronto. Envie o pacote ao seu amigo; quando ele passar o ID, digite-o em Acessar outro computador."
+            } else {
+                "Pronto. Em Seus dispositivos, clique em Conectar e responda Permitir na janela de confirmação."
+            },
         );
         Ok(())
     }
@@ -1081,30 +1062,49 @@ mod app {
                         Some(c) => {
                             theme::kv(ui, "E-mail", &c.email);
                             ui.horizontal(|ui| {
-                                let shown = if self.show_password { c.password.clone() } else { "•".repeat(12) };
+                                let shown = if self.show_password {
+                                    c.password.clone()
+                                } else {
+                                    "•".repeat(12)
+                                };
                                 theme::kv(ui, "Senha", &shown);
                             });
                             ui.horizontal(|ui| {
-                                if ui.small_button(if self.show_password { "Ocultar" } else { "Mostrar" }).clicked() {
+                                if ui
+                                    .small_button(if self.show_password {
+                                        "Ocultar"
+                                    } else {
+                                        "Mostrar"
+                                    })
+                                    .clicked()
+                                {
                                     self.show_password = !self.show_password;
                                 }
                                 if ui.small_button("Copiar senha").clicked() {
                                     ui.ctx().copy_text(c.password.clone());
                                 }
                             });
-                            ui.label(RichText::new("O Técnico já abre com esta conta.").size(12.0).color(p.muted));
+                            ui.label(
+                                RichText::new("O Aionix Connect já abre conectado a esta conta.")
+                                    .size(12.0)
+                                    .color(p.muted),
+                            );
                         }
                         None => {
-                            ui.label(RichText::new("Criada automaticamente ao iniciar.").size(12.5).color(p.muted));
+                            ui.label(
+                                RichText::new("Criada automaticamente ao iniciar.")
+                                    .size(12.5)
+                                    .color(p.muted),
+                            );
                         }
                     }
                     ui.add_space(8.0);
                     ui.label(theme::title("Como testar", 15.0));
                     for line in [
-                        "1. No Técnico, clique em Conectar no dispositivo online.",
+                        "1. Em Seus dispositivos, clique em Conectar no computador online.",
                         "2. Na janela \"Um técnico está solicitando acesso\", clique em Permitir.",
-                        "3. A tela remota aparece no Técnico; use Diagnóstico para ver as métricas.",
-                        "4. Encerre pelo Técnico ou pelo botão Encerrar sessão no computador atendido.",
+                        "3. A tela remota ocupa a janela; use Diagnóstico para ver as métricas.",
+                        "4. Encerre pela barra da sessão ou pelo botão Encerrar sessão.",
                     ] {
                         ui.label(RichText::new(line).size(12.5));
                     }
@@ -1119,7 +1119,7 @@ mod app {
                     theme::kv(ui, "Endereço público", &url);
                     let zip = paths.repo.join("dist").join("Aionix-Connect-Cliente.zip");
                     theme::kv(ui, "Pacote", &zip.display().to_string());
-                    ui.label(RichText::new("Envie o pacote ao seu amigo. Ele extrai, abre \"Aionix Connect.exe\" e informa o ID; você digita o ID em Conectar por ID no Técnico.").size(12.5).color(p.muted));
+                    ui.label(RichText::new("Envie o pacote ao seu amigo. Ele extrai, abre \"Aionix Connect.exe\" e informa o ID; você digita o ID em Acessar outro computador.").size(12.5).color(p.muted));
                     ui.horizontal(|ui| {
                         if theme::secondary_button(ui, "Abrir pasta do pacote", true, None).clicked() {
                             let _ = std::process::Command::new("explorer").arg("/select,").arg(&zip).spawn();

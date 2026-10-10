@@ -6,10 +6,10 @@
 .DESCRIPTION
     1. checks a clean git tree and the release key
     2. sets the workspace version (Cargo.toml) and commits "Release vX.Y.Z"
-    3. builds aionix-host / aionix-technician with the production server and update
-       channel compiled in, then one aionix-setup per product with the app embedded
+    3. builds aionix-connect with the production server and update channel compiled
+       in, then aionix-setup with the app embedded
     4. copies the installers to site/public/releases/<version>/ (not committed)
-    5. writes site/public/updates/<product>/latest.json + .sig, signed with the release
+    5. writes site/public/updates/app/latest.json + .sig, signed with the release
        key (outside the repo), and verifies them against the keys compiled into the apps
     6. deploys the site to production (Vercel) and re-verifies what is publicly served
     7. tags vX.Y.Z
@@ -68,22 +68,21 @@ try {
     Step 'Build dos aplicativos (servidor e canal de atualização embutidos)'
     $env:AIONIX_DEFAULT_SERVER = $Server
     $env:AIONIX_UPDATE_BASE = "$Site/updates"
-    Run cargo @('build', '--release', '-p', 'aionix-desktop', '--bin', 'aionix-host', '--bin', 'aionix-technician')
+    Run cargo @('build', '--release', '-p', 'aionix-desktop', '--bin', 'aionix-connect')
     Run cargo @('build', '--release', '-p', 'aionix-update', '--bin', 'aionix-release')
 
     $products = @(
-        @{ slug = 'host'; exe = 'aionix-host.exe'; file = "Aionix-Connect-Setup-$Version.exe" },
-        @{ slug = 'technician'; exe = 'aionix-technician.exe'; file = "Aionix-Connect-Tecnico-Setup-$Version.exe" }
+        @{ slug = 'app'; exe = 'aionix-connect.exe'; file = "Aionix-Connect-Setup-$Version.exe" }
     )
     $relDir = Join-Path $SiteDir "public\releases\$Version"
     Remove-Item (Join-Path $SiteDir 'public\releases') -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item (Join-Path $SiteDir 'public\updates') -Recurse -Force -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force $relDir | Out-Null
     $release = Join-Path $Target 'aionix-release.exe'
     $noteArgs = @(); foreach ($n in $Notes) { $noteArgs += @('--note', $n) }
 
     foreach ($p in $products) {
         Step "Instalador: $($p.slug)"
-        $env:AIONIX_SETUP_PRODUCT = $p.slug
         $env:AIONIX_SETUP_PAYLOAD = Join-Path $Target $p.exe
         Run cargo @('build', '--release', '-p', 'aionix-setup')
         $out = Join-Path $relDir $p.file
@@ -95,7 +94,7 @@ try {
             '--installer', $out, '--url', "$Site/releases/$Version/$($p.file)", '--out', $updDir) + $noteArgs)
         Run $release @('verify', '--product', $p.slug, '--manifest', (Join-Path $updDir 'latest.json'), '--installer', $out)
     }
-    Remove-Item Env:AIONIX_SETUP_PRODUCT, Env:AIONIX_SETUP_PAYLOAD, Env:AIONIX_DEFAULT_SERVER, Env:AIONIX_UPDATE_BASE -ErrorAction SilentlyContinue
+    Remove-Item Env:AIONIX_SETUP_PAYLOAD, Env:AIONIX_DEFAULT_SERVER, Env:AIONIX_UPDATE_BASE -ErrorAction SilentlyContinue
 
     Run git @('add', 'site/public/updates')
     & git diff --cached --quiet

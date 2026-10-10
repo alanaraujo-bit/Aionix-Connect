@@ -144,8 +144,6 @@ fn main() {
     );
 }
 
-const HOST_PNG: &[u8] = include_bytes!("../../../branding/icons/host-512.png");
-const TECH_PNG: &[u8] = include_bytes!("../../../branding/icons/technician-512.png");
 const SETUP_PNG: &[u8] = include_bytes!("../../../branding/icons/setup-512.png");
 
 fn decode_png(bytes: &[u8]) -> Option<(Vec<u8>, u32, u32)> {
@@ -168,11 +166,8 @@ fn decode_icon(bytes: &[u8]) -> egui::IconData {
 }
 
 fn load_logo(ctx: &egui::Context, p: &ProductInfo) -> Option<TextureHandle> {
-    let bytes = if p.slug == "technician" {
-        TECH_PNG
-    } else {
-        HOST_PNG
-    };
+    let _ = p;
+    let bytes = SETUP_PNG;
     let (rgba, w, h) = decode_png(bytes)?;
     let img = egui::ColorImage::from_rgba_unmultiplied([w as usize, h as usize], &rgba);
     Some(ctx.load_texture("logo", img, egui::TextureOptions::LINEAR))
@@ -200,17 +195,9 @@ fn default_options(p: &ProductInfo, desktop: bool) -> Options {
 
 const GRAD_A: Color32 = Color32::from_rgb(0x5E, 0x8C, 0xFF);
 const GRAD_B: Color32 = Color32::from_rgb(0x7A, 0x45, 0xF0);
-const HOST_A: Color32 = Color32::from_rgb(0x6A, 0x97, 0xFF);
-const HOST_B: Color32 = Color32::from_rgb(0x2D, 0x55, 0xE6);
-const TECH_A: Color32 = Color32::from_rgb(0xA3, 0x7B, 0xFF);
-const TECH_B: Color32 = Color32::from_rgb(0x55, 0x38, 0xDB);
 
-fn product_gradient(p: &ProductInfo) -> (Color32, Color32) {
-    if p.slug == "technician" {
-        (TECH_A, TECH_B)
-    } else {
-        (HOST_A, HOST_B)
-    }
+fn product_gradient(_p: &ProductInfo) -> (Color32, Color32) {
+    (GRAD_A, GRAD_B)
 }
 
 /// Diagonal gradient rectangle (top-left a → bottom-right b).
@@ -583,11 +570,8 @@ impl SetupApp {
             &format!("Desinstalar o {name}"),
             "Remove o aplicativo, os atalhos e o registro em Aplicativos instalados.",
         );
-        let data_text = if self.product.slug == "host" {
-            "Remover também os dados deste computador (o ID de 9 dígitos será trocado)"
-        } else {
-            "Remover também os dados (login salvo e registros)"
-        };
+        let data_text =
+            "Remover também os dados deste computador (o ID será trocado e o login apagado)";
         theme::toggle_chip(ui, &mut self.remove_data, data_text, true);
         ui.with_layout(Layout::bottom_up(Align::Max), |ui| {
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {

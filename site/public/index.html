@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Aionix Connect — suporte remoto que o cliente autoriza</title>
-<meta name="description" content="Acesse e ajude computadores Windows à distância. O cliente autoriza com um clique, a sessão é criptografada de ponta a ponta e os aplicativos se atualizam sozinhos.">
+<meta name="description" content="Um aplicativo para receber e dar suporte remoto no Windows. O cliente autoriza com um clique, a sessão é criptografada de ponta a ponta e o aplicativo se atualiza sozinho.">
 <meta name="theme-color" content="#0d1015">
 <meta property="og:title" content="Aionix Connect">
 <meta property="og:description" content="Suporte remoto para Windows. O cliente autoriza com um clique; vídeo fluido e criptografado de ponta a ponta.">
@@ -78,6 +78,8 @@ p { margin: 0; }
 /* ---------- buttons ---------- */
 .btn { display: inline-flex; align-items: center; gap: 10px; border-radius: 10px; padding: 13px 20px; font: 600 15px/1 var(--ui); text-decoration: none; border: 1px solid transparent; cursor: pointer; transition: background .2s, border-color .2s, transform .2s, box-shadow .2s; white-space: nowrap; }
 .btn svg { width: 18px; height: 18px; flex: none; }
+.btn-app { background: linear-gradient(135deg, #5e8cff, #7a45f0); color: #fff; box-shadow: 0 6px 16px -8px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.18); }
+.btn-app:hover { transform: translateY(-1px); box-shadow: 0 10px 22px -10px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.22); filter: brightness(1.06); }
 .btn-tech { background: linear-gradient(135deg, var(--tech-a), var(--tech-b)); color: #fff; box-shadow: 0 6px 16px -8px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.18); }
 .btn-client { background: linear-gradient(135deg, var(--client-a), var(--client-b)); color: #fff; box-shadow: 0 6px 16px -8px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.18); }
 .btn-tech:hover, .btn-client:hover { transform: translateY(-1px); box-shadow: 0 10px 22px -10px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.22); filter: brightness(1.06); }
@@ -235,6 +237,13 @@ section { padding: 120px 0 0; }
 @media (max-width: 820px) { .ledger { grid-template-columns: 1fr; } .ledger > div, .ledger > div:nth-child(even) { padding: 26px 0; border-right: 0; } }
 
 /* Downloads. */
+.dl.app { margin-top: 56px; display: grid; grid-template-columns: .9fr 1.1fr; gap: 40px; align-items: center; }
+.dl.app::before { background: radial-gradient(520px 300px at 0% 0%, rgba(94,140,255,.18), transparent 70%), radial-gradient(520px 300px at 100% 100%, rgba(122,69,240,.16), transparent 70%); }
+.dl-sides { display: grid; gap: 22px; }
+.dl-sides b { font-family: var(--display); font-weight: 600; font-size: 1.1rem; }
+.dl-sides p { color: var(--muted); margin-top: 4px; }
+.side-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 10px; vertical-align: 1px; }
+@media (max-width: 820px) { .dl.app { grid-template-columns: 1fr; gap: 28px; } }
 .dl-grid { margin-top: 56px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 .dl { position: relative; border-radius: 20px; padding: 32px; overflow: hidden; border: 1px solid var(--border); background: var(--surface); isolation: isolate; }
 .dl::before { content: ""; position: absolute; inset: 0; z-index: -1; opacity: .9; }
@@ -299,10 +308,10 @@ footer .right { margin-left: auto; }
 </head>
 <body>
 <!--
-THESIS: A primeira tela é o próprio produto trabalhando — a janela do Técnico em sessão, com o cliente autorizando no outro computador. Recusa o herói genérico de título + grade de cartões com ícones.
-OWN-WORLD: O mundo dos apps: fundo #0d1015, superfícies #151921 com bordas #2a303c, acento #4f7cff; azul (#6a97ff→#2d55e6) é o Cliente, violeta (#a37bff→#5538db) é o Técnico; pílulas de status, chips e botões de 10px dos apps; display Bricolage Grotesque, números em JetBrains Mono só para medidas.
-STORY: O técnico entende em segundos o que é, vê o fluxo ID → Permitir → Conectado, confia pelos mecanismos (consentimento, ponta a ponta, assinatura) e baixa os dois instaladores.
-FIRST VIEWPORT: Título centralizado e dois downloads (Técnico violeta primário, Cliente azul) logo abaixo; a réplica da janela do Técnico ocupa a largura, animando o fluxo; o pedido de "Permitir" do cliente flutua no canto inferior direito.
+THESIS: A primeira tela é o próprio produto trabalhando — a janela do Aionix Connect em sessão, com o cliente autorizando no outro computador. Recusa o herói genérico de título + grade de cartões com ícones.
+OWN-WORLD: O mundo do app: fundo #0d1015, superfícies #151921 com bordas #2a303c, acento #4f7cff; o app é o degradê azul→violeta (#5e8cff→#7a45f0); azul marca o lado de quem recebe ajuda, violeta o de quem ajuda; pílulas de status, chips e botões de 10px dos apps; display Bricolage Grotesque, números em JetBrains Mono só para medidas.
+STORY: O visitante entende em segundos o que é, vê o fluxo ID → Permitir → Conectado, confia pelos mecanismos (consentimento, ponta a ponta, assinatura) e baixa o único instalador.
+FIRST VIEWPORT: Título centralizado e um download (degradê azul→violeta) com "Como funciona" ao lado; a réplica da janela do Aionix Connect em sessão ocupa a largura, animando o fluxo; o pedido de "Permitir" do cliente flutua no canto inferior direito.
 FORM: "Sessão ao vivo", 1º da lista ordenada (escolha delegada pelo usuário); seed f48a6264.
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 -->
@@ -326,17 +335,17 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
     <div class="wrap">
       <div class="hero-copy">
         <h1>Suporte remoto que o cliente <em>autoriza</em> com um clique.</h1>
-        <p class="lede">Você vê e controla o computador de quem precisa de ajuda, com vídeo fluido e criptografia de ponta a ponta. Nada acontece sem o cliente clicar em Permitir.</p>
+        <p class="lede">Um aplicativo só, para os dois lados: quem precisa de ajuda abre e passa o ID; quem ajuda digita o ID e vê a tela, com vídeo fluido e criptografia de ponta a ponta.</p>
         <div class="hero-actions">
-          <a class="btn btn-tech" data-dl="technician" href="#download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19h14"/></svg>Baixar o Técnico</a>
-          <a class="btn btn-ghost" data-dl="host" href="#download">Aionix Connect para o cliente</a>
+          <a class="btn btn-app" data-dl="app" href="#download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19h14"/></svg>Baixar o Aionix Connect</a>
+          <a class="btn btn-ghost" href="#como-funciona">Como funciona</a>
         </div>
         <p class="hero-meta"><span>Windows 10 e 11, 64 bits</span><span data-version>versão mais recente</span><span>sem precisar de administrador</span></p>
       </div>
 
       <div class="stage" id="stage" aria-label="Demonstração: o técnico conecta por ID e o cliente autoriza a sessão">
         <div class="win tech-win">
-          <div class="titlebar"><img src="/assets/technician-96.png" alt="">Aionix Connect Técnico<span class="ctl" aria-hidden="true"><span>—</span><span>▢</span><span>✕</span></span></div>
+          <div class="titlebar"><img src="/assets/app-96.png" alt="">Aionix Connect<span class="ctl" aria-hidden="true"><span>—</span><span>▢</span><span>✕</span></span></div>
           <div class="sessbar">
             <div class="sess-dev"><b>OTTO</b><small class="mono">ID 325 344 335</small></div>
             <span class="pill wait" id="pill"><i></i><span id="pill-text">Aguardando</span></span>
@@ -353,8 +362,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
             <svg class="cursor" id="cursor" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2.5 19 13l-6.6 1.2L16 21l-2.6 1.1-3.6-6.8L4 19.6z" fill="#fff" stroke="#0d1015" stroke-width="1.2" stroke-linejoin="round"/></svg>
             <div class="connect" id="connect">
               <div class="connect-card">
-                <h4>Conectar por ID</h4>
-                <p>Peça ao cliente o ID exibido no Aionix Connect.</p>
+                <h4>Acessar outro computador</h4>
+                <p>Digite o ID que aparece no Aionix Connect da outra pessoa.</p>
                 <div class="connect-row"><div class="idbox"><span id="typed"></span><span class="caret"></span></div><span class="go" id="go">Conectar</span></div>
                 <div class="connect-status" id="cstatus"></div>
               </div>
@@ -363,7 +372,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         </div>
         <div class="win client-win" id="client" aria-hidden="true">
           <span class="client-label">No computador do cliente</span>
-          <div class="titlebar"><img src="/assets/host-96.png" alt="">Aionix Connect</div>
+          <div class="titlebar"><img src="/assets/app-96.png" alt="">Aionix Connect</div>
           <div class="consent">
             <h5>Um técnico está solicitando acesso a este computador.</h5>
             <div class="who"><span class="avatar">A</span><div><b>Alan Araujo</b><small>Técnico · Aionix</small></div></div>
@@ -385,14 +394,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         <div class="step reveal">
           <div class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="var(--client-a)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></div>
           <h3>O cliente abre o Aionix Connect</h3>
-          <p>O aplicativo mostra um ID de 9 dígitos, que é sempre o mesmo naquele computador.</p>
+          <p>O aplicativo mostra o ID de 9 dígitos daquele computador, que nunca muda. Não precisa de conta.</p>
           <div class="frag"><div class="label">Seu ID</div><div class="bigid">325 344 335</div></div>
         </div>
         <div class="step reveal">
           <div class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="var(--tech-a)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></div>
           <h3>Você conecta pelo ID</h3>
-          <p>No Técnico, digite o número que o cliente passou. O pedido chega na hora, onde quer que ele esteja.</p>
-          <div class="frag"><div class="label">Conectar por ID</div><div class="mini-row"><span style="background:var(--bg);border:1px solid var(--border);text-align:left;font-family:var(--mono);font-weight:500">325 344 335</span><span style="background:var(--accent);flex:0 0 auto;padding:7px 14px">Conectar</span></div></div>
+          <p>No seu Aionix Connect, em Acessar outro computador, digite o número. O pedido chega na hora, onde quer que ele esteja.</p>
+          <div class="frag"><div class="label">Acessar outro computador</div><div class="mini-row"><span style="background:var(--bg);border:1px solid var(--border);text-align:left;font-family:var(--mono);font-weight:500">325 344 335</span><span style="background:var(--accent);flex:0 0 auto;padding:7px 14px">Conectar</span></div></div>
         </div>
         <div class="step reveal">
           <div class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg></div>
@@ -477,7 +486,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         <div>
           <svg viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/><path d="m9 12 2 2 4-4"/></svg>
           <h3>Atualizações assinadas</h3>
-          <p>Os aplicativos se atualizam sozinhos e só aceitam uma versão nova assinada com a chave do Aionix. O arquivo também precisa bater com o hash publicado.</p>
+          <p>O aplicativo se atualiza sozinho e só aceita uma versão nova assinada com a chave do Aionix. O arquivo também precisa bater com o hash publicado.</p>
         </div>
       </div>
     </div>
@@ -486,23 +495,20 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   <section id="download">
     <div class="wrap">
       <div class="sec-head reveal">
-        <h2>Dois aplicativos, um para cada lado da sessão.</h2>
-        <p>Instale o Técnico no seu computador. Para o cliente, mande o link do Aionix Connect. Depois disso, os dois se mantêm atualizados sozinhos.</p>
+        <h2>Um aplicativo, os dois lados do suporte.</h2>
+        <p>O mesmo Aionix Connect recebe ajuda e ajuda outras pessoas. Instale no seu computador e mande o mesmo link para quem você atende. Depois disso, ele se mantém atualizado sozinho.</p>
       </div>
-      <div class="dl-grid">
-        <article class="dl tech reveal">
-          <div class="dl-top"><img src="/assets/technician-512.png" alt="" width="64" height="64"><div><div class="who">Para quem dá suporte</div><h3>Aionix Connect Técnico</h3></div></div>
-          <p>Entre com a sua conta, conecte pelo ID e controle o computador do cliente, com diagnóstico da conexão em tempo real.</p>
-          <a class="btn btn-tech" data-dl="technician" href="#download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19h14"/></svg><span>Baixar para Windows</span></a>
-          <div class="dl-meta" data-meta="technician"><span>Carregando versão…</span></div>
-        </article>
-        <article class="dl client reveal">
-          <div class="dl-top"><img src="/assets/host-512.png" alt="" width="64" height="64"><div><div class="who">Para quem recebe suporte</div><h3>Aionix Connect</h3></div></div>
-          <p>Mostra o ID deste computador e pede a sua permissão antes de qualquer acesso. Não precisa de conta nem de configuração.</p>
-          <a class="btn btn-client" data-dl="host" href="#download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19h14"/></svg><span>Baixar para Windows</span></a>
-          <div class="dl-meta" data-meta="host"><span>Carregando versão…</span></div>
-        </article>
-      </div>
+      <article class="dl app reveal">
+        <div class="dl-main">
+          <div class="dl-top"><img src="/assets/setup-512.png" alt="" width="64" height="64"><div><div class="who">Windows 10 e 11 · 64 bits</div><h3>Aionix Connect</h3></div></div>
+          <a class="btn btn-app" data-dl="app" href="#download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19h14"/></svg><span>Baixar para Windows</span></a>
+          <div class="dl-meta" data-meta="app"><span>Carregando versão…</span></div>
+        </div>
+        <div class="dl-sides">
+          <div><span class="side-dot" style="background:var(--client-a)"></span><b>Para receber ajuda</b><p>Abra o aplicativo e passe o ID que aparece em Este computador. Ninguém entra sem você clicar em Permitir. Não precisa de conta.</p></div>
+          <div><span class="side-dot" style="background:var(--tech-a)"></span><b>Para ajudar alguém</b><p>Em Acessar outro computador, digite o ID da pessoa. Na primeira vez, entre com a sua conta Aionix; ela fica salva.</p></div>
+        </div>
+      </article>
 
       <div class="ss">
         <div class="reveal" aria-hidden="true">
@@ -519,17 +525,17 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           <ol class="steps-list">
             <li><span>Clique em <b>Mais informações</b>.</span></li>
             <li><span>Confira o editor e clique em <b>Executar assim mesmo</b>.</span></li>
-            <li><span>O instalador do Aionix abre. Clique em <b>Instalar</b>; não é preciso ser administrador.</span></li>
+            <li><span>O instalador do Aionix Connect abre. Clique em <b>Instalar</b>; não é preciso ser administrador.</span></li>
           </ol>
         </div>
       </div>
 
       <div class="faq reveal">
-        <details><summary>Preciso de permissão de administrador para instalar?</summary><p>Não. Os dois aplicativos são instalados só para o seu usuário, em <span class="mono">%LOCALAPPDATA%\Programs</span>, e aparecem no Menu Iniciar e em Aplicativos instalados.</p></details>
+        <details><summary>Preciso de permissão de administrador para instalar?</summary><p>Não. O Aionix Connect é instalado só para o seu usuário, em <span class="mono">%LOCALAPPDATA%\Programs</span>, e aparece no Menu Iniciar e em Aplicativos instalados.</p></details>
         <details><summary>Funciona com o cliente em outra rede ou no 4G?</summary><p>Sim. A conexão tenta o caminho direto primeiro e, se a rede bloquear, usa o relay do Aionix. Nos nossos testes, um notebook no 4G ficou com cerca de 90 ms e 34 fps.</p></details>
         <details><summary>O ID do cliente muda depois de uma atualização?</summary><p>Não. O ID pertence à identidade daquele computador e sobrevive a atualizações e reinstalações. Ele só muda se o cliente desinstalar e escolher apagar também os dados.</p></details>
-        <details><summary>Como as atualizações funcionam?</summary><p>Os aplicativos verificam se há versão nova ao abrir, a cada seis horas e quando você clica em “Verificar atualizações”. O Aionix Connect do cliente só se atualiza quando não há sessão aberta; no Técnico, você escolhe a hora de reiniciar.</p></details>
-        <details><summary>Como consigo uma conta de técnico?</summary><p>As contas são criadas pelo administrador do servidor Aionix. Fale com quem te passou este link.</p></details>
+        <details><summary>Como as atualizações funcionam?</summary><p>O aplicativo verifica se há versão nova ao abrir, a cada seis horas e quando você clica em “Verificar atualizações”. Ele só se atualiza sozinho quando não há sessão aberta e ninguém está usando; você também pode clicar em “Reiniciar e atualizar”.</p></details>
+        <details><summary>Preciso de conta?</summary><p>Para receber ajuda, não. Para acessar outro computador, sim: as contas são criadas pelo administrador do servidor Aionix. Fale com quem te passou este link. Depois de entrar uma vez, o login fica salvo.</p></details>
         <details><summary>Quais são os requisitos?</summary><p>Windows 10 ou 11, 64 bits, e conexão com a internet. O vídeo usa a codificação por hardware da placa de vídeo quando está disponível.</p></details>
       </div>
     </div>
@@ -538,10 +544,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   <div class="close">
     <div class="wrap reveal">
       <h2>Pronto para o próximo chamado.</h2>
-      <p style="color:var(--muted);margin-top:14px">Instale o Técnico agora e mande o link do Aionix Connect para o cliente.</p>
+      <p style="color:var(--muted);margin-top:14px">Instale agora e mande o mesmo link para quem você atende.</p>
       <div class="hero-actions">
-        <a class="btn btn-tech" data-dl="technician" href="#download">Baixar o Técnico</a>
-        <a class="btn btn-ghost" href="#download" id="copy-client">Copiar link do cliente</a>
+        <a class="btn btn-app" data-dl="app" href="#download">Baixar o Aionix Connect</a>
+        <a class="btn btn-ghost" href="#download" id="copy-client">Copiar link de download</a>
       </div>
     </div>
   </div>
@@ -587,21 +593,21 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       links[product] = new URL(href, location.origin).href;
       $$(`[data-dl="${product}"]`).forEach((a) => { a.href = href; a.setAttribute('download', ''); });
       meta.innerHTML = `<span>Versão ${m.version}</span><span>${mb(m.installer.size)}</span><span>${date(m.published_at)}</span><span class="sha" title="SHA-256 do instalador">SHA-256 ${m.installer.sha256.slice(0, 12)}…</span>`;
-      if (product === 'technician') $$('[data-version]').forEach((e) => e.textContent = `versão ${m.version}`);
+      $$('[data-version]').forEach((e) => e.textContent = `versão ${m.version}`);
     } catch {
       meta.innerHTML = '<span>Download disponível em breve.</span>';
       $$(`[data-dl="${product}"]`).forEach((a) => a.setAttribute('aria-disabled', 'true'));
     }
   }
-  load('technician'); load('host');
+  load('app');
 
   const copy = $('#copy-client');
   copy.addEventListener('click', async (e) => {
     e.preventDefault();
-    const url = links.host || location.origin + '/#download';
+    const url = links.app || location.origin + '/#download';
     try { await navigator.clipboard.writeText(url); copy.textContent = 'Link copiado'; }
     catch { copy.textContent = url; }
-    setTimeout(() => (copy.textContent = 'Copiar link do cliente'), 2400);
+    setTimeout(() => (copy.textContent = 'Copiar link de download'), 2400);
   });
 
   // ---- The live session replica.

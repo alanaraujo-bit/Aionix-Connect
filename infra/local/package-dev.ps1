@@ -22,7 +22,7 @@ $ErrorActionPreference = 'Stop'
 $Repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $Source = Join-Path $Repo 'target\release'
 $Dist = Join-Path $Repo 'dist\aionix-connect-dev'
-$Exes = 'aionix-launcher', 'aionix-host', 'aionix-technician', 'aionix-api', 'aionix-signaling', 'aionix-relay', 'aionix-admin', 'aionix-healthcheck'
+$Exes = 'aionix-launcher', 'aionix-connect', 'aionix-api', 'aionix-signaling', 'aionix-relay', 'aionix-admin', 'aionix-healthcheck'
 
 New-Item -ItemType Directory -Force $Dist | Out-Null
 foreach ($e in $Exes) {

@@ -1,7 +1,6 @@
 //! Embeds the product payload and the Windows resources of the setup.
 //!
 //! Release builds set (infra/release.ps1):
-//!   AIONIX_SETUP_PRODUCT  host | technician
 //!   AIONIX_SETUP_PAYLOAD  path of the already-built app executable
 //! Without them (`cargo build --workspace`, clippy) the setup still compiles with an
 //! empty payload and refuses to install.
@@ -9,15 +8,8 @@
 use std::path::Path;
 
 fn main() {
-    println!("cargo:rerun-if-env-changed=AIONIX_SETUP_PRODUCT");
     println!("cargo:rerun-if-env-changed=AIONIX_SETUP_PAYLOAD");
     let out = std::env::var("OUT_DIR").unwrap();
-    let product = std::env::var("AIONIX_SETUP_PRODUCT").unwrap_or_else(|_| "host".into());
-    assert!(
-        product == "host" || product == "technician",
-        "AIONIX_SETUP_PRODUCT deve ser host ou technician"
-    );
-    println!("cargo:rustc-env=AIONIX_SETUP_PRODUCT={product}");
     let payload_out = Path::new(&out).join("payload.bin");
     match std::env::var("AIONIX_SETUP_PAYLOAD") {
         Ok(p) if !p.is_empty() => {
@@ -35,11 +27,7 @@ fn main() {
         serde_json::from_str(&std::fs::read_to_string(root.join("brand.json")).unwrap()).unwrap();
     let name = brand["productName"].as_str().unwrap();
     let company = brand["companyName"].as_str().unwrap();
-    let app = if product == "technician" {
-        format!("{name} Técnico")
-    } else {
-        name.to_owned()
-    };
+    let app = name.to_owned();
     let version = std::env::var("CARGO_PKG_VERSION").unwrap();
     let icon = root.join("icons").join("setup.ico");
     println!("cargo:rerun-if-changed={}", icon.display());

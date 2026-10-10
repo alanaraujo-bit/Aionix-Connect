@@ -116,7 +116,7 @@ function Start-Tunnel {
     $pkg = Join-Path $Repo 'dist\Aionix Connect'
     Remove-Item $pkg -Recurse -Force -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force $pkg | Out-Null
-    Copy-Item (Join-Path $Bin 'aionix-host.exe') (Join-Path $pkg 'Aionix Connect.exe')
+    Copy-Item (Join-Path $Bin 'aionix-connect.exe') (Join-Path $pkg 'Aionix Connect.exe')
     @{ server = $url; environment_label = 'Teste com servidor temporário (desenvolvimento)' } | ConvertTo-Json |
         Set-Content -Encoding utf8 (Join-Path $pkg 'aionix-host.json')
     $readme = @"

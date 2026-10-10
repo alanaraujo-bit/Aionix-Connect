@@ -35,17 +35,14 @@ pub const MAX_INSTALLER_BYTES: u64 = 512 * 1024 * 1024;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Product {
-    /// "Aionix Connect": the computer being supported.
-    Host,
-    /// "Aionix Connect Técnico".
-    Technician,
+    /// "Aionix Connect": one app for both sides (receive and give support).
+    App,
 }
 
 impl Product {
     pub fn slug(self) -> &'static str {
         match self {
-            Self::Host => "host",
-            Self::Technician => "technician",
+            Self::App => "app",
         }
     }
 }
@@ -54,8 +51,7 @@ impl FromStr for Product {
     type Err = UpdateError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "host" => Ok(Self::Host),
-            "technician" => Ok(Self::Technician),
+            "app" => Ok(Self::App),
             _ => Err(UpdateError::Invalid(format!("produto desconhecido: {s}"))),
         }
     }
@@ -391,9 +387,9 @@ mod tests {
     #[test]
     fn signed_manifest_verifies() {
         let key = IdentityKey::generate();
-        let bytes = serde_json::to_vec(&manifest(Product::Host, "0.3.0")).unwrap();
+        let bytes = serde_json::to_vec(&manifest(Product::App, "0.3.0")).unwrap();
         let sig = sign_manifest(&key, &bytes);
-        let m = verify_manifest(&bytes, &sig, &[key.public()], Product::Host).unwrap();
+        let m = verify_manifest(&bytes, &sig, &[key.public()], Product::App).unwrap();
         assert_eq!(m.version, Version(0, 3, 0));
     }
 
@@ -401,24 +397,22 @@ mod tests {
     fn any_trusted_key_is_accepted() {
         let old = IdentityKey::generate();
         let new = IdentityKey::generate();
-        let bytes = serde_json::to_vec(&manifest(Product::Host, "0.3.0")).unwrap();
+        let bytes = serde_json::to_vec(&manifest(Product::App, "0.3.0")).unwrap();
         let sig = sign_manifest(&new, &bytes);
-        assert!(
-            verify_manifest(&bytes, &sig, &[old.public(), new.public()], Product::Host).is_ok()
-        );
+        assert!(verify_manifest(&bytes, &sig, &[old.public(), new.public()], Product::App).is_ok());
     }
 
     #[test]
     fn tampered_manifest_is_rejected() {
         let key = IdentityKey::generate();
-        let bytes = serde_json::to_vec(&manifest(Product::Host, "0.3.0")).unwrap();
+        let bytes = serde_json::to_vec(&manifest(Product::App, "0.3.0")).unwrap();
         let sig = sign_manifest(&key, &bytes);
         let tampered = String::from_utf8(bytes).unwrap().replace(
             "https://example.test/setup.exe",
             "https://evil.test/setup.exe",
         );
         assert!(matches!(
-            verify_manifest(tampered.as_bytes(), &sig, &[key.public()], Product::Host),
+            verify_manifest(tampered.as_bytes(), &sig, &[key.public()], Product::App),
             Err(UpdateError::BadSignature)
         ));
     }
@@ -427,14 +421,14 @@ mod tests {
     fn wrong_key_is_rejected() {
         let signer = IdentityKey::generate();
         let trusted = IdentityKey::generate();
-        let bytes = serde_json::to_vec(&manifest(Product::Host, "0.3.0")).unwrap();
+        let bytes = serde_json::to_vec(&manifest(Product::App, "0.3.0")).unwrap();
         let sig = sign_manifest(&signer, &bytes);
         assert!(matches!(
-            verify_manifest(&bytes, &sig, &[trusted.public()], Product::Host),
+            verify_manifest(&bytes, &sig, &[trusted.public()], Product::App),
             Err(UpdateError::BadSignature)
         ));
         assert!(matches!(
-            verify_manifest(&bytes, &sig, &[], Product::Host),
+            verify_manifest(&bytes, &sig, &[], Product::App),
             Err(UpdateError::NoTrustedKeys)
         ));
     }
@@ -442,23 +436,27 @@ mod tests {
     #[test]
     fn signature_from_another_domain_is_rejected() {
         let key = IdentityKey::generate();
-        let bytes = serde_json::to_vec(&manifest(Product::Host, "0.3.0")).unwrap();
+        let bytes = serde_json::to_vec(&manifest(Product::App, "0.3.0")).unwrap();
         let sig = aionix_crypto::sign_domain(&key, SignatureDomain::DeviceLogin, &bytes);
-        assert!(verify_manifest(&bytes, &sig, &[key.public()], Product::Host).is_err());
+        assert!(verify_manifest(&bytes, &sig, &[key.public()], Product::App).is_err());
     }
 
     #[test]
-    fn other_product_and_insecure_url_are_rejected() {
+    fn unknown_product_and_insecure_url_are_rejected() {
         let key = IdentityKey::generate();
-        let bytes = serde_json::to_vec(&manifest(Product::Technician, "0.3.0")).unwrap();
+        // Correctly signed, but for a product this app does not know.
+        let bytes = serde_json::to_string(&manifest(Product::App, "0.3.0"))
+            .unwrap()
+            .replace("\"product\":\"app\"", "\"product\":\"other\"")
+            .into_bytes();
         let sig = sign_manifest(&key, &bytes);
-        assert!(verify_manifest(&bytes, &sig, &[key.public()], Product::Host).is_err());
+        assert!(verify_manifest(&bytes, &sig, &[key.public()], Product::App).is_err());
 
-        let mut m = manifest(Product::Host, "0.3.0");
+        let mut m = manifest(Product::App, "0.3.0");
         m.installer.url = "http://example.test/setup.exe".into();
         let bytes = serde_json::to_vec(&m).unwrap();
         let sig = sign_manifest(&key, &bytes);
-        assert!(verify_manifest(&bytes, &sig, &[key.public()], Product::Host).is_err());
+        assert!(verify_manifest(&bytes, &sig, &[key.public()], Product::App).is_err());
     }
 
     #[test]

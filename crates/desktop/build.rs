@@ -19,12 +19,7 @@ fn main() {
     let version = std::env::var("CARGO_PKG_VERSION").unwrap();
     let out = std::env::var("OUT_DIR").unwrap();
     for (bin, icon, description) in [
-        ("aionix-host", "host.ico", product.clone()),
-        (
-            "aionix-technician",
-            "technician.ico",
-            format!("{product} Técnico"),
-        ),
+        ("aionix-connect", "setup.ico", product.clone()),
         (
             "aionix-launcher",
             "setup.ico",

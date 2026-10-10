@@ -7,12 +7,8 @@ license.workspace = true
 publish.workspace = true
 
 [[bin]]
-name = "aionix-technician"
-path = "src/bin/technician.rs"
-
-[[bin]]
-name = "aionix-host"
-path = "src/bin/host.rs"
+name = "aionix-connect"
+path = "src/bin/connect.rs"
 
 [[bin]]
 name = "aionix-launcher"

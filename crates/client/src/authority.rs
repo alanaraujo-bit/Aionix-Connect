@@ -25,10 +25,15 @@ struct Tokens {
     access_renew_at: Instant,
 }
 
+/// Called with the new refresh token every time it rotates, so a "stay signed in"
+/// store always holds the current one (presenting a rotated token revokes the login).
+type PersistFn = Box<dyn Fn(&str) + Send + Sync>;
+
 /// A signed-in user with automatic access-token renewal (rotating refresh tokens).
 pub struct UserSession {
     api: ApiClient,
     inner: Mutex<Tokens>,
+    persist: Option<PersistFn>,
 }
 
 impl UserSession {
@@ -37,7 +42,26 @@ impl UserSession {
         Ok(Self {
             api,
             inner: Mutex::new(Self::wrap(tokens)),
+            persist: None,
         })
+    }
+
+    /// Restores a login from a stored refresh token (rotating it immediately).
+    pub async fn resume(api: ApiClient, refresh_token: &str) -> Result<Self, ClientError> {
+        let tokens = api.refresh(refresh_token).await?;
+        Ok(Self {
+            api,
+            inner: Mutex::new(Self::wrap(tokens)),
+            persist: None,
+        })
+    }
+
+    /// Keeps a store up to date: `f` receives the current refresh token now and after
+    /// every rotation.
+    pub async fn persist_with(mut self, f: impl Fn(&str) + Send + Sync + 'static) -> Self {
+        f(&self.inner.lock().await.tokens.refresh_token);
+        self.persist = Some(Box::new(f));
+        self
     }
 
     fn wrap(tokens: AuthTokens) -> Tokens {
@@ -58,6 +82,9 @@ impl UserSession {
         if Instant::now() >= inner.access_renew_at {
             let fresh = self.api.refresh(&inner.tokens.refresh_token).await?;
             *inner = Self::wrap(fresh);
+            if let Some(persist) = &self.persist {
+                persist(&inner.tokens.refresh_token);
+            }
         }
         Ok(inner.tokens.access_token.clone())
     }
