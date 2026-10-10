@@ -1,0 +1,4 @@
+# Public keys (base64url ed25519) trusted to sign desktop release manifests.
+# One per line; the apps accept a manifest signed by any of them (key rotation).
+# The private key never lives in this repository (see infra/release.ps1).
+1kjdAeVlJr8-UA2JgELqt6DxJ0PVd-rt8f2kgObhcFQ

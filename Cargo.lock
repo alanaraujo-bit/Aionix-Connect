@@ -503,6 +503,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "aionix-update"
+version = "0.1.0"
+dependencies = [
+ "aionix-crypto",
+ "anyhow",
+ "base64 0.22.1",
+ "clap",
+ "hex",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.21",
+ "time",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "allocator-api2"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"

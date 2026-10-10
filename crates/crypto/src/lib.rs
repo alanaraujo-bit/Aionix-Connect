@@ -150,6 +150,9 @@ pub enum SignatureDomain {
     DeviceRegistration,
     /// Answer to the control plane's signaling login challenge.
     DeviceLogin,
+    /// Release manifest of the desktop apps (`latest.json`), signed offline by the
+    /// release key and verified by the apps before installing an update.
+    ReleaseManifest,
 }
 
 impl SignatureDomain {
@@ -157,6 +160,7 @@ impl SignatureDomain {
         match self {
             Self::DeviceRegistration => b"aionix/v1/device-registration",
             Self::DeviceLogin => b"aionix/v1/device-login",
+            Self::ReleaseManifest => b"aionix/v1/release-manifest",
         }
     }
 }

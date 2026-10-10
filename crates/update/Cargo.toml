@@ -1,0 +1,26 @@
+[package]
+name = "aionix-update"
+description = "Signed release manifests and update download/verification for the desktop apps"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "aionix-release"
+path = "src/bin/release.rs"
+
+[dependencies]
+aionix-crypto = { workspace = true }
+anyhow = { workspace = true }
+base64 = { workspace = true }
+clap = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }
+time = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
