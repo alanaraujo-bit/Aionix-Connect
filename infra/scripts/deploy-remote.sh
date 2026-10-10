@@ -5,6 +5,7 @@
 #
 #   deploy-remote.sh --version V [--domain D --email E | --site S --public-url U]
 #                    [--restore ARCHIVE] [--skip-backup] [--health-timeout SECS]
+#                    [--bind IPV4]   publish Caddy (80/443) on this address only
 #
 # Steps: install compose/scripts → ensure config + key → build image → public key →
 # backup → (restore) → migrations → start/update → wait for health → diagnostics.
@@ -15,7 +16,7 @@ SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 SRC="$(cd "$SELF_DIR/../.." && pwd)"
 . "$SELF_DIR/lib.sh"
 
-VERSION="" DOMAIN="" EMAIL="" SITE="" PUBLIC_URL="" RESTORE="" SKIP_BACKUP=0 HEALTH_TIMEOUT=300
+VERSION="" DOMAIN="" EMAIL="" SITE="" PUBLIC_URL="" RESTORE="" SKIP_BACKUP=0 HEALTH_TIMEOUT=300 BIND=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --version) VERSION="$2"; shift ;;
@@ -26,6 +27,7 @@ while [ $# -gt 0 ]; do
         --restore) RESTORE="$2"; shift ;;
         --skip-backup) SKIP_BACKUP=1 ;;
         --health-timeout) HEALTH_TIMEOUT="$2"; shift ;;
+        --bind) BIND="$2"; shift ;;
         *) die "opção desconhecida: $1" ;;
     esac
     shift
@@ -62,6 +64,12 @@ env_set AIONIX_SOURCE_DIR "$SRC"
 env_set AIONIX_CONFIG_DIR "$AIONIX_ROOT/config"
 env_set AIONIX_DATA_DIR "$AIONIX_ROOT/data"
 env_set AIONIX_LOG_DIR "$AIONIX_ROOT/logs"
+if [ -n "$BIND" ]; then
+    # Docker publishes ports past UFW; binding to one address is what limits exposure.
+    env_set AIONIX_HTTP_PORT "$BIND:80"
+    env_set AIONIX_HTTPS_PORT "$BIND:443"
+    log "Caddy publicado somente em $BIND (80/443)"
+fi
 
 step "Build da imagem aionix-connect-server:$VERSION"
 DOCKER_BUILDKIT=1 dc build aionix-api

@@ -48,7 +48,9 @@ param(
     [switch] $AllowDirty,
     [int] $HealthTimeoutSeconds = 300,
     [switch] $DryRun,
-    [switch] $NoAudit
+    [switch] $NoAudit,
+    # Publish Caddy (80/443) on this IPv4 only (e.g. the LAN address); kept in .env.
+    [string] $BindAddress
 )
 
 $ErrorActionPreference = 'Stop'
@@ -64,7 +66,7 @@ function Assert-Safe([string] $Name, [string] $Value) {
     if ($Value -and $Value -notmatch '^[A-Za-z0-9._:/@+=-]+$') { Fail "$Name contém caracteres não permitidos: '$Value'" }
 }
 foreach ($p in @{ Server = $Server; RemoteRoot = $RemoteRoot; Version = $Version; Domain = $Domain;
-                  AcmeEmail = $AcmeEmail; Site = $Site; PublicUrl = $PublicUrl }.GetEnumerator()) {
+                  AcmeEmail = $AcmeEmail; Site = $Site; PublicUrl = $PublicUrl; BindAddress = $BindAddress }.GetEnumerator()) {
     Assert-Safe $p.Key $p.Value
 }
 
@@ -176,6 +178,7 @@ try {
     if ($Site) { $remoteArgs += @('--site', $Site) }
     if ($PublicUrl) { $remoteArgs += @('--public-url', $PublicUrl) }
     if ($SkipBackup) { $remoteArgs += '--skip-backup' }
+    if ($BindAddress) { $remoteArgs += @('--bind', $BindAddress) }
     if ($RestoreBackup) {
         Write-Step 'Enviando backup para restauração'
         $name = Split-Path $RestoreBackup -Leaf
