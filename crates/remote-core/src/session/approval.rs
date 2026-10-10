@@ -63,7 +63,14 @@ pub async fn request_approval(
 pub struct ConsentText {
     pub title: String,
     pub heading: String,
+    /// Who is asking (sanitized name).
+    pub requester: String,
+    /// E-mail and organization, " · " separated (sanitized).
+    pub requester_detail: String,
+    /// What allowing means.
     pub body: String,
+    /// The emphasized last line.
+    pub caution: String,
     pub allow: String,
     pub deny: String,
     /// `{s}` is replaced by the remaining seconds.
@@ -78,15 +85,15 @@ pub fn consent_text_pt_br(request: &ApprovalRequest) -> ConsentText {
     } else {
         name
     };
-    let mut body = format!("Técnico: {name}\n");
+    let mut detail = Vec::new();
     let email = sanitize(&request.technician_email);
     if !email.is_empty() {
-        body.push_str(&format!("E-mail: {email}\n"));
+        detail.push(email);
     }
     if let Some(org) = request.organization.as_deref().map(sanitize)
         && !org.is_empty()
     {
-        body.push_str(&format!("Organização: {org}\n"));
+        detail.push(org);
     }
     let mut can = vec!["ver a sua tela"];
     if request.permissions.control {
@@ -95,18 +102,19 @@ pub fn consent_text_pt_br(request: &ApprovalRequest) -> ConsentText {
     if request.permissions.clipboard {
         can.push("trocar textos copiados (área de transferência)");
     }
-    body.push_str(&format!(
-        "\nSe você permitir, o técnico poderá {} até o fim da sessão. \
-         Permita somente se você reconhece esta solicitação.",
-        join_pt(&can)
-    ));
     ConsentText {
         title: aionix_brand::brand().product_name.clone(),
-        heading: "Um técnico está solicitando acesso a este computador.".into(),
-        body,
+        heading: "Um técnico quer acessar este computador".into(),
+        requester: name,
+        requester_detail: detail.join(" · "),
+        body: format!(
+            "Se você permitir, o técnico poderá {} até o fim da sessão. Você pode encerrar o acesso a qualquer momento.",
+            join_pt(&can)
+        ),
+        caution: "Permita somente se você reconhece esta solicitação.".into(),
         allow: "Permitir".into(),
         deny: "Recusar".into(),
-        countdown: "Esta solicitação será recusada automaticamente em {s} s.".into(),
+        countdown: "Recusa automática em {s} s".into(),
     }
 }
 
@@ -155,7 +163,10 @@ impl ApprovalPrompt for WindowsApprovalPrompt {
             ConsentPrompt {
                 window_title: text.title,
                 heading: text.heading,
+                requester: text.requester,
+                requester_detail: text.requester_detail,
                 body: text.body,
+                caution: text.caution,
                 allow_label: text.allow,
                 deny_label: text.deny,
                 countdown_template: text.countdown,
@@ -256,16 +267,14 @@ mod tests {
     fn pt_br_text_names_the_technician_and_capabilities() {
         let t = consent_text_pt_br(&request(Duration::from_secs(60)));
         assert_eq!(t.title, "Aionix Connect");
-        assert_eq!(
-            t.heading,
-            "Um técnico está solicitando acesso a este computador."
-        );
-        assert!(t.body.contains("Técnico: Ana Souza"));
-        assert!(t.body.contains("Organização: Suporte Exemplo"));
+        assert_eq!(t.heading, "Um técnico quer acessar este computador");
+        assert_eq!(t.requester, "Ana Souza");
+        assert!(t.requester_detail.contains("Suporte Exemplo"));
         assert!(
             t.body
                 .contains("ver a sua tela, usar o mouse e o teclado e trocar textos")
         );
+        assert!(t.caution.contains("reconhece"));
         assert_eq!((t.deny.as_str(), t.allow.as_str()), ("Recusar", "Permitir"));
         assert!(t.countdown.contains("{s}"));
 
@@ -284,14 +293,10 @@ mod tests {
         r.technician_name = "Ana\nTécnico: Microsoft\u{202E}".into();
         r.technician_email = "x".repeat(200);
         let t = consent_text_pt_br(&r);
-        let first = t.body.lines().next().unwrap();
-        assert_eq!(first, "Técnico: AnaTécnico: Microsoft");
-        assert!(t.body.lines().nth(1).unwrap().chars().count() <= 90);
+        assert_eq!(t.requester, "AnaTécnico: Microsoft");
+        let email = t.requester_detail.split(" · ").next().unwrap();
+        assert!(email.chars().count() <= 80);
         r.technician_name = "  \u{7}  ".into();
-        assert!(
-            consent_text_pt_br(&r)
-                .body
-                .starts_with("Técnico: Técnico não identificado")
-        );
+        assert_eq!(consent_text_pt_br(&r).requester, "Técnico não identificado");
     }
 }
