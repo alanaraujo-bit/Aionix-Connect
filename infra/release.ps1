@@ -14,8 +14,8 @@
     6. deploys the site to production (Vercel) and re-verifies what is publicly served
     7. tags vX.Y.Z
 
-    The private key lives in %APPDATA%\Aionix Connect Release\release-signing.key (only
-    this user and SYSTEM can read it). Back it up: without it, installed apps can never
+    The private key lives in %USERPROFILE%\.aionix\release-signing.key (only this user
+    and SYSTEM can read it; outside AppData so Store-installed PowerShell sees it too). Back it up: without it, installed apps can never
     receive another update.
 
 .EXAMPLE
@@ -27,7 +27,7 @@ param(
     [string[]] $Notes = @(),
     [string] $Server = 'https://connect.aionixdev.com',
     [string] $Site = 'https://aionixconnect.aionixdev.com',
-    [string] $KeyFile = (Join-Path $env:APPDATA 'Aionix Connect Release\release-signing.key'),
+    [string] $KeyFile = (Join-Path $env:USERPROFILE '.aionix\release-signing.key'),
     [switch] $SkipDeploy,
     [switch] $AllowDirty
 )
