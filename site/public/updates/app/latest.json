@@ -1,14 +1,13 @@
 {
   "product": "app",
-  "version": "0.2.0",
-  "published_at": "2026-10-10T11:50:57.4299939Z",
+  "version": "0.2.1",
+  "published_at": "2026-10-10T11:53:41.9206474Z",
   "notes": [
-    "Um aplicativo só para receber e dar suporte",
-    "Instalador próprio e atualização automática assinada"
+    "Teste de atualização automática"
   ],
   "installer": {
-    "url": "https://aionixconnect.aionixdev.com/releases/0.2.0/Aionix-Connect-Setup-0.2.0.exe",
+    "url": "https://aionixconnect.aionixdev.com/releases/0.2.1/Aionix-Connect-Setup-0.2.1.exe",
     "size": 34882048,
-    "sha256": "e3966277804711d3d9de1fa393766e7956fb3f7cd6437311c402ca5bb798e4f9"
+    "sha256": "cb95104c3d020bb77ec3ece3482352916eeef5170109d74e18f9f5ed0515ea66"
   }
 }
