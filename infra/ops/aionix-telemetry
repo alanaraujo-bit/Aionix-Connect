@@ -26,7 +26,7 @@ INTERVAL = float(os.environ.get("INTERVAL", "10"))
 NET_IFACE = os.environ.get("NET_IFACE", "")
 HEALTH_URL = os.environ.get("HEALTH_URL", "")
 SERVER_LABEL = os.environ.get("SERVER_LABEL", socket.gethostname())
-ENV_FILE = "/opt/aionix-connect/config/.env"
+DEPLOYED_LOG = "/opt/aionix-connect/releases/deployed.log"
 
 AIONIX_SERVICES = ["caddy", "aionix-api", "aionix-signaling", "aionix-relay", "postgres", "redis"]
 
@@ -240,8 +240,9 @@ def docker_version():
 
 
 def aionix_version():
-    m = re.search(r"^AIONIX_VERSION=(.+)$", read(ENV_FILE), re.M)
-    return m.group(1).strip() if m else ""
+    # Last line of deployed.log ("<UTC> <version>"); .env itself is not readable here.
+    lines = read(DEPLOYED_LOG).strip().splitlines()
+    return lines[-1].split()[-1] if lines else ""
 
 
 def health_probe():
@@ -257,7 +258,8 @@ def health_probe():
 
 
 def ufw_active():
-    return "Status: active" in run(["ufw", "status"])
+    # Readable without root (the agent runs unprivileged).
+    return bool(re.search(r"^ENABLED=yes", read("/etc/ufw/ufw.conf"), re.M))
 
 
 def os_name():

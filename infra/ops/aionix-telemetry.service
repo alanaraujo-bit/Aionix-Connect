@@ -1,0 +1,22 @@
+[Unit]
+Description=Aionix public status telemetry (push to the Vercel dashboard)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=aionix-telemetry
+Group=aionix-telemetry
+SupplementaryGroups=docker aionix
+EnvironmentFile=/etc/aionix-telemetry.env
+ExecStart=/usr/bin/python3 -u /usr/local/bin/aionix-telemetry
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadOnlyPaths=/
+
+[Install]
+WantedBy=multi-user.target
