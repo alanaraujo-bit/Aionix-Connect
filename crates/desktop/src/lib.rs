@@ -16,4 +16,5 @@ pub mod common;
 pub mod icon;
 pub mod keymap;
 pub mod theme;
+pub mod updater;
 pub mod video;

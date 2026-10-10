@@ -329,6 +329,7 @@ dependencies = [
  "aionix-remote-core",
  "aionix-shared",
  "aionix-transport",
+ "aionix-update",
  "anyhow",
  "async-trait",
  "clap",
@@ -449,6 +450,22 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
+]
+
+[[package]]
+name = "aionix-setup"
+version = "0.1.0"
+dependencies = [
+ "aionix-brand",
+ "aionix-desktop",
+ "eframe",
+ "egui",
+ "embed-resource",
+ "image",
+ "serde_json",
+ "tracing",
+ "windows",
+ "winreg",
 ]
 
 [[package]]

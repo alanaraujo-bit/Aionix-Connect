@@ -167,10 +167,7 @@ mod app {
         let mut args = Args::parse();
         let file = file_config();
         if args.server.is_none() {
-            args.server = Some(
-                file.server
-                    .unwrap_or_else(|| common::DEFAULT_SERVER.into()),
-            );
+            args.server = Some(file.server.unwrap_or_else(|| common::DEFAULT_SERVER.into()));
         }
         if args.signal_url.is_none() {
             args.signal_url = file.signal_url;
@@ -217,12 +214,19 @@ mod app {
                     cc.egui_ctx.clone(),
                     dir,
                 ));
+                let updater = aionix_desktop::updater::Updater::start(
+                    &rt_handle,
+                    aionix_update::Product::Host,
+                    cc.egui_ctx.clone(),
+                );
                 Ok(Box::new(HostApp {
                     ui: ui2,
                     runtime: runtime2,
                     rt: rt_handle,
                     label,
                     copied_at: None,
+                    updater,
+                    applying_update: false,
                 }))
             }),
         );
@@ -508,6 +512,8 @@ mod app {
         rt: tokio::runtime::Handle,
         label: Option<String>,
         copied_at: Option<Instant>,
+        updater: aionix_desktop::updater::Updater,
+        applying_update: bool,
     }
 
     impl eframe::App for HostApp {
@@ -520,6 +526,7 @@ mod app {
                         .inner_margin(egui::Margin::same(22)),
                 )
                 .show(ui, |ui| self.body(ui));
+            self.apply_update_when_idle(ui.ctx());
             ui.ctx().request_repaint_after(Duration::from_millis(500));
         }
 
@@ -548,6 +555,26 @@ mod app {
     }
 
     impl HostApp {
+        /// A verified update is installed only while nobody is connected or asking to
+        /// connect; the setup restarts the app with the same identity (same ID).
+        fn apply_update_when_idle(&mut self, ctx: &egui::Context) {
+            if self.applying_update || self.updater.ready().is_none() {
+                return;
+            }
+            let busy = {
+                let u = self.ui.lock().unwrap();
+                u.session.is_some() || u.pending.is_some()
+            };
+            if busy {
+                return;
+            }
+            self.applying_update = true;
+            match self.updater.apply() {
+                Ok(()) => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+                Err(e) => warn!(error = %e, "update not applied"),
+            }
+        }
+
         fn body(&mut self, ui: &mut egui::Ui) {
             let p = theme::palette(ui);
             let state = {
@@ -714,6 +741,7 @@ mod app {
                         .size(11.5)
                         .color(p.muted),
                 );
+                aionix_desktop::updater::footer(ui, &self.updater, &p);
                 egui::CollapsingHeader::new(
                     RichText::new("Detalhes técnicos").size(12.5).color(p.muted),
                 )

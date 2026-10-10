@@ -20,8 +20,16 @@ fn main() {
     let out = std::env::var("OUT_DIR").unwrap();
     for (bin, icon, description) in [
         ("aionix-host", "host.ico", product.clone()),
-        ("aionix-technician", "technician.ico", format!("{product} Técnico")),
-        ("aionix-launcher", "setup.ico", format!("{product} (desenvolvimento)")),
+        (
+            "aionix-technician",
+            "technician.ico",
+            format!("{product} Técnico"),
+        ),
+        (
+            "aionix-launcher",
+            "setup.ico",
+            format!("{product} (desenvolvimento)"),
+        ),
     ] {
         let icon_path = root.join("icons").join(icon);
         println!("cargo:rerun-if-changed={}", icon_path.display());
@@ -36,9 +44,20 @@ fn main() {
 }
 
 /// VERSIONINFO + icon; strings in pt-BR (0x0416, Unicode).
-pub fn rc_file(icon: &Path, version: &str, company: &str, product: &str, description: &str, bin: &str) -> String {
+pub fn rc_file(
+    icon: &Path,
+    version: &str,
+    company: &str,
+    product: &str,
+    description: &str,
+    bin: &str,
+) -> String {
     let nums: Vec<u16> = version.split('.').map(|p| p.parse().unwrap_or(0)).collect();
-    let (a, b, c) = (nums.first().copied().unwrap_or(0), nums.get(1).copied().unwrap_or(0), nums.get(2).copied().unwrap_or(0));
+    let (a, b, c) = (
+        nums.first().copied().unwrap_or(0),
+        nums.get(1).copied().unwrap_or(0),
+        nums.get(2).copied().unwrap_or(0),
+    );
     let esc = |s: &str| s.replace('\\', "\\\\").replace('"', "\"\"");
     format!(
         r#"#pragma code_page(65001)

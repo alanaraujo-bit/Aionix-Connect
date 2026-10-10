@@ -157,6 +157,7 @@ mod app {
         rt: tokio::runtime::Runtime,
         dir: PathBuf,
         log_path: PathBuf,
+        updater: aionix_desktop::updater::Updater,
         screen: Screen,
         /// Screen to switch to after the current frame (set by handlers).
         next: Option<Screen>,
@@ -200,7 +201,13 @@ mod app {
             options,
             Box::new(move |cc| {
                 theme::install(&cc.egui_ctx);
+                let updater = aionix_desktop::updater::Updater::start(
+                    rt.handle(),
+                    aionix_update::Product::Technician,
+                    cc.egui_ctx.clone(),
+                );
                 Ok(Box::new(TechApp {
+                    updater,
                     email: args.email.clone().unwrap_or_default(),
                     password,
                     args,
@@ -509,12 +516,14 @@ mod app {
             let mut screen = std::mem::replace(&mut self.screen, Screen::Login);
             match &mut screen {
                 Screen::Login => {
+                    self.footer_bar(ui);
                     egui::CentralPanel::default()
                         .frame(egui::Frame::new().fill(p.bg))
                         .show(ui, |ui| self.login_screen(ui));
                 }
                 Screen::Devices => {
                     self.top_bar(ui);
+                    self.footer_bar(ui);
                     egui::CentralPanel::default()
                         .frame(
                             egui::Frame::new()
@@ -548,6 +557,38 @@ mod app {
     }
 
     impl TechApp {
+        /// Version, update status and — when a verified update is downloaded — the
+        /// "Reiniciar e atualizar" action. Not shown during a session, so an update never
+        /// interrupts one.
+        fn footer_bar(&mut self, ui: &mut egui::Ui) {
+            let p = theme::palette(ui);
+            egui::Panel::bottom("footer")
+                .frame(
+                    egui::Frame::new()
+                        .fill(p.surface)
+                        .stroke(Stroke::new(1.0, p.border))
+                        .inner_margin(egui::Margin::symmetric(20, 8)),
+                )
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        aionix_desktop::updater::footer(ui, &self.updater, &p);
+                        if let Some(m) = self.updater.ready() {
+                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                let text = format!("Reiniciar e atualizar para {}", m.version);
+                                if theme::primary_button(ui, &text, true, None).clicked() {
+                                    match self.updater.apply() {
+                                        Ok(()) => {
+                                            ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close)
+                                        }
+                                        Err(e) => warn!(error = %e, "update not applied"),
+                                    }
+                                }
+                            });
+                        }
+                    });
+                });
+        }
+
         fn banner(&self, ui: &mut egui::Ui, p: &Palette) {
             if let Some(label) = &self.args.environment_label {
                 egui::Frame::new()
@@ -1037,7 +1078,8 @@ mod app {
                 return;
             }
             s.input.local_pointer = if resp.hovered() || resp.is_pointer_button_down_on() {
-                ui.input(|i| i.pointer.hover_pos()).map(|p| p.clamp(img.min, img.max))
+                ui.input(|i| i.pointer.hover_pos())
+                    .map(|p| p.clamp(img.min, img.max))
             } else {
                 None
             };
@@ -1079,7 +1121,10 @@ mod app {
                 (x as i32, y as i32)
             };
             // Hide the OS pointer only when the remote cursor can be drawn in its place.
-            let have_shape = s.cursor.as_ref().is_some_and(|c| s.cursors.contains_key(&c.shape_id));
+            let have_shape = s
+                .cursor
+                .as_ref()
+                .is_some_and(|c| s.cursors.contains_key(&c.shape_id));
             if have_shape && (resp.hovered() || resp.is_pointer_button_down_on()) {
                 ui.ctx().set_cursor_icon(egui::CursorIcon::None);
             }

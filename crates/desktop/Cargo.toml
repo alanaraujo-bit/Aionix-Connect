@@ -27,6 +27,7 @@ aionix-protocol = { workspace = true }
 aionix-transport = { workspace = true }
 aionix-remote-core = { workspace = true }
 aionix-client = { workspace = true }
+aionix-update = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
