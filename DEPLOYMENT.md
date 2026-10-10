@@ -3,11 +3,10 @@
 Target: one bare-metal server, **Ubuntu Server 24.04.5 LTS**, Docker Engine + Compose
 plugin. Development happens on a separate Windows workstation which deploys over SSH.
 
-**Current situation:** the Ubuntu server is temporarily unavailable. The Windows
-workstation runs the same stack under Docker Desktop as the **development/staging**
-server (not production). Nothing in the stack is Windows-specific; moving to Ubuntu is a
-backup + deploy with restore (below). None of the procedures below has been executed
-against real Docker yet — see PROJECT_STATUS.md.
+**Current situation (2026-10-10):** the Ubuntu server `aionix-server` (192.168.18.110) runs
+the full stack in LAN mode, deployed with `deploy-server.ps1`; state, verification and open
+items are in [docs/SERVER-OPERATIONS.md](docs/SERVER-OPERATIONS.md). The Windows staging
+procedures below remain for development.
 
 ## Server layout
 

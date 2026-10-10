@@ -538,7 +538,7 @@ footer a { color: inherit; }
     const kv = [
       ['Processador', s.cpuModel], ['Threads', s.cores], ['Memória', fmtBytes(m.total, 0)],
       ['Swap', `${fmtBytes(m.swapUsed)} / ${fmtBytes(m.swapTotal, 0)}`],
-      ['Sistema', s.os], ['Kernel', s.kernel], ['Docker', s.dockerVersion || '—'],
+      ['Sistema', s.os], ['Containers', (s.containers || []).length],
       ['Processos', s.procs], ['Firewall', s.firewall ? 'ativo' : 'inativo'],
     ];
     $('system').innerHTML = kv.map(([k, v]) => `<dt>${k}</dt><dd title="${esc(v)}">${esc(v)}</dd>`).join('');

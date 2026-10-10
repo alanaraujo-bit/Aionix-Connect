@@ -225,18 +225,13 @@ def containers():
             else "starting" if "health: starting" in status else None
         with _docker_lock:
             st = _docker_stats.get(c["Names"], {})
-        image = c.get("Image", "")
         items.append({
             "name": c["Names"], "service": labels.get("com.docker.compose.service", ""),
-            "image": image.split("@")[0], "state": c.get("State", ""), "health": health,
+            "state": c.get("State", ""), "health": health,
             "status": re.sub(r"\s*\((healthy|unhealthy|health: starting)\)", "", status),
             "cpu": st.get("cpu"), "mem": st.get("mem"),
         })
     return items
-
-
-def docker_version():
-    return run(["docker", "version", "--format", "{{.Server.Version}}"]).strip()
 
 
 def aionix_version():
@@ -274,7 +269,8 @@ def main():
         raise SystemExit("INGEST_URL e INGEST_TOKEN são obrigatórios (/etc/aionix-telemetry.env)")
     threading.Thread(target=docker_stats_loop, daemon=True).start()
     iface = default_iface()
-    static = {"label": SERVER_LABEL, "os": os_name(), "kernel": os.uname().release,
+    # No kernel/Docker/image versions: the payload is public, keep it hard to fingerprint.
+    static = {"label": SERVER_LABEL, "os": os_name(),
               "cpuModel": cpu_model(), "cores": os.cpu_count()}
     prev_net, prev_io, prev_t = net_bytes(iface), disk_io(), time.monotonic()
     slow, slow_at = {}, 0.0
@@ -290,7 +286,7 @@ def main():
             temp, pkg = temperatures()
             if now - slow_at > 60:
                 fs, devices = disks()
-                slow = {"fs": fs, "devices": devices, "dockerVersion": docker_version(),
+                slow = {"fs": fs, "devices": devices,
                         "aionixVersion": aionix_version(), "firewall": ufw_active()}
                 slow_at = now
             ctr = containers()

@@ -119,7 +119,8 @@ if have ss; then
     HTTPS_PORT="$(env_get AIONIX_HTTPS_PORT 2>/dev/null || true)"; HTTPS_PORT="${HTTPS_PORT:-443}"
     PORTS=""
     for p in "$HTTP_PORT" "$HTTPS_PORT"; do
-        if ss -ltnH "sport = :$p" 2>/dev/null | grep -q .; then PORTS="$PORTS $p/tcp:escutando"
+        # The value may be "ADDR:PORT" (Caddy bound to one address); ss filters by port.
+        if ss -ltnH "sport = :${p##*:}" 2>/dev/null | grep -q .; then PORTS="$PORTS $p/tcp:escutando"
         else PORTS="$PORTS $p/tcp:fechada"; fi
     done
     line "Portas" "${PORTS# } (acesso externo depende do firewall/roteador)"

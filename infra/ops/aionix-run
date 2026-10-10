@@ -40,7 +40,9 @@ caller="${SUDO_USER:-root}@${origin:-${SSH_CLIENT%% *}}"
 # and private-key blocks.
 redact() {
     sed -u -E \
-        -e 's/(([A-Za-z0-9_]*(PASS|PASSWORD|PASSWD|SECRET|TOKEN|PRIVATE|APIKEY|API_KEY|SIGNING)[A-Za-z0-9_]*)[[:space:]]*[=:][[:space:]]*)("[^"]*"|'"'"'[^'"'"']*'"'"'|[^[:space:]]+)/\1***/Ig' \
+        -e 's/(([A-Za-z0-9_]*(PASS|PASSWORD|PASSWD|SENHA|SECRET|TOKEN|PRIVATE|APIKEY|API_KEY|SIGNING)[A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*)("[^"]*"|'"'"'[^'"'"']*'"'"'|[^[:space:]]+)/\1***/Ig' \
+        -e 's/(\b(password|passwd|senha|secret|token|api[_-]?key)\b[[:space:]]*:[[:space:]]*)("[^"]*"|[^[:space:]]+)/\1***/Ig' \
+        -e 's/(\bauthorization[[:space:]]*:[[:space:]]*)(Bearer[[:space:]]+|Basic[[:space:]]+)?[^[:space:]]+/\1\2***/Ig' \
         -e 's#([a-z]+://[^:/@[:space:]]+:)[^@[:space:]]+@#\1***@#Ig' \
         -e 's/(Bearer[[:space:]]+)[A-Za-z0-9._~+\/=-]+/\1***/Ig' \
         -e '/BEGIN [A-Z ]*PRIVATE KEY/,/END [A-Z ]*PRIVATE KEY/c\*** PRIVATE KEY REDACTED ***'

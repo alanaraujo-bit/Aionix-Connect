@@ -53,8 +53,13 @@ if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
         health "$svc" "${c:-none}"
     done
 fi
-if curl -fsS -m 3 -o /dev/null http://127.0.0.1/v1/healthz 2>/dev/null; then ok "api via proxy" "OK"
-else printf '  %-12s %s—%s\n' "api via proxy" "$C_DIM" "$C_0"; fi
+# Caddy may be bound to the LAN address only: try loopback, then each local IPv4.
+proxy=""
+for ip in 127.0.0.1 $(hostname -I 2>/dev/null); do
+    case "$ip" in *:*) continue ;; esac
+    if t="$(curl -fsS -m 2 -o /dev/null -w '%{time_total}' "http://$ip/healthz" 2>/dev/null)"; then proxy="$ip ${t}s"; break; fi
+done
+if [ -n "$proxy" ]; then ok "api (proxy)" "OK  $proxy"; else bad "api (proxy)" "sem resposta"; fi
 
 h "Últimas operações"
 tail -n 6 /var/log/aionix-ops/ops.log 2>/dev/null | cut -c1-150 | sed 's/^/  /' || echo "  (sem acesso ao log)"
