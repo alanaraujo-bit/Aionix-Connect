@@ -15,7 +15,8 @@ use std::{
 
 use crate::{
     common, keymap,
-    theme::{self, Palette},
+    theme,
+    views,
     video::{FrameSlot, VideoSink},
 };
 use aionix_client::{
@@ -40,7 +41,7 @@ use aionix_remote_core::session::{
 use aionix_shared::{FriendlyId, TransportKind};
 use aionix_transport::Transport;
 use egui::{
-    Align, Color32, CornerRadius, Layout, Pos2, Rect, RichText, Sense, Stroke, TextureHandle,
+    Color32, Pos2, Rect, Sense, Stroke, TextureHandle,
     TextureOptions, Vec2,
 };
 use tokio::sync::mpsc;
@@ -543,35 +544,49 @@ impl TechSide {
         }
     }
 
-    /// Top-right account area: "Entrar", or the user's name with "Sair".
-    pub fn account_chip(&mut self, ui: &mut egui::Ui) {
-        let p = theme::palette(ui);
-        if let Some(ws) = self.ws.clone() {
-            if theme::secondary_button(ui, "Sair", true, None)
-                .on_hover_text("Sair da conta neste computador")
-                .clicked()
-            {
-                self.logout();
-            }
-            ui.vertical(|ui| {
-                ui.spacing_mut().item_spacing.y = 0.0;
-                ui.label(RichText::new(&ws.profile.display_name).size(13.5));
-                let org = ws
-                    .org
+    /// Signed-in user's name and organization (sidebar).
+    pub fn account(&self) -> Option<(String, String)> {
+        self.ws.as_ref().map(|ws| {
+            (
+                ws.profile.display_name.clone(),
+                ws.org
                     .as_ref()
-                    .map(|o| o.1.as_str())
-                    .unwrap_or("sem organização");
-                ui.label(RichText::new(org).size(12.0).color(p.muted));
-            });
-        } else if matches!(*self.login.lock().unwrap(), LoginState::Working(_)) {
-            ui.label(RichText::new("Entrando...").size(13.0).color(p.muted));
-            ui.add(egui::Spinner::new().size(16.0));
-        } else if theme::secondary_button(ui, "Entrar", true, None).clicked() {
-            self.show_login = true;
-        }
+                    .map(|o| o.1.clone())
+                    .unwrap_or_else(|| "Sem organização".into()),
+            )
+        })
     }
 
-    fn logout(&mut self) {
+    /// Signing in (by hand or with the stored login).
+    pub fn signing_in(&self) -> bool {
+        matches!(*self.login.lock().unwrap(), LoginState::Working(_))
+    }
+
+    /// Computers of the organization online now (signed in).
+    pub fn online_count(&self) -> Option<usize> {
+        self.ws.as_ref().map(|ws| {
+            ws.devices
+                .lock()
+                .unwrap()
+                .devices
+                .iter()
+                .filter(|d| d.presence == PresenceState::Online)
+                .count()
+        })
+    }
+
+    /// Opens the sign-in sheet.
+    pub fn open_login(&mut self) {
+        self.show_login = true;
+    }
+
+    /// The sign-in sheet is open.
+    pub fn login_open(&self) -> bool {
+        self.ws.is_none() && (self.show_login || self.connect_after_login.is_some())
+    }
+
+    /// Signs out on this computer (the stored login is deleted).
+    pub fn logout(&mut self) {
         if let Some(ws) = self.ws.take() {
             let user = ws.user.clone();
             self.rt.spawn(async move {
@@ -584,75 +599,134 @@ impl TechSide {
         *self.login.lock().unwrap() = LoginState::Idle;
     }
 
-    /// "Acessar outro computador": connect by ID, signing in first when needed; the
-    /// organization's devices once signed in.
-    pub fn connect_panel(&mut self, ui: &mut egui::Ui) {
-        let p = theme::palette(ui);
-        let mut start: Option<FriendlyId> = None;
-        theme::card(ui).show(ui, |ui| {
-            ui.set_width(ui.available_width());
-            ui.label(theme::title("Acessar outro computador", 15.0));
-            ui.label(
-                RichText::new("Digite o ID que aparece no Aionix Connect da outra pessoa.")
-                    .size(13.0)
-                    .color(p.muted),
-            );
-            ui.add_space(14.0);
-            ui.horizontal(|ui| {
-                let w = (ui.available_width() - 132.0).max(150.0);
-                let r = ui.add(
-                    egui::TextEdit::singleline(&mut self.connect_id)
-                        .hint_text("000 000 000")
-                        .font(theme::semibold(20.0))
-                        .desired_width(w)
-                        .margin(egui::Margin::symmetric(12, 8)),
-                );
-                let parsed = self.connect_id.parse::<FriendlyId>();
-                let enter = r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
-                if (theme::primary_button(ui, "Conectar", parsed.is_ok(), Some(120.0)).clicked()
-                    || enter)
-                    && let Ok(id) = parsed
-                {
-                    start = Some(id);
-                }
-            });
-            if let Some(e) = &self.connect_error {
-                ui.label(RichText::new(e).size(13.0).color(p.danger));
+    /// Início, "Acessar outro computador": connect by ID (signing in first when
+    /// needed) and, signed in, the computers online now. Returns a page to open.
+    pub fn connect_section(&mut self, ui: &mut egui::Ui) -> Option<views::Page> {
+        let ws = self.ws.clone();
+        let (quick_src, total): (Vec<DeviceSummary>, usize) = match &ws {
+            Some(ws) => {
+                let st = ws.devices.lock().unwrap();
+                (
+                    st.devices
+                        .iter()
+                        .filter(|d| d.presence == PresenceState::Online)
+                        .take(5)
+                        .cloned()
+                        .collect(),
+                    st.devices.len(),
+                )
             }
-            if self.ws.is_none() {
-                let failed = matches!(*self.login.lock().unwrap(), LoginState::Failed(_));
-                if self.show_login || self.connect_after_login.is_some() || failed {
-                    ui.add_space(14.0);
-                    ui.separator();
-                    ui.add_space(8.0);
-                    self.login_form(ui);
-                } else {
-                    ui.add_space(10.0);
-                    ui.label(
-                        RichText::new(
-                            "Para acessar outro computador, entre com a sua conta Aionix.",
-                        )
-                        .size(12.5)
-                        .color(p.muted),
-                    );
+            None => (Vec::new(), 0),
+        };
+        let quick: Vec<_> = quick_src
+            .iter()
+            .map(|d| device_model(d, &self.local_host))
+            .collect();
+        let m = views::ConnectModel {
+            signed_in: ws.is_some(),
+            signing_in: self.signing_in(),
+            error: self.connect_error.as_deref(),
+            quick: &quick,
+            total,
+        };
+        match views::connect_section(ui, &m, &mut self.connect_id) {
+            Some(views::ConnectAction::Connect(digits)) => {
+                if let Ok(id) = digits.parse::<FriendlyId>() {
+                    self.connect_error = None;
+                    if ws.is_some() {
+                        self.connect_id.clear();
+                        self.connect_now(ui.ctx(), id, format!("ID {id}"));
+                    } else {
+                        self.connect_after_login = Some(id);
+                        self.show_login = true;
+                    }
                 }
             }
-        });
-        if let Some(id) = start {
-            self.connect_error = None;
-            if self.ws.is_some() {
-                self.connect_now(ui.ctx(), id, format!("ID {id}"));
-            } else {
-                self.connect_after_login = Some(id);
-                self.show_login = true;
+            Some(views::ConnectAction::SignIn) => self.show_login = true,
+            Some(views::ConnectAction::Device(i)) => {
+                if let Some(d) = quick_src.get(i) {
+                    self.connect_error = None;
+                    let (id, name, host) = (d.friendly_id, device_name(d), d.hostname.clone());
+                    self.start_session(ui.ctx(), id, name, &host);
+                }
             }
+            Some(views::ConnectAction::ShowAll) => return Some(views::Page::Computers),
+            None => {}
         }
-        if let Some(ws) = self.ws.clone() {
-            ui.add_space(14.0);
-            if let Some((id, name, hostname)) = self.device_list(ui, &ws) {
-                self.connect_error = None;
-                self.start_session(ui.ctx(), id, name, &hostname);
+        None
+    }
+
+    /// "Computadores": the organization's computers with live presence.
+    pub fn computers_page(&mut self, ui: &mut egui::Ui) {
+        let Some(ws) = self.ws.clone() else { return };
+        let picked = {
+            let st = ws.devices.lock().unwrap();
+            let filter = self.filter.trim().to_lowercase();
+            let digits: String = filter.chars().filter(char::is_ascii_digit).collect();
+            let shown: Vec<&DeviceSummary> = st
+                .devices
+                .iter()
+                .filter(|d| {
+                    filter.is_empty()
+                        || d.display_name.to_lowercase().contains(&filter)
+                        || d.hostname.to_lowercase().contains(&filter)
+                        || d
+                            .customer_name
+                            .as_ref()
+                            .is_some_and(|c| c.to_lowercase().contains(&filter))
+                        || (!digits.is_empty() && d.friendly_id.compact().contains(&digits))
+                })
+                .collect();
+            let models: Vec<_> = shown
+                .iter()
+                .map(|d| device_model(d, &self.local_host))
+                .collect();
+            let m = views::ComputersModel {
+                devices: &models,
+                total: st.devices.len(),
+                online: st
+                    .devices
+                    .iter()
+                    .filter(|d| d.presence == PresenceState::Online)
+                    .count(),
+                loaded: st.loaded,
+                has_org: ws.org.is_some(),
+                error: st.error.as_deref(),
+            };
+            views::computers_page(ui, &m, &mut self.filter)
+                .and_then(|i| shown.get(i))
+                .map(|d| (d.friendly_id, device_name(d), d.hostname.clone()))
+        };
+        if let Some((id, name, hostname)) = picked {
+            self.connect_error = None;
+            self.start_session(ui.ctx(), id, name, &hostname);
+        }
+    }
+
+    /// The sign-in sheet, while it is open.
+    pub fn login_sheet(&mut self, ctx: &egui::Context) {
+        if self.ws.is_some() || !(self.show_login || self.connect_after_login.is_some()) {
+            views::reset_login_sheet(ctx);
+            return;
+        }
+        let (working, error) = match &*self.login.lock().unwrap() {
+            LoginState::Working(s) => (Some(*s), None),
+            LoginState::Failed(e) => (None, Some(e.clone())),
+            LoginState::Idle => (None, None),
+        };
+        let m = views::LoginModel {
+            working,
+            error: error.as_deref(),
+            then_connect: self.connect_after_login.map(|id| id.to_string()),
+        };
+        match views::login_sheet(ctx, &m, &mut self.email, &mut self.password) {
+            Some(views::LoginAction::Submit) => self.begin_login(ctx),
+            Some(views::LoginAction::Cancel) => {
+                self.show_login = false;
+                self.connect_after_login = None;
+                *self.login.lock().unwrap() = LoginState::Idle;
             }
+            None => {}
         }
     }
 
@@ -666,63 +740,6 @@ impl TechSide {
         self.start_session(ctx, id, name, &host);
     }
 
-    fn login_form(&mut self, ui: &mut egui::Ui) {
-        let p = theme::palette(ui);
-        let working = matches!(*self.login.lock().unwrap(), LoginState::Working(_));
-        ui.label(theme::title("Entre com a sua conta", 14.0));
-        if let Some(id) = self.connect_after_login {
-            ui.label(
-                RichText::new(format!("Depois de entrar, conectamos ao ID {id}."))
-                    .size(12.5)
-                    .color(p.muted),
-            );
-        }
-        ui.add_space(8.0);
-        ui.label(RichText::new("E-mail").size(12.5).color(p.muted));
-        let email = ui.add_enabled(
-            !working,
-            egui::TextEdit::singleline(&mut self.email)
-                .hint_text("voce@empresa.com.br")
-                .desired_width(f32::INFINITY)
-                .margin(egui::Margin::symmetric(10, 7)),
-        );
-        ui.label(RichText::new("Senha").size(12.5).color(p.muted));
-        let pw = ui.add_enabled(
-            !working,
-            egui::TextEdit::singleline(&mut self.password)
-                .password(true)
-                .desired_width(f32::INFINITY)
-                .margin(egui::Margin::symmetric(10, 7)),
-        );
-        if self.email.is_empty() && !email.has_focus() && !pw.has_focus() {
-            email.request_focus();
-        }
-        let enter = (pw.lost_focus() || email.lost_focus())
-            && ui.input(|i| i.key_pressed(egui::Key::Enter));
-        let can = !working && !self.email.trim().is_empty() && !self.password.is_empty();
-        ui.add_space(8.0);
-        ui.horizontal(|ui| {
-            let label = match &*self.login.lock().unwrap() {
-                LoginState::Working(s) => *s,
-                _ => "Entrar",
-            };
-            if theme::primary_button(ui, label, can, Some(140.0)).clicked() || (enter && can) {
-                self.begin_login(ui.ctx());
-            }
-            if !working && theme::secondary_button(ui, "Cancelar", true, None).clicked() {
-                self.show_login = false;
-                self.connect_after_login = None;
-                *self.login.lock().unwrap() = LoginState::Idle;
-            }
-            if working {
-                ui.add(egui::Spinner::new().size(16.0));
-            }
-        });
-        if let LoginState::Failed(e) = &*self.login.lock().unwrap() {
-            ui.label(RichText::new(e).size(13.0).color(p.danger));
-        }
-    }
-
     fn begin_login(&mut self, ctx: &egui::Context) {
         let (server, dir, email, password) = (
             self.opts.server.clone(),
@@ -731,7 +748,7 @@ impl TechSide {
             self.password.clone(),
         );
         let (status, pending, ctx) = (self.login.clone(), self.pending_ws.clone(), ctx.clone());
-        *status.lock().unwrap() = LoginState::Working("Entrando...");
+        *status.lock().unwrap() = LoginState::Working("Entrando…");
         self.rt.spawn(async move {
             let result = match login_with_password(&server, &email, &password).await {
                 Ok(user) => open_workspace(server, dir, user, status.clone(), ctx.clone()).await,
@@ -756,7 +773,7 @@ impl TechSide {
         };
         let (server, dir) = (self.opts.server.clone(), self.opts.dir.clone());
         let (status, pending, ctx) = (self.login.clone(), self.pending_ws.clone(), ctx.clone());
-        *status.lock().unwrap() = LoginState::Working("Entrando...");
+        *status.lock().unwrap() = LoginState::Working("Entrando…");
         self.rt.spawn(async move {
             let api = match ApiClient::new(&server) {
                 Ok(a) => a,
@@ -790,75 +807,6 @@ impl TechSide {
         });
     }
 
-    /// The organization's devices with live presence; returns a device to connect to.
-    fn device_list(
-        &mut self,
-        ui: &mut egui::Ui,
-        ws: &Arc<Workspace>,
-    ) -> Option<(FriendlyId, String, String)> {
-        let p = theme::palette(ui);
-        let mut start = None;
-        let st = ws.devices.lock().unwrap();
-        ui.horizontal(|ui| {
-            let online = st
-                .devices
-                .iter()
-                .filter(|d| d.presence == PresenceState::Online)
-                .count();
-            ui.label(theme::title("Seus dispositivos", 15.0));
-            ui.label(
-                RichText::new(format!("{} · {online} online", st.devices.len()))
-                    .size(13.0)
-                    .color(p.muted),
-            );
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.filter)
-                        .hint_text("Buscar")
-                        .desired_width(180.0)
-                        .margin(egui::Margin::symmetric(10, 6)),
-                );
-            });
-        });
-        if let Some(e) = &st.error {
-            ui.label(
-                RichText::new(format!("Não foi possível atualizar a lista: {e}"))
-                    .size(13.0)
-                    .color(p.danger),
-            );
-        }
-        ui.add_space(6.0);
-        if !st.loaded {
-            ui.horizontal(|ui| {
-                ui.add(egui::Spinner::new());
-                ui.label(RichText::new("Carregando dispositivos...").color(p.muted));
-            });
-        } else if ws.org.is_none() {
-            ui.label(
-                RichText::new("Sua conta não pertence a nenhuma organização. Use o ID acima.")
-                    .color(p.muted),
-            );
-        } else if st.devices.is_empty() {
-            ui.label(RichText::new("Nenhum dispositivo cadastrado ainda.").color(p.muted));
-        }
-        let filter = self.filter.to_lowercase();
-        egui::ScrollArea::vertical()
-            .auto_shrink([false, false])
-            .show(ui, |ui| {
-                for d in st.devices.iter().filter(|d| {
-                    filter.is_empty()
-                        || d.display_name.to_lowercase().contains(&filter)
-                        || d.hostname.to_lowercase().contains(&filter)
-                        || d.friendly_id.compact().contains(&filter.replace(' ', ""))
-                }) {
-                    if let Some(s) = device_row(ui, &p, d, &self.local_host) {
-                        start = Some(s);
-                    }
-                    ui.add_space(8.0);
-                }
-            });
-        start
-    }
 }
 
 impl TechSide {
@@ -928,107 +876,126 @@ impl TechSide {
         let mut retry = false;
         let can_control = s.handle.permissions().is_some_and(|x| x.control);
 
-        // ---- toolbar
+        // ---- toolbar (its own strip: clicks there never reach the remote computer)
+        let fullscreen = ui.ctx().input(|i| i.viewport().fullscreen.unwrap_or(false));
+        let title = s.host_name.clone().unwrap_or_else(|| s.name.clone());
+        let id_text = s.target.to_string();
+        let metrics = live
+            .then(|| {
+                let mut parts = Vec::new();
+                if let Some(t) = diag.transport.value() {
+                    parts.push(transport_text(*t).to_owned());
+                }
+                if let Some(r) = diag.rtt_ms.value() {
+                    parts.push(format!("{r:.0} ms"));
+                }
+                if let Some(f) = diag.fps.value() {
+                    parts.push(format!("{f:.0} fps"));
+                }
+                if let Some(res) = diag.resolution.value() {
+                    parts.push(format!("{}×{}", res.width, res.height));
+                }
+                parts.join("  ·  ")
+            })
+            .filter(|m| !m.is_empty());
+        let tone = session_tone(status.state);
         egui::Panel::top("session-bar")
-            .exact_size(56.0)
-            .frame(
-                egui::Frame::new()
-                    .fill(p.surface)
-                    .stroke(Stroke::new(1.0, p.border))
-                    .inner_margin(egui::Margin::symmetric(16, 8)),
-            )
+            .exact_size(views::TOOLBAR_HEIGHT)
+            .frame(egui::Frame::NONE)
             .show(ui, |ui| {
-                ui.horizontal_centered(|ui| {
-                    if terminal && theme::secondary_button(ui, "‹  Início", true, None).clicked()
-                    {
-                        leave = true;
-                    }
-                    ui.vertical(|ui| {
-                        ui.spacing_mut().item_spacing.y = 0.0;
-                        let title = s.host_name.clone().unwrap_or_else(|| s.name.clone());
-                        ui.label(theme::title(title, 15.0));
-                        ui.label(
-                            RichText::new(format!("ID {}", s.target))
-                                .size(12.0)
-                                .color(p.muted),
-                        );
-                    });
-                    ui.add_space(8.0);
-                    theme::status_pill(
-                        ui,
-                        common::state_text(status.state),
-                        session_color(&p, status.state),
-                    );
-                    if live {
-                        let mut parts = Vec::new();
-                        if let Some(t) = diag.transport.value() {
-                            parts.push(transport_text(*t).to_owned());
-                        }
-                        if let Some(r) = diag.rtt_ms.value() {
-                            parts.push(format!("{r:.0} ms"));
-                        }
-                        if let Some(f) = diag.fps.value() {
-                            parts.push(format!("{f:.0} fps"));
-                        }
-                        if let Some(res) = diag.resolution.value() {
-                            parts.push(format!("{}×{}", res.width, res.height));
-                        }
-                        ui.label(RichText::new(parts.join("  ·  ")).size(12.5).color(p.muted));
-                    }
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if !terminal {
-                            if theme::danger_button(ui, "Encerrar", true, None).clicked() {
-                                s.handle.end();
-                            }
-                        } else if theme::primary_button(ui, "Conectar novamente", true, None)
-                            .clicked()
-                        {
-                            retry = true;
-                        }
-                        theme::toggle_chip(ui, &mut s.show_diag, "Diagnóstico", true);
-                        let before = s.control;
-                        theme::toggle_chip(ui, &mut s.control, "Controle", can_control && live)
-                            .on_hover_text("Enviar mouse e teclado ao computador remoto");
-                        if before && !s.control {
-                            release_all(s);
-                        }
-                    });
-                });
+                let m = views::ToolbarModel {
+                    title: &title,
+                    id: &id_text,
+                    state: common::state_text(status.state),
+                    tone,
+                    pulse: !terminal && !matches!(status.state, SessionState::Connected),
+                    metrics,
+                    terminal,
+                    can_control: can_control && live,
+                    fullscreen,
+                };
+                let before = s.control;
+                match views::session_toolbar(ui, &m, &mut s.control, &mut s.show_diag) {
+                    Some(views::ToolbarAction::Leave) => leave = true,
+                    Some(views::ToolbarAction::End) => s.handle.end(),
+                    Some(views::ToolbarAction::Retry) => retry = true,
+                    Some(views::ToolbarAction::Fullscreen) => ui
+                        .ctx()
+                        .send_viewport_cmd(egui::ViewportCommand::Fullscreen(!fullscreen)),
+                    Some(views::ToolbarAction::ControlOff) | None => {}
+                }
+                if before && !s.control {
+                    release_all(s);
+                }
             });
+
+        if s.local_machine && !terminal {
+            egui::Panel::top("local-notice")
+                .frame(egui::Frame::NONE)
+                .show(ui, |ui| {
+                    views::session_notice(
+                        ui,
+                        "Teste local: este é o próprio computador. O controle começa desligado para o cursor não se perseguir; ligue-o pelo botão do ponteiro se quiser testar.",
+                    );
+                });
+        }
 
         if s.show_diag {
             egui::Panel::right("diag")
                 .exact_size(300.0)
                 .frame(
                     egui::Frame::new()
-                        .fill(p.surface)
-                        .stroke(Stroke::new(1.0, p.border))
-                        .inner_margin(egui::Margin::same(16)),
+                        .fill(p.sidebar)
+                        .stroke(Stroke::new(1.0, p.hairline))
+                        .inner_margin(egui::Margin::same(18)),
                 )
                 .show(ui, |ui| diagnostics_panel(ui, s, &diag, &status));
         }
 
         egui::CentralPanel::default()
-            .frame(egui::Frame::new().fill(if live { Color32::from_rgb(8, 9, 12) } else { p.bg }))
+            .frame(egui::Frame::new().fill(if live {
+                Color32::from_rgb(11, 11, 12)
+            } else {
+                p.bg
+            }))
             .show(ui, |ui| {
                 let area = ui.available_rect_before_wrap();
-                if s.local_machine && !terminal {
-                    let r = Rect::from_min_size(area.min + Vec2::new(12.0, 12.0), Vec2::new(area.width() - 24.0, 30.0));
-                    ui.put(r, egui::Label::new(RichText::new("Validação local: o dispositivo é este mesmo computador. O controle fica desligado para o cursor não se perseguir; ligue-o em \"Controle\" se quiser testar.").size(12.5).color(p.warning)));
-                }
                 match (&s.texture, live || status.state == SessionState::Reconnecting) {
                     (Some(tex), true) => {
-                        let img_rect = fit_rect(area.shrink(if s.local_machine { 44.0 } else { 0.0 }), tex.size_vec2());
-                        ui.painter().image(tex.id(), img_rect, Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
+                        let img_rect = fit_rect(area, tex.size_vec2());
+                        ui.painter().image(
+                            tex.id(),
+                            img_rect,
+                            Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
+                            Color32::WHITE,
+                        );
                         self.viewer_input(ui, s, img_rect, can_control && live);
                         draw_cursor(ui, s, img_rect);
                         if status.state == SessionState::Reconnecting {
-                            overlay(ui, area, &p, "Reconectando...", "A conexão caiu. Tentando retomar a sessão.", true);
+                            views::session_overlay(
+                                ui,
+                                area,
+                                &views::OverlayModel {
+                                    headline: "Reconectando…",
+                                    detail: "A conexão caiu. Tentando retomar a sessão.",
+                                    busy: true,
+                                    tone: views::Tone::Warning,
+                                },
+                            );
                         }
                     }
                     _ => {
                         let (headline, detail, spin) = state_message(&status, s);
-                        overlay(ui, area, &p, &headline, &detail, spin);
+                        views::session_overlay(
+                            ui,
+                            area,
+                            &views::OverlayModel {
+                                headline: &headline,
+                                detail: &detail,
+                                busy: spin,
+                                tone,
+                            },
+                        );
                     }
                 }
             });
@@ -1278,29 +1245,6 @@ fn draw_cursor(ui: &egui::Ui, s: &ActiveSession, img: Rect) {
     );
 }
 
-fn overlay(ui: &mut egui::Ui, area: Rect, p: &Palette, headline: &str, detail: &str, spin: bool) {
-    let card = Rect::from_center_size(area.center(), Vec2::new(440.0, 170.0));
-    ui.painter().rect(
-        card,
-        CornerRadius::same(16),
-        p.surface,
-        Stroke::new(1.0, p.border),
-        egui::StrokeKind::Inside,
-    );
-    let mut child = ui.new_child(
-        egui::UiBuilder::new()
-            .max_rect(card.shrink(24.0))
-            .layout(Layout::top_down(Align::Center)),
-    );
-    child.add_space(6.0);
-    if spin {
-        child.add(egui::Spinner::new().size(26.0).color(p.accent));
-    }
-    child.add_space(6.0);
-    child.label(theme::title(headline, 19.0));
-    child.label(RichText::new(detail).size(13.5).color(p.muted));
-}
-
 fn state_message(
     status: &aionix_remote_core::session::state::SessionStatus,
     s: &ActiveSession,
@@ -1451,69 +1395,42 @@ fn diagnostics_panel(
     }
 }
 
-fn device_row(
-    ui: &mut egui::Ui,
-    p: &Palette,
-    d: &DeviceSummary,
-    local_host: &str,
-) -> Option<(FriendlyId, String, String)> {
-    let mut clicked = None;
-    theme::card(ui)
-        .inner_margin(egui::Margin::symmetric(18, 14))
-        .show(ui, |ui| {
-            ui.set_width(ui.available_width());
-            ui.horizontal(|ui| {
-                let (rect, _) = ui.allocate_exact_size(Vec2::splat(40.0), Sense::hover());
-                ui.painter()
-                    .rect_filled(rect, CornerRadius::same(10), p.surface_alt);
-                ui.painter().text(
-                    rect.center(),
-                    egui::Align2::CENTER_CENTER,
-                    "🖥",
-                    egui::FontId::proportional(20.0),
-                    p.muted,
-                );
-                ui.vertical(|ui| {
-                    ui.spacing_mut().item_spacing.y = 2.0;
-                    let name = if d.display_name.is_empty() {
-                        &d.hostname
-                    } else {
-                        &d.display_name
-                    };
-                    ui.horizontal(|ui| {
-                        ui.label(theme::title(name, 15.0));
-                        if d.hostname.eq_ignore_ascii_case(local_host) {
-                            ui.label(RichText::new("este computador").size(11.5).color(p.info));
-                        }
-                    });
-                    let mut sub =
-                        format!("ID {}  ·  {} {}", d.friendly_id, d.os_name, d.os_version);
-                    if let Some(c) = &d.customer_name {
-                        sub.push_str(&format!("  ·  {c}"));
-                    }
-                    ui.label(RichText::new(sub).size(12.5).color(p.muted));
-                });
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    let online = d.presence == PresenceState::Online;
-                    if theme::primary_button(ui, "Conectar", online, Some(112.0)).clicked() {
-                        let name = if d.display_name.is_empty() {
-                            d.hostname.clone()
-                        } else {
-                            d.display_name.clone()
-                        };
-                        clicked = Some((d.friendly_id, name, d.hostname.clone()));
-                    }
-                    ui.add_space(8.0);
-                    let (text, color) = match d.presence {
-                        PresenceState::Online => ("Online", p.success),
-                        PresenceState::Connecting => ("Conectando", p.warning),
-                        PresenceState::Offline => ("Offline", p.muted),
-                    };
-                    theme::status_pill(ui, text, color);
-                });
-            });
-        });
-    clicked
+/// Name shown for a computer: its display name, or the hostname.
+fn device_name(d: &DeviceSummary) -> String {
+    if d.display_name.is_empty() {
+        d.hostname.clone()
+    } else {
+        d.display_name.clone()
+    }
+}
+
+fn device_model(d: &DeviceSummary, local_host: &str) -> views::DeviceModel {
+    views::DeviceModel {
+        id: d.friendly_id.to_string(),
+        name: device_name(d),
+        system: d.os_name.clone(),
+        customer: d.customer_name.clone().filter(|c| !c.is_empty()),
+        presence: match d.presence {
+            PresenceState::Online => views::Presence::Online,
+            PresenceState::Connecting => views::Presence::Connecting,
+            PresenceState::Offline => views::Presence::Offline,
+        },
+        this_computer: d.hostname.eq_ignore_ascii_case(local_host),
+        seen: d.last_seen_at.map(seen_text),
+    }
+}
+
+/// "visto há 3 h" from the last time the server heard from a computer.
+fn seen_text(at: time::OffsetDateTime) -> String {
+    let secs = (time::OffsetDateTime::now_utc() - at).whole_seconds().max(0);
+    match secs {
+        0..60 => "visto agora".into(),
+        60..3_600 => format!("visto há {} min", secs / 60),
+        3_600..86_400 => format!("visto há {} h", secs / 3_600),
+        86_400..172_800 => "visto ontem".into(),
+        172_800..2_592_000 => format!("visto há {} dias", secs / 86_400),
+        _ => "visto há mais de um mês".into(),
+    }
 }
 
 fn transport_text(t: TransportKind) -> &'static str {
@@ -1525,14 +1442,14 @@ fn transport_text(t: TransportKind) -> &'static str {
     }
 }
 
-fn session_color(p: &Palette, s: SessionState) -> Color32 {
+fn session_tone(s: SessionState) -> views::Tone {
     match s {
-        SessionState::Connected => p.success,
+        SessionState::Connected => views::Tone::Success,
         SessionState::Degraded | SessionState::Reconnecting | SessionState::AwaitingApproval => {
-            p.warning
+            views::Tone::Warning
         }
-        SessionState::Failed | SessionState::Rejected => p.danger,
-        SessionState::Ended | SessionState::Ending => p.muted,
-        _ => p.info,
+        SessionState::Failed | SessionState::Rejected => views::Tone::Danger,
+        SessionState::Ended | SessionState::Ending => views::Tone::Neutral,
+        _ => views::Tone::Accent,
     }
 }

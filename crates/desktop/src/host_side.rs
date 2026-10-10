@@ -11,7 +11,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{common, theme};
+use crate::{common, theme, views};
 use aionix_client::{
     ApiClient,
     enroll::{DeviceSession, Enrollment, ensure_enrolled},
@@ -30,7 +30,7 @@ use aionix_remote_core::session::{
 };
 use aionix_shared::FriendlyId;
 use async_trait::async_trait;
-use egui::{Align, Layout, RichText, Stroke};
+use egui::RichText;
 use futures::StreamExt;
 use tokio::sync::watch;
 use tracing::{info, warn};
@@ -458,150 +458,105 @@ impl HostSide {
         }
     }
 
-    /// "Este computador": the ID, its status, and any inbound request or session.
-    pub fn card(&mut self, ui: &mut egui::Ui) {
-        let p = theme::palette(ui);
-        let (phase, friendly, session, pending, last_outcome) = {
-            let u = self.ui.lock().unwrap();
-            (
-                u.phase.clone(),
-                u.friendly,
-                u.session.clone(),
-                u.pending.clone(),
-                u.last_outcome.clone(),
-            )
+    /// "Este computador" for the views: the ID, its status, and any inbound request or
+    /// session.
+    pub fn model(&self) -> views::HostModel {
+        let u = self.ui.lock().unwrap();
+        let in_session = u.session.is_some();
+        let (status, text) = match &u.phase {
+            Phase::Online if in_session => (views::HostStatus::Online, "Em sessão".to_owned()),
+            Phase::Online => (
+                views::HostStatus::Online,
+                "Pronto para receber suporte".to_owned(),
+            ),
+            Phase::Connecting => (
+                views::HostStatus::Connecting,
+                "Conectando ao servidor…".to_owned(),
+            ),
+            Phase::Starting(s) => (views::HostStatus::Starting, s.replace("...", "…")),
+            Phase::Stopped(s) => (views::HostStatus::Offline, s.clone()),
+            Phase::Error(_) => (
+                views::HostStatus::Offline,
+                "Sem conexão com o servidor".to_owned(),
+            ),
         };
-        theme::card(ui).show(ui, |ui| {
-            ui.set_width(ui.available_width());
-            ui.label(theme::title("Este computador", 15.0));
-            ui.label(
-                RichText::new("Para receber ajuda, passe este ID para quem vai te atender.")
-                    .size(13.0)
-                    .color(p.muted),
-            );
-            ui.add_space(16.0);
-            ui.label(RichText::new("Seu ID").size(12.5).color(p.muted));
-            match friendly {
-                Some(id) => {
-                    ui.horizontal(|ui| {
-                        ui.label(theme::title(common::friendly(id), 40.0));
-                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                            let copied = self
-                                .copied_at
-                                .is_some_and(|t| t.elapsed() < Duration::from_secs(2));
-                            let text = if copied { "Copiado" } else { "Copiar" };
-                            if theme::secondary_button(ui, text, true, Some(92.0)).clicked() {
-                                ui.ctx().copy_text(id.compact());
-                                self.copied_at = Some(Instant::now());
-                            }
-                        });
-                    });
-                }
-                None => {
-                    ui.horizontal(|ui| {
-                        ui.add(egui::Spinner::new().size(24.0));
-                        ui.label(theme::title("— — —", 34.0).color(p.muted));
-                    });
-                }
-            }
-            ui.add_space(8.0);
-            let (text, color) = match &phase {
-                Phase::Online if session.is_some() => ("Em sessão", p.accent),
-                Phase::Online => ("Pronto para receber suporte", p.success),
-                Phase::Connecting => ("Conectando ao servidor...", p.warning),
-                Phase::Starting(s) => (s.as_str(), p.warning),
-                Phase::Stopped(s) => (s.as_str(), p.danger),
-                Phase::Error(_) => ("Sem conexão com o servidor", p.danger),
-            };
-            theme::status_pill(ui, text, color);
-            if let Phase::Error(e) = &phase {
-                ui.label(
-                    RichText::new(format!("{e} Tentando novamente..."))
-                        .size(12.5)
-                        .color(p.muted),
-                );
-            }
-            ui.add_space(12.0);
-            ui.label(
-                RichText::new("Ninguém acessa este computador sem a sua permissão.")
-                    .size(12.5)
-                    .color(p.muted),
-            );
-        });
-
-        if let Some(t) = &pending {
-            ui.add_space(12.0);
-            theme::card(ui)
-                .stroke(Stroke::new(1.5, p.warning))
-                .show(ui, |ui| {
-                    ui.set_width(ui.available_width());
-                    ui.label(theme::title("Pedido de acesso", 16.0));
-                    ui.label(format!("{} quer acessar este computador.", display_name(t)));
-                    ui.label(
-                        RichText::new("Responda na janela de confirmação: Permitir ou Recusar.")
-                            .size(13.0)
-                            .color(p.muted),
-                    );
-                });
-        } else if let Some((handle, tech)) = &session {
-            ui.add_space(12.0);
+        let detail = match &u.phase {
+            Phase::Error(e) => Some(format!("{e} Tentando novamente…")),
+            _ => None,
+        };
+        let inbound = u.session.as_ref().map(|(handle, tech)| {
             let status = handle.status();
-            let d = handle.diagnostics();
-            theme::card(ui)
-                .stroke(Stroke::new(1.5, p.accent))
-                .show(ui, |ui| {
-                    ui.set_width(ui.available_width());
-                    ui.horizontal(|ui| {
-                        ui.label(theme::title("Acessando este computador", 16.0));
-                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                            theme::status_pill(
-                                ui,
-                                common::state_text(status.state),
-                                state_color(&p, status.state),
-                            );
-                        });
-                    });
-                    if let Some(t) = tech {
-                        ui.label(display_name(t));
-                        if !t.email.is_empty() {
-                            ui.label(RichText::new(&t.email).size(13.0).color(p.muted));
-                        }
-                        let mut can = vec!["ver a tela"];
-                        if t.control {
-                            can.push("usar mouse e teclado");
-                        }
-                        if t.clipboard {
-                            can.push("área de transferência");
-                        }
-                        ui.label(
-                            RichText::new(format!("Permissões: {}", can.join(", ")))
-                                .size(13.0)
-                                .color(p.muted),
-                        );
-                    }
-                    if let Some(dur) = d.duration.value() {
-                        let s = dur.as_secs();
-                        ui.label(
-                            RichText::new(format!("Duração: {:02}:{:02}", s / 60, s % 60))
-                                .size(13.0)
-                                .color(p.muted),
-                        );
-                    }
-                    ui.add_space(6.0);
-                    if theme::danger_button(
-                        ui,
-                        "Encerrar sessão",
-                        !status.state.is_terminal(),
-                        Some(ui.available_width()),
-                    )
-                    .clicked()
-                    {
-                        handle.end();
-                    }
-                });
-        } else if let Some(o) = &last_outcome {
-            ui.add_space(10.0);
-            ui.label(RichText::new(o).size(12.5).color(p.muted));
+            let mut can = vec!["ver a tela"];
+            if let Some(t) = tech {
+                if t.control {
+                    can.push("usar mouse e teclado");
+                }
+                if t.clipboard {
+                    can.push("usar a área de transferência");
+                }
+            }
+            let permissions = match can.split_last() {
+                Some((last, rest)) if !rest.is_empty() => format!("{} e {last}", rest.join(", ")),
+                _ => can.join(""),
+            };
+            let duration = handle.diagnostics().duration.value().map(|d| {
+                let s = d.as_secs();
+                format!("{:02}:{:02}", s / 60, s % 60)
+            });
+            let state = (status.state != SessionState::Connected).then(|| {
+                (
+                    common::state_text(status.state).to_owned(),
+                    match status.state {
+                        SessionState::Failed | SessionState::Rejected => views::Tone::Danger,
+                        SessionState::Ended | SessionState::Ending => views::Tone::Neutral,
+                        _ => views::Tone::Warning,
+                    },
+                )
+            });
+            views::InboundModel {
+                email: tech
+                    .as_ref()
+                    .map(|t| t.email.clone())
+                    .filter(|e| !e.is_empty()),
+                name: tech
+                    .as_ref()
+                    .map(display_name)
+                    .unwrap_or_else(|| "Um técnico".into()),
+                permissions,
+                duration,
+                state,
+                can_end: !status.state.is_terminal(),
+            }
+        });
+        views::HostModel {
+            id: u.friendly.map(|id| (common::friendly(id), id.compact())),
+            status,
+            status_text: text,
+            status_detail: detail,
+            pending: u.pending.as_ref().map(display_name),
+            inbound,
+            last_outcome: u.last_outcome.clone(),
+            copied: self
+                .copied_at
+                .is_some_and(|t| t.elapsed() < Duration::from_secs(2)),
+        }
+    }
+
+    /// Acts on what the user asked for in "Este computador".
+    pub fn act(&mut self, ctx: &egui::Context, action: views::HostAction) {
+        match action {
+            views::HostAction::Copy(compact) => {
+                ctx.copy_text(compact);
+                self.copied_at = Some(Instant::now());
+                // Back to "Copiar" when the confirmation expires.
+                ctx.request_repaint_after(Duration::from_millis(2050));
+            }
+            views::HostAction::EndInbound => {
+                let session = self.ui.lock().unwrap().session.clone();
+                if let Some((handle, _)) = session {
+                    handle.end();
+                }
+            }
         }
     }
 
@@ -671,17 +626,5 @@ fn display_name(t: &Technician) -> String {
     match &t.organization {
         Some(o) if !o.is_empty() => format!("{} ({o})", t.name),
         _ => t.name.clone(),
-    }
-}
-
-pub(crate) fn state_color(p: &theme::Palette, s: SessionState) -> egui::Color32 {
-    match s {
-        SessionState::Connected => p.success,
-        SessionState::Degraded | SessionState::Reconnecting | SessionState::AwaitingApproval => {
-            p.warning
-        }
-        SessionState::Failed | SessionState::Rejected => p.danger,
-        SessionState::Ended | SessionState::Ending => p.muted,
-        _ => p.info,
     }
 }

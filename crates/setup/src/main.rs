@@ -161,7 +161,7 @@ fn decode_icon(bytes: &[u8]) -> egui::IconData {
             width,
             height,
         },
-        None => aionix_desktop::icon::brand_icon(64, [0x4f, 0x7c, 0xff]),
+        None => aionix_desktop::icon::app_icon(),
     }
 }
 

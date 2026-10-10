@@ -51,11 +51,23 @@ the client clicks "Permitir". Receiving help needs no account; connecting does
 
 ## Brand Commitments
 
-Name "Aionix Connect", company "Aionix" (branding/brand.json). One "A" monogram icon on
-a blue→violet gradient (branding/icons/setup.*); blue marks the receiving side and
-violet the helping side inside the UI and site. App palette from
-crates/desktop/src/theme.rs (dark: bg #0d1015, accent #4f7cff). pt-BR voice, direct and
+Name "Aionix Connect", company "Aionix" (branding/brand.json). pt-BR voice, direct and
 calm.
+
+- **Standing preference (chosen 2026-10-10): the category standard, executed at full
+  craft.** The app looks like the canonical remote-support app (sidebar + content, the
+  ID as the hero, a computer list, an edge-to-edge session), with the finish of Apple
+  Screen Sharing (macOS) and the current TeamViewer as the quality bar. No neon, no
+  glows, no gradient controls, nothing that reads as AI-generated.
+- **Icon:** two screens that overlap, the region they share filled solid (what both
+  people see in a session), white on a blue rounded square
+  (infra/branding/make-icons.py → branding/icons). The old "A" monogram and the
+  blue→violet gradient are retired.
+- **Color:** Windows-native neutrals following the system light/dark setting, one blue
+  accent (#0b63e5 light / #2b74f0 dark) for primary actions, focus and selection; green
+  only for online/connected (crates/desktop/src/theme.rs).
+- **Motion:** quiet, exponential ease-out transitions; everything jumps to its end state
+  when Windows animation effects are off.
 
 ## Evidence on Hand
 

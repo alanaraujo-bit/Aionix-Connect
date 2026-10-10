@@ -26,11 +26,11 @@ mod app {
         host_side::{HostOptions, HostSide},
         icon,
         tech_side::{TechOptions, TechSide},
-        theme, updater,
+        theme, updater, views,
     };
     use aionix_shared::FriendlyId;
     use clap::Parser;
-    use egui::{Align, Layout, RichText, Stroke};
+
     use tracing::{error, info, warn};
 
     #[derive(Parser, Debug, Clone)]
@@ -134,7 +134,7 @@ mod app {
                 .with_title(WINDOW_TITLE)
                 .with_inner_size([1040.0, 680.0])
                 .with_min_inner_size([760.0, 560.0])
-                .with_icon(icon::brand_icon(64, [0x5e, 0x8c, 0xff])),
+                .with_icon(icon::app_icon()),
             ..Default::default()
         };
         let handle = rt.handle().clone();
@@ -179,6 +179,8 @@ mod app {
                     label: args.environment_label.clone(),
                     last_input: Instant::now(),
                     applying_update: false,
+                    page: views::Page::Home,
+                    computers_after_login: false,
                 }))
             }),
         );
@@ -195,6 +197,9 @@ mod app {
         label: Option<String>,
         last_input: Instant,
         applying_update: bool,
+        page: views::Page,
+        /// "Computadores" was clicked while signed out: open it after signing in.
+        computers_after_login: bool,
     }
 
     /// A verified update installs itself only after this long without the user touching
@@ -242,91 +247,90 @@ mod app {
         }
 
         fn home(&mut self, ui: &mut egui::Ui) {
-            let p = theme::palette(ui);
-            egui::Panel::top("top")
-                .exact_size(60.0)
-                .frame(
-                    egui::Frame::new()
-                        .fill(p.surface)
-                        .stroke(Stroke::new(1.0, p.border))
-                        .inner_margin(egui::Margin::symmetric(20, 10)),
-                )
-                .show(ui, |ui| {
-                    ui.horizontal_centered(|ui| {
-                        theme::brand_mark(ui, 30.0);
-                        ui.label(theme::title(WINDOW_TITLE, 16.0));
-                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                            self.tech.account_chip(ui);
-                        });
-                    });
-                });
-            if let Some(label) = &self.label {
-                egui::Panel::top("env-label")
-                    .exact_size(26.0)
-                    .frame(
-                        egui::Frame::new()
-                            .fill(p.warning.gamma_multiply(0.12))
-                            .inner_margin(egui::Margin::symmetric(20, 4)),
-                    )
-                    .show(ui, |ui| {
-                        ui.label(RichText::new(label).size(12.0).color(p.warning));
-                    });
+            let ctx = ui.ctx().clone();
+            let account = self.tech.account();
+            if account.is_none() {
+                self.page = views::Page::Home;
+            } else if std::mem::take(&mut self.computers_after_login) {
+                self.page = views::Page::Computers;
             }
-            egui::Panel::bottom("footer")
-                .frame(
-                    egui::Frame::new()
-                        .fill(p.surface)
-                        .stroke(Stroke::new(1.0, p.border))
-                        .inner_margin(egui::Margin::symmetric(20, 8)),
-                )
-                .show(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        updater::footer(ui, &self.updater, &p);
-                        if let Some(m) = self.updater.ready() {
-                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                                let text = format!("Reiniciar e atualizar para {}", m.version);
-                                if theme::primary_button(ui, &text, !self.host.busy(), None)
-                                    .clicked()
-                                {
-                                    match self.updater.apply() {
-                                        Ok(()) => {
-                                            ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close)
-                                        }
-                                        Err(e) => warn!(error = %e, "update not applied"),
-                                    }
-                                }
-                            });
-                        }
-                    });
-                });
-            egui::CentralPanel::default()
-                .frame(
-                    egui::Frame::new()
-                        .fill(p.bg)
-                        .inner_margin(egui::Margin::same(24)),
-                )
-                .show(ui, |ui| {
-                    let wide = ui.available_width() >= 860.0;
-                    if wide {
-                        ui.columns(2, |cols| {
-                            cols[0].vertical(|ui| {
-                                self.host.card(ui);
-                                ui.with_layout(Layout::bottom_up(Align::Min), |ui| {
-                                    self.host.details(ui);
-                                });
-                            });
-                            cols[1].vertical(|ui| self.tech.connect_panel(ui));
-                        });
-                    } else {
-                        egui::ScrollArea::vertical().show(ui, |ui| {
-                            self.host.card(ui);
-                            ui.add_space(16.0);
-                            self.tech.connect_panel(ui);
-                            ui.add_space(12.0);
-                            self.host.details(ui);
-                        });
-                    }
-                });
+            let phase = self.updater.phase();
+            let version_text = match &phase {
+                updater::Phase::Downloading { version, .. } => version.to_string(),
+                updater::Phase::Ready { manifest, .. } => manifest.version.to_string(),
+                _ => String::new(),
+            };
+            let can_restart = !self.host.busy() && !self.tech.in_session();
+            let update = match &phase {
+                updater::Phase::Disabled => views::UpdateModel::Disabled,
+                updater::Phase::Idle => views::UpdateModel::Idle,
+                updater::Phase::Checking => views::UpdateModel::Checking,
+                updater::Phase::UpToDate => views::UpdateModel::UpToDate,
+                updater::Phase::Downloading { fraction, .. } => views::UpdateModel::Downloading {
+                    version: &version_text,
+                    fraction: *fraction,
+                },
+                updater::Phase::Ready { .. } => views::UpdateModel::Ready {
+                    version: &version_text,
+                    can_restart,
+                },
+                updater::Phase::Failed(e) => views::UpdateModel::Failed { error: e },
+            };
+            let side = views::SidebarModel {
+                page: self.page,
+                account: account
+                    .as_ref()
+                    .map(|(name, org)| views::AccountModel { name, org }),
+                signing_in: self.tech.signing_in(),
+                online: self.tech.online_count(),
+                env_label: self.label.as_deref(),
+                version: common::VERSION,
+                update,
+            };
+            let host_model = self.host.model();
+            let mut host_action = None;
+            let mut go = None;
+            let page = self.page;
+            let (tech, host) = (&mut self.tech, &self.host);
+            let action = views::shell(ui, &side, |ui| match page {
+                views::Page::Home => {
+                    host_action = views::home_page(
+                        ui,
+                        &host_model,
+                        |ui| go = tech.connect_section(ui),
+                        |ui| host.details(ui),
+                    );
+                }
+                views::Page::Computers => tech.computers_page(ui),
+            });
+            match action {
+                Some(views::SidebarAction::Go(views::Page::Computers)) if account.is_none() => {
+                    self.computers_after_login = true;
+                    self.tech.open_login();
+                }
+                Some(views::SidebarAction::Go(p)) => self.page = p,
+                Some(views::SidebarAction::SignIn) => self.tech.open_login(),
+                Some(views::SidebarAction::SignOut) => {
+                    self.tech.logout();
+                    self.page = views::Page::Home;
+                }
+                Some(views::SidebarAction::CheckUpdates) => self.updater.check_now(),
+                Some(views::SidebarAction::RestartToUpdate) => match self.updater.apply() {
+                    Ok(()) => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+                    Err(e) => warn!(error = %e, "update not applied"),
+                },
+                None => {}
+            }
+            if let Some(p) = go {
+                self.page = p;
+            }
+            if let Some(a) = host_action {
+                self.host.act(&ctx, a);
+            }
+            if !self.tech.login_open() {
+                self.computers_after_login = false;
+            }
+            self.tech.login_sheet(&ctx);
         }
     }
 

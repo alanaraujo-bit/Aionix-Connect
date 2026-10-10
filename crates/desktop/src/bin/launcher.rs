@@ -212,7 +212,7 @@ mod app {
                 .with_title("Aionix Connect Dev Launcher")
                 .with_inner_size([820.0, 720.0])
                 .with_min_inner_size([700.0, 600.0])
-                .with_icon(icon::brand_icon(64, [0x4f, 0x7c, 0xff])),
+                .with_icon(icon::app_icon()),
             ..Default::default()
         };
         let auto = args.auto_start;

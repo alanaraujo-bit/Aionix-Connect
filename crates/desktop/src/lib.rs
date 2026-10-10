@@ -15,9 +15,11 @@ pub mod common;
 #[cfg(windows)]
 pub mod host_side;
 pub mod icon;
+pub mod icons;
 pub mod keymap;
 #[cfg(windows)]
 pub mod tech_side;
 pub mod theme;
 pub mod updater;
 pub mod video;
+pub mod views;
