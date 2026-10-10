@@ -40,3 +40,7 @@ desktop.ini
 
 # Local validation shortcut (infra/local/package-dev.ps1)
 /Aionix Connect Dev Launcher.lnk
+
+# Local tooling
+.impeccable/review/
+.claude/launch.json

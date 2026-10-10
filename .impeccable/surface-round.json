@@ -1,0 +1,55 @@
+{
+  "title": "Estrutura da página do Aionix Connect",
+  "question": "A identidade visual já está definida (a dos apps). Escolha como a página conta a história.",
+  "options": [
+    {
+      "id": "network-path",
+      "label": "O caminho da conexão",
+      "kicker": "THE ROLL",
+      "thesis": "O topo mostra a conexão acontecendo: seu PC → direto/relay → o PC do cliente, com latência e fps reais.",
+      "palette": ["#0d1015", "#151921", "#4f7cff", "#a37bff", "#e8ebf1"],
+      "materials": ["diagrama vivo animado", "números medidos de verdade"],
+      "viewport": "Esquerda: título + 2 downloads. Direita: diagrama animado Técnico ⇄ Cliente, linha direta pulsando, relay de reserva tracejado, 87 ms · 34 fps.",
+      "risk": "Fala mais com técnicos do que com o cliente leigo; o diagrama precisa ser claro em 3 segundos.",
+      "wireframe": {"cols": 12, "rows": 10, "regions": [
+        {"label": "título + 2 downloads", "x": 0, "y": 1, "w": 5, "h": 5, "accent": true},
+        {"label": "diagrama vivo da conexão", "x": 6, "y": 1, "w": 6, "h": 5},
+        {"label": "como funciona: 3 passos", "x": 0, "y": 6, "w": 12, "h": 2},
+        {"label": "segurança + requisitos + FAQ", "x": 0, "y": 8, "w": 12, "h": 2}
+      ]}
+    },
+    {
+      "id": "download-utility",
+      "label": "Direto ao download",
+      "thesis": "Página-utilitário: em 1 tela você escolhe 'vou receber' ou 'vou dar suporte' e baixa; o resto é referência.",
+      "palette": ["#0d1015", "#151921", "#6a97ff", "#a37bff", "#e8ebf1"],
+      "materials": ["dois painéis grandes de download", "tipografia limpa"],
+      "viewport": "Topo enxuto com nome e frase; dois blocos lado a lado (azul Cliente, violeta Técnico) com versão, tamanho e botão.",
+      "risk": "Muito eficiente, pouco memorável; parece mais página de download do que produto.",
+      "wireframe": {"cols": 12, "rows": 10, "regions": [
+        {"label": "nome + frase", "x": 0, "y": 0, "w": 12, "h": 2},
+        {"label": "Aionix Connect (cliente)", "x": 0, "y": 2, "w": 6, "h": 4, "accent": true},
+        {"label": "Técnico", "x": 6, "y": 2, "w": 6, "h": 4, "accent": true},
+        {"label": "requisitos · SmartScreen · status", "x": 0, "y": 6, "w": 12, "h": 4}
+      ]}
+    },
+    {
+      "id": "live-session",
+      "label": "Sessão ao vivo",
+      "kicker": "IMPECCABLE’S PICK",
+      "thesis": "O topo É o produto: uma réplica fiel da janela do Técnico em sessão, com o pedido de 'Permitir' aparecendo no cliente.",
+      "palette": ["#0d1015", "#151921", "#4f7cff", "#34c77b", "#e8ebf1"],
+      "materials": ["UI do app recriada em HTML", "sequência ID → Permitir → Conectado"],
+      "viewport": "Título e 2 downloads acima; logo abaixo, a janela do Técnico grande, animando o fluxo real: digita o ID, cliente clica Permitir, tela aparece.",
+      "risk": "É o caminho que a maioria das páginas de software segue; o diferencial depende da fidelidade da réplica.",
+      "wireframe": {"cols": 12, "rows": 10, "regions": [
+        {"label": "título + 2 downloads", "x": 2, "y": 0, "w": 8, "h": 3, "accent": true},
+        {"label": "janela do Técnico animando a sessão", "x": 1, "y": 3, "w": 10, "h": 4},
+        {"label": "recursos demonstrados", "x": 0, "y": 7, "w": 12, "h": 3}
+      ]}
+    }
+  ],
+  "reroll": true,
+  "buildPath": {"value": "code", "toggle": false},
+  "steer": true
+}
