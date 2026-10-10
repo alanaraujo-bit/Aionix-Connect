@@ -1,0 +1,10 @@
+{
+  "name": "aionix-status",
+  "private": true,
+  "type": "module",
+  "description": "Public live status dashboard for the Aionix server (Vercel).",
+  "dependencies": {
+    "@vercel/functions": "^3.9.11"
+  },
+  "engines": { "node": ">=22" }
+}

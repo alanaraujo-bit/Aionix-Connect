@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Aionix Server — status ao vivo</title>
+<meta name="description" content="Desempenho e saúde do servidor Aionix em tempo real.">
+<meta name="theme-color" content="#0a0c0f" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%232dd4bf'/%3E%3Cstop offset='1' stop-color='%238b5cf6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='9' fill='url(%23g)'/%3E%3Cpath d='M9 23l7-14 7 14' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0c0f;
+  --bg-glow: radial-gradient(1200px 600px at 10% -10%, rgba(45,212,191,.08), transparent 60%),
+             radial-gradient(900px 500px at 100% 0%, rgba(139,92,246,.08), transparent 60%);
+  --surface: #111419;
+  --surface-2: #161a20;
+  --border: rgba(255,255,255,.06);
+  --border-strong: rgba(255,255,255,.1);
+  --text: #e7e9ee;
+  --muted: #8b93a1;
+  --faint: #5b6370;
+  --teal: #2dd4bf;
+  --violet: #a78bfa;
+  --blue: #60a5fa;
+  --ok: #34d399;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  --grid: rgba(255,255,255,.05);
+  --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 10px 30px -12px rgba(0,0,0,.6);
+  --radius: 18px;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f5f6f8;
+    --bg-glow: radial-gradient(1200px 600px at 10% -10%, rgba(45,212,191,.12), transparent 60%),
+               radial-gradient(900px 500px at 100% 0%, rgba(139,92,246,.10), transparent 60%);
+    --surface: #ffffff;
+    --surface-2: #f3f4f7;
+    --border: rgba(15,23,42,.07);
+    --border-strong: rgba(15,23,42,.12);
+    --text: #0f172a;
+    --muted: #5b6474;
+    --faint: #98a1b0;
+    --teal: #0d9488;
+    --violet: #7c3aed;
+    --blue: #2563eb;
+    --ok: #059669;
+    --warn: #d97706;
+    --bad: #dc2626;
+    --grid: rgba(15,23,42,.06);
+    --shadow: 0 1px 2px rgba(15,23,42,.04), 0 10px 30px -18px rgba(15,23,42,.25);
+    color-scheme: light;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg-glow), var(--bg);
+  background-attachment: fixed;
+  color: var(--text);
+  font: 15px/1.5 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv11", "ss01";
+  min-height: 100vh;
+}
+.wrap { max-width: 1240px; margin: 0 auto; padding: 28px 24px 48px; }
+@media (max-width: 640px) { .wrap { padding: 18px 16px 36px; } }
+
+/* header */
+header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 26px; }
+.brand { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1; }
+.logo { width: 42px; height: 42px; border-radius: 12px; flex: none;
+  background: linear-gradient(135deg, var(--teal), #8b5cf6); display: grid; place-items: center;
+  box-shadow: 0 8px 24px -8px rgba(45,212,191,.5); }
+.logo svg { width: 22px; height: 22px; }
+h1 { font-size: 20px; font-weight: 650; letter-spacing: -.02em; margin: 0; }
+.sub { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status { display: flex; align-items: center; gap: 12px; }
+.pill { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px 7px 12px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--border-strong); font-size: 13px; font-weight: 600; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
+.pill.ok .dot { background: var(--ok); box-shadow: 0 0 0 0 var(--ok); animation: pulse 2s infinite; }
+.pill.warn .dot { background: var(--warn); }
+.pill.bad .dot { background: var(--bad); }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 55%, transparent); }
+  70% { box-shadow: 0 0 0 8px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+.updated { color: var(--muted); font-size: 12.5px; font-family: var(--mono); }
+
+/* banner */
+.banner { display: none; margin-bottom: 18px; padding: 12px 16px; border-radius: 14px; font-size: 14px;
+  background: color-mix(in srgb, var(--warn) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); }
+.banner.show { display: block; }
+
+/* cards */
+.grid { display: grid; gap: 14px; }
+.kpis { grid-template-columns: repeat(auto-fit, minmax(178px, 1fr)); margin-bottom: 14px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 18px 18px 16px; min-width: 0; position: relative; overflow: hidden; }
+.label { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  display: flex; align-items: center; gap: 8px; }
+.label i { width: 7px; height: 7px; border-radius: 2px; display: inline-block; }
+.big { font-family: var(--mono); font-size: 30px; font-weight: 600; letter-spacing: -.03em; margin-top: 8px; line-height: 1.1;
+  font-variant-numeric: tabular-nums; }
+.big small { font-size: 15px; color: var(--muted); font-weight: 500; margin-left: 2px; }
+.meta { color: var(--muted); font-size: 12.5px; margin-top: 4px; font-variant-numeric: tabular-nums;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spark { display: block; width: 100%; height: 38px; margin-top: 12px; }
+.bar { height: 6px; border-radius: 99px; background: var(--surface-2); margin-top: 14px; overflow: hidden; }
+.bar > span { display: block; height: 100%; border-radius: inherit; width: 0;
+  transition: width .8s cubic-bezier(.2,.8,.2,1), background-color .4s; }
+
+.row2 { grid-template-columns: 1.6fr 1fr; margin-bottom: 14px; }
+.row3 { grid-template-columns: 1fr 1fr 1fr; margin-bottom: 14px; }
+@media (max-width: 980px) { .row2, .row3 { grid-template-columns: 1fr; } }
+.card h2 { font-size: 14px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.legend { display: flex; gap: 14px; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 10px; height: 3px; border-radius: 2px; display: inline-block; }
+.chart { position: relative; height: 220px; }
+.chart canvas { width: 100%; height: 100%; display: block; }
+.tip { position: absolute; pointer-events: none; background: var(--surface-2); border: 1px solid var(--border-strong);
+  border-radius: 10px; padding: 8px 10px; font-size: 12px; font-family: var(--mono); white-space: nowrap;
+  opacity: 0; transition: opacity .12s; box-shadow: var(--shadow); z-index: 2; }
+.tip b { font-weight: 600; }
+
+/* cores */
+.cores { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+@media (max-width: 420px) { .cores { grid-template-columns: repeat(4, 1fr); } }
+.core { aspect-ratio: 1.15; border-radius: 9px; background: var(--surface-2); position: relative; overflow: hidden;
+  display: grid; place-items: center; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.core > span { position: absolute; inset: auto 0 0 0; height: 0; transition: height .8s cubic-bezier(.2,.8,.2,1), background-color .4s; opacity: .85; }
+.core > b { position: relative; font-weight: 500; }
+
+/* lists */
+.list { display: flex; flex-direction: column; }
+.item { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-top: 1px solid var(--border); min-width: 0; }
+.item:first-child { border-top: 0; padding-top: 2px; }
+.item .name { font-weight: 550; font-size: 14px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item .name small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; }
+.item .val { font-family: var(--mono); font-size: 12.5px; color: var(--muted); white-space: nowrap; text-align: right; }
+.tag { font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 99px; white-space: nowrap;
+  background: var(--surface-2); color: var(--muted); }
+.tag.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 13%, transparent); }
+.tag.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.tag.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+.empty { color: var(--faint); font-size: 13px; padding: 8px 0; }
+
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 9px 16px; font-size: 13.5px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; text-align: right; font-family: var(--mono); font-size: 12.5px; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.fsrow { padding: 10px 0; border-top: 1px solid var(--border); }
+.fsrow:first-child { border-top: 0; padding-top: 2px; }
+.fsrow .top { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; }
+.fsrow .top span:last-child { font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+.fsrow .bar { margin-top: 8px; }
+
+footer { margin-top: 26px; color: var(--faint); font-size: 12.5px; text-align: center; line-height: 1.7; }
+footer a { color: inherit; }
+
+.skeleton .big, .skeleton .meta { color: transparent; background: var(--surface-2); border-radius: 6px; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 19l7-14 7 14M8 14h8" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div style="min-width:0">
+        <h1 id="title">Aionix Server</h1>
+        <div class="sub" id="subtitle">Conectando…</div>
+      </div>
+    </div>
+    <div class="status">
+      <span class="updated" id="updated">—</span>
+      <span class="pill" id="pill"><span class="dot"></span><span id="pillText">Conectando</span></span>
+    </div>
+  </header>
+
+  <div class="banner" id="banner"></div>
+
+  <section class="grid kpis">
+    <div class="card">
+      <div class="label"><i style="background:var(--teal)"></i>CPU</div>
+      <div class="big" id="k-cpu">—<small>%</small></div>
+      <div class="meta" id="k-cpu-m">—</div>
+      <canvas class="spark" id="s-cpu"></canvas>
+    </div>
+    <div class="card">
+      <div class="label"><i style="background:var(--violet)"></i>Memória</div>
+      <div class="big" id="k-mem">—<small>%</small></div>
+      <div class="meta" id="k-mem-m">—</div>
+      <canvas class="spark" id="s-mem"></canvas>
+    </div>
+    <div class="card">
+      <div class="label"><i style="background:var(--blue)"></i>Rede</div>
+      <div class="big" id="k-net">—</div>
+      <div class="meta" id="k-net-m">—</div>
+      <canvas class="spark" id="s-net"></canvas>
+    </div>
+    <div class="card">
+      <div class="label"><i style="background:var(--warn)"></i>Temperatura</div>
+      <div class="big" id="k-temp">—<small>°C</small></div>
+      <div class="meta" id="k-temp-m">—</div>
+      <canvas class="spark" id="s-temp"></canvas>
+    </div>
+    <div class="card">
+      <div class="label"><i style="background:var(--ok)"></i>Disco</div>
+      <div class="big" id="k-disk">—<small>%</small></div>
+      <div class="meta" id="k-disk-m">—</div>
+      <div class="bar"><span id="b-disk"></span></div>
+    </div>
+    <div class="card">
+      <div class="label"><i style="background:var(--muted)"></i>Online há</div>
+      <div class="big" id="k-up">—</div>
+      <div class="meta" id="k-up-m">—</div>
+      <div class="bar"><span id="b-svc"></span></div>
+    </div>
+  </section>
+
+  <section class="grid row2">
+    <div class="card">
+      <div class="card-head">
+        <h2>Desempenho · última hora</h2>
+        <div class="legend"><span><i style="background:var(--teal)"></i>CPU</span><span><i style="background:var(--violet)"></i>Memória</span></div>
+      </div>
+      <div class="chart"><canvas id="c-perf"></canvas><div class="tip" id="t-perf"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <h2>Núcleos</h2>
+        <div class="legend" id="cores-meta">—</div>
+      </div>
+      <div class="cores" id="cores"></div>
+    </div>
+  </section>
+
+  <section class="grid row2">
+    <div class="card">
+      <div class="card-head">
+        <h2>Tráfego de rede</h2>
+        <div class="legend"><span><i style="background:var(--blue)"></i>Download</span><span><i style="background:var(--teal)"></i>Upload</span></div>
+      </div>
+      <div class="chart"><canvas id="c-net"></canvas><div class="tip" id="t-net"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Serviços Aionix</h2><div class="legend" id="svc-meta">—</div></div>
+      <div class="list" id="services"></div>
+    </div>
+  </section>
+
+  <section class="grid row3">
+    <div class="card">
+      <div class="card-head"><h2>Containers</h2><div class="legend" id="ctr-meta">—</div></div>
+      <div class="list" id="containers"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Armazenamento</h2></div>
+      <div id="storage"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Sistema</h2></div>
+      <dl class="kv" id="system"></dl>
+    </div>
+  </section>
+
+  <footer>
+    Atualização automática a cada 5 s · somente métricas agregadas, sem dados sensíveis<br>
+    Aionix Connect
+  </footer>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const POLL_MS = 5000, STALE_S = 45, OFFLINE_S = 120;
+
+  // ---------- formatting ----------
+  const fmtBytes = (b, d = 1) => {
+    if (b == null || isNaN(b)) return '—';
+    const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0;
+    while (Math.abs(b) >= 1024 && i < u.length - 1) { b /= 1024; i++; }
+    return `${b.toFixed(i === 0 ? 0 : d)} ${u[i]}`;
+  };
+  const fmtRate = (b) => {
+    if (b == null) return '—';
+    const bits = b * 8, u = ['bps', 'Kbps', 'Mbps', 'Gbps']; let v = bits, i = 0;
+    while (v >= 1000 && i < u.length - 1) { v /= 1000; i++; }
+    return `${v.toFixed(v < 10 && i > 0 ? 1 : 0)} ${u[i]}`;
+  };
+  const fmtDur = (s) => {
+    s = Math.floor(s); const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+    if (d) return `${d}d ${h}h`; if (h) return `${h}h ${m}m`; return `${m}m`;
+  };
+  const ago = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return s < 60 ? `há ${s}s` : `há ${fmtDur(s)}`; };
+  const pct = (a, b) => (b ? (100 * a / b) : 0);
+  const levelColor = (p, warn = 70, bad = 90) => p >= bad ? css('--bad') : p >= warn ? css('--warn') : css('--ok');
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const setBig = (id, v, unit) => { $(id).innerHTML = `${v}${unit ? `<small>${unit}</small>` : ''}`; };
+
+  // ---------- canvas helpers ----------
+  function setup(canvas) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const r = canvas.getBoundingClientRect();
+    if (canvas.width !== Math.round(r.width * dpr) || canvas.height !== Math.round(r.height * dpr)) {
+      canvas.width = Math.round(r.width * dpr); canvas.height = Math.round(r.height * dpr);
+    }
+    const ctx = canvas.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, r.width, r.height);
+    return { ctx, w: r.width, h: r.height };
+  }
+  function path(ctx, pts) {
+    ctx.beginPath();
+    pts.forEach(([x, y], i) => {
+      if (i === 0) return ctx.moveTo(x, y);
+      const [px, py] = pts[i - 1], cx = (px + x) / 2;
+      ctx.bezierCurveTo(cx, py, cx, y, x, y);
+    });
+  }
+  function series(ctx, pts, color, h, fill = true) {
+    if (pts.length < 2) return;
+    if (fill) {
+      path(ctx, pts); ctx.lineTo(pts[pts.length - 1][0], h); ctx.lineTo(pts[0][0], h); ctx.closePath();
+      const g = ctx.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, color + '38'); g.addColorStop(1, color + '00');
+      ctx.fillStyle = g; ctx.fill();
+    }
+    path(ctx, pts); ctx.strokeStyle = color; ctx.lineWidth = 1.8; ctx.lineJoin = 'round'; ctx.stroke();
+  }
+  const hex = (v) => { // normalises a CSS color to #rrggbb so alpha suffixes work
+    const c = document.createElement('canvas').getContext('2d'); c.fillStyle = v; return c.fillStyle;
+  };
+
+  function spark(id, values, color, max) {
+    const { ctx, w, h } = setup($(id));
+    const v = values.filter((x) => x != null);
+    if (v.length < 2) return;
+    const hi = max ?? Math.max(...v, 1) * 1.15, lo = 0;
+    const pts = v.map((y, i) => [i / (v.length - 1) * w, h - 2 - (y - lo) / (hi - lo || 1) * (h - 4)]);
+    series(ctx, pts, hex(color), h);
+  }
+
+  // Large chart with grid, axis labels and hover crosshair.
+  const charts = {};
+  function chart(id, tipId, hist, defs, opts) {
+    charts[id] = { tipId, hist, defs, opts };
+    drawChart(id);
+  }
+  function drawChart(id, hoverX) {
+    const c = charts[id]; if (!c) return;
+    const canvas = $(id), { ctx, w, h } = setup(canvas);
+    const padL = 44, padR = 8, padT = 8, padB = 22, W = w - padL - padR, H = h - padT - padB;
+    const hist = c.hist; if (hist.length < 2) { ctx.fillStyle = css('--faint'); ctx.font = '13px Inter'; ctx.fillText('Coletando dados…', padL, padT + 20); return; }
+    const t0 = hist[0].t, t1 = hist[hist.length - 1].t, span = Math.max(t1 - t0, 1);
+    let max = c.opts.max;
+    if (max == null) { max = 1; for (const p of hist) for (const d of c.defs) max = Math.max(max, p[d.key] ?? 0); max *= 1.15; }
+    const X = (t) => padL + (t - t0) / span * W, Y = (v) => padT + H - v / max * H;
+    // grid + y labels
+    ctx.font = '11px "JetBrains Mono", monospace'; ctx.fillStyle = css('--faint'); ctx.strokeStyle = css('--grid'); ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const v = max * i / 4, y = Math.round(Y(v)) + .5;
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke();
+      ctx.textAlign = 'right'; ctx.fillText(c.opts.fmtAxis(v), padL - 8, y + 4);
+    }
+    // x labels
+    ctx.textAlign = 'center';
+    for (let i = 0; i <= 3; i++) {
+      const t = t0 + span * i / 3, x = X(t);
+      const lbl = new Date(t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      ctx.textAlign = i === 0 ? 'left' : i === 3 ? 'right' : 'center';
+      ctx.fillText(lbl, i === 0 ? padL : x, h - 6);
+    }
+    for (const d of c.defs) {
+      const pts = hist.filter((p) => p[d.key] != null).map((p) => [X(p.t), Y(p[d.key])]);
+      series(ctx, pts, hex(css(d.color)), padT + H, d.fill !== false);
+    }
+    // hover
+    const tip = $(c.tipId);
+    if (hoverX == null || hoverX < padL) { tip.style.opacity = 0; return; }
+    const t = t0 + (hoverX - padL) / W * span;
+    let best = hist[0]; for (const p of hist) if (Math.abs(p.t - t) < Math.abs(best.t - t)) best = p;
+    const x = X(best.t);
+    ctx.strokeStyle = css('--border-strong'); ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + H); ctx.stroke();
+    for (const d of c.defs) {
+      if (best[d.key] == null) continue;
+      ctx.fillStyle = css(d.color); ctx.beginPath(); ctx.arc(x, Y(best[d.key]), 3.5, 0, Math.PI * 2); ctx.fill();
+    }
+    tip.innerHTML = `<div style="color:var(--muted)">${new Date(best.t).toLocaleTimeString('pt-BR')}</div>` +
+      c.defs.map((d) => `<div><span style="color:${css(d.color)}">●</span> ${d.label} <b>${c.opts.fmt(best[d.key])}</b></div>`).join('');
+    tip.style.opacity = 1;
+    const tw = tip.offsetWidth; tip.style.left = Math.min(Math.max(x - tw / 2, 0), w - tw) + 'px'; tip.style.top = '4px';
+  }
+  for (const id of ['c-perf', 'c-net']) {
+    const cv = $(id);
+    const move = (e) => { const r = cv.getBoundingClientRect(); const x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left; drawChart(id, x); };
+    cv.addEventListener('mousemove', move); cv.addEventListener('touchmove', move, { passive: true });
+    cv.addEventListener('mouseleave', () => drawChart(id)); cv.addEventListener('touchend', () => drawChart(id));
+  }
+
+  // ---------- render ----------
+  const SERVICE_NAMES = {
+    'caddy': ['Proxy reverso', 'Caddy · HTTPS e roteamento'],
+    'aionix-api': ['Control Plane API', 'contas, dispositivos, sessões'],
+    'aionix-signaling': ['Signaling', 'presença e conexões'],
+    'aionix-relay': ['Relay', 'tráfego criptografado ponta a ponta'],
+    'postgres': ['PostgreSQL', 'banco de dados'],
+    'redis': ['Redis', 'presença e filas'],
+  };
+  function svcTag(s) {
+    if (!s) return '<span class="tag">não instalado</span>';
+    if (s.health === 'healthy') return '<span class="tag ok">saudável</span>';
+    if (s.health === 'starting') return '<span class="tag warn">iniciando</span>';
+    if (s.health === 'unhealthy') return '<span class="tag bad">com falha</span>';
+    if (s.state === 'running') return '<span class="tag ok">rodando</span>';
+    if (s.state === 'restarting') return '<span class="tag warn">reiniciando</span>';
+    return `<span class="tag bad">${esc(s.state || 'parado')}</span>`;
+  }
+
+  let last = null, lastFetchOk = 0;
+  function render(data) {
+    const s = data.latest, hist = data.history || [];
+    if (!s) { $('subtitle').textContent = 'Aguardando o primeiro envio do servidor…'; return; }
+    last = { s, receivedAt: s.receivedAt, serverNow: data.now, clientNow: Date.now() };
+
+    $('title').textContent = s.label ? s.label.replace(/^aionix-server$/, 'Aionix Server') : 'Aionix Server';
+    $('subtitle').textContent = [s.cpuModel, s.os].filter(Boolean).join(' · ');
+
+    // CPU
+    setBig('k-cpu', Math.round(s.cpu), '%');
+    $('k-cpu-m').textContent = `load ${s.load.map((x) => x.toFixed(2)).join(' · ')}`;
+    spark('s-cpu', hist.map((p) => p.cpu), css('--teal'), 100);
+    // memory
+    const m = s.mem, mp = pct(m.used, m.total);
+    setBig('k-mem', Math.round(mp), '%');
+    $('k-mem-m').textContent = `${fmtBytes(m.used)} de ${fmtBytes(m.total, 0)}`;
+    spark('s-mem', hist.map((p) => p.mem), css('--violet'), 100);
+    // network
+    $('k-net').innerHTML = `<span style="font-size:22px">↓ ${fmtRate(s.net.rx)}</span>`;
+    $('k-net-m').textContent = `↑ ${fmtRate(s.net.tx)} · ${s.tcp} conexões`;
+    spark('s-net', hist.map((p) => (p.rx || 0) + (p.tx || 0)), css('--blue'));
+    // temperature
+    if (s.temp != null) {
+      setBig('k-temp', Math.round(s.temp), '°C');
+      $('k-temp-m').textContent = s.pkgTemps?.length ? `sockets ${s.pkgTemps.map((t) => Math.round(t) + '°').join(' · ')}` : 'CPU';
+      $('k-temp').style.color = s.temp >= 85 ? css('--bad') : s.temp >= 72 ? css('--warn') : '';
+      spark('s-temp', hist.map((p) => p.temp), css('--warn'));
+    } else { setBig('k-temp', '—'); $('k-temp-m').textContent = 'sensor indisponível'; }
+    // disk (root)
+    const root = (s.fs || []).find((f) => f.mount === '/') || (s.fs || [])[0];
+    if (root) {
+      const dp = pct(root.used, root.total);
+      setBig('k-disk', Math.round(dp), '%');
+      $('k-disk-m').textContent = `${fmtBytes(root.total - root.used, 0)} livres · I/O ${fmtBytes(s.io.read + s.io.write)}/s`;
+      const b = $('b-disk'); b.style.width = dp + '%'; b.style.background = levelColor(dp, 75, 90);
+    }
+    // uptime + services summary
+    $('k-up').textContent = fmtDur(s.uptime);
+    const svc = Object.values(s.services || {}), up = svc.filter((x) => x && (x.health === 'healthy' || (!x.health && x.state === 'running'))).length;
+    $('k-up-m').textContent = `${up}/${svc.length} serviços Aionix no ar`;
+    const bs = $('b-svc'); bs.style.width = (svc.length ? 100 * up / svc.length : 0) + '%';
+    bs.style.background = up === svc.length ? css('--ok') : up ? css('--warn') : css('--bad');
+
+    // charts
+    chart('c-perf', 't-perf', hist, [{ key: 'cpu', label: 'CPU', color: '--teal' }, { key: 'mem', label: 'Memória', color: '--violet', fill: false }],
+      { max: 100, fmt: (v) => v == null ? '—' : v.toFixed(1) + '%', fmtAxis: (v) => Math.round(v) + '%' });
+    chart('c-net', 't-net', hist, [{ key: 'rx', label: 'Download', color: '--blue' }, { key: 'tx', label: 'Upload', color: '--teal' }],
+      { fmt: fmtRate, fmtAxis: (v) => fmtRate(v).replace('bps', '') });
+
+    // cores
+    const cores = $('cores'), pc = s.perCore || [];
+    if (cores.children.length !== pc.length) cores.innerHTML = pc.map(() => '<div class="core"><span></span><b></b></div>').join('');
+    pc.forEach((v, i) => {
+      const el = cores.children[i]; el.firstChild.style.height = v + '%';
+      el.firstChild.style.background = v >= 90 ? css('--bad') : v >= 60 ? css('--warn') : css('--teal');
+      el.lastChild.textContent = Math.round(v);
+      el.title = `CPU ${i}: ${v.toFixed(1)}%`;
+    });
+    $('cores-meta').textContent = `${pc.length} threads${s.freqMhz ? ` · ${(s.freqMhz / 1000).toFixed(2)} GHz` : ''}`;
+
+    // services
+    const order = Object.keys(SERVICE_NAMES);
+    $('services').innerHTML = order.map((k) => {
+      const [n, d] = SERVICE_NAMES[k];
+      return `<div class="item"><div class="name">${n}<small>${d}</small></div>${svcTag(s.services?.[k])}</div>`;
+    }).join('') + (s.health ? `<div class="item"><div class="name">Teste externo da API<small>via proxy</small></div>
+      <span class="val">${s.health.ok ? s.health.ms + ' ms' : ''}</span>${s.health.ok ? '<span class="tag ok">ok</span>' : '<span class="tag bad">falhou</span>'}</div>` : '');
+    $('svc-meta').textContent = s.aionixVersion ? `v ${s.aionixVersion.split('-')[0]}` : '';
+
+    // containers
+    const ctr = s.containers || [];
+    $('ctr-meta').textContent = `${ctr.filter((c) => c.state === 'running').length}/${ctr.length} rodando`;
+    $('containers').innerHTML = ctr.length ? ctr.map((c) => `<div class="item">
+        <div class="name">${esc(c.service || c.name)}<small>${esc(c.status)}</small></div>
+        <span class="val">${c.cpu != null ? c.cpu.toFixed(1) + '%' : ''}<br>${esc(c.mem || '')}</span></div>`).join('')
+      : '<div class="empty">Nenhum container ainda.</div>';
+
+    // storage
+    const fsHtml = (s.fs || []).map((f) => {
+      const p = pct(f.used, f.total);
+      return `<div class="fsrow"><div class="top"><span>${esc(f.mount)}</span><span>${fmtBytes(f.used)} / ${fmtBytes(f.total, 0)}</span></div>
+        <div class="bar"><span style="width:${p}%;background:${levelColor(p, 75, 90)}"></span></div></div>`;
+    }).join('');
+    const devHtml = (s.devices || []).map((d) => `<div class="item"><div class="name">${esc(d.model || d.name)}<small>${d.hdd ? 'HDD' : 'SSD'} · ${esc(d.name)}</small></div><span class="val">${fmtBytes(d.size, 0)}</span></div>`).join('');
+    $('storage').innerHTML = fsHtml + (devHtml ? `<div class="label" style="margin:16px 0 4px">Discos</div><div class="list">${devHtml}</div>` : '');
+
+    // system
+    const kv = [
+      ['Processador', s.cpuModel], ['Threads', s.cores], ['Memória', fmtBytes(m.total, 0)],
+      ['Swap', `${fmtBytes(m.swapUsed)} / ${fmtBytes(m.swapTotal, 0)}`],
+      ['Sistema', s.os], ['Kernel', s.kernel], ['Docker', s.dockerVersion || '—'],
+      ['Processos', s.procs], ['Firewall', s.firewall ? 'ativo' : 'inativo'],
+    ];
+    $('system').innerHTML = kv.map(([k, v]) => `<dt>${k}</dt><dd title="${esc(v)}">${esc(v)}</dd>`).join('');
+  }
+
+  function freshness() {
+    const pill = $('pill'), txt = $('pillText'), banner = $('banner');
+    if (!last) return;
+    // age measured on the API's clock, then advanced locally between polls
+    const age = (last.serverNow - last.receivedAt) / 1000 + (Date.now() - last.clientNow) / 1000;
+    $('updated').textContent = `atualizado ${ago(age * 1000)}`;
+    pill.className = 'pill ' + (age < STALE_S ? 'ok' : age < OFFLINE_S ? 'warn' : 'bad');
+    txt.textContent = age < STALE_S ? 'Online' : age < OFFLINE_S ? 'Instável' : 'Offline';
+    banner.classList.toggle('show', age >= OFFLINE_S);
+    if (age >= OFFLINE_S) banner.textContent = `O servidor não envia dados ${ago(age * 1000)}. Os valores abaixo são os últimos recebidos.`;
+    if (Date.now() - lastFetchOk > 30000 && lastFetchOk) { txt.textContent = 'Sem conexão'; pill.className = 'pill bad'; }
+  }
+
+  let lastData = null;
+  async function poll() {
+    try {
+      const r = await fetch('/api/status', { cache: 'no-store' });
+      if (r.ok) { lastData = await r.json(); lastFetchOk = Date.now(); render(lastData); }
+    } catch { /* keep last state */ }
+    freshness();
+  }
+  poll();
+  setInterval(poll, POLL_MS);
+  setInterval(freshness, 1000);
+  let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => lastData && render(lastData), 120); });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => lastData && render(lastData));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+})();
+</script>
+</body>
+</html>
