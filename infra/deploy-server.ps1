@@ -12,6 +12,9 @@
        migrations, starts the stack, waits for health checks and prints diagnostics
 
     The server must have been prepared once with infra/scripts/bootstrap-ubuntu.sh.
+    When the server has the ops layer (infra/ops/install-ops.sh), every remote step that
+    changes something runs through `aionix-run`: it appears live in the tmux session
+    aionix-setup and in /var/log/aionix-ops/ops.log (disable with -NoAudit).
     Nothing is deleted on the server; previous releases stay in releases/.
 
 .EXAMPLE
@@ -44,7 +47,8 @@ param(
     [switch] $AllowOtherOs,
     [switch] $AllowDirty,
     [int] $HealthTimeoutSeconds = 300,
-    [switch] $DryRun
+    [switch] $DryRun,
+    [switch] $NoAudit
 )
 
 $ErrorActionPreference = 'Stop'
@@ -68,7 +72,17 @@ $SshBase = @('-p', "$Port", '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '-
 $ScpBase = @('-P', "$Port", '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '-o', 'StrictHostKeyChecking=accept-new')
 if ($IdentityFile) { $SshBase += @('-i', $IdentityFile); $ScpBase += @('-i', $IdentityFile) }
 
-function Invoke-Ssh([string] $Command, [switch] $Capture) {
+# Set after the SSH check when the server has aionix-run (ops audit log).
+$Audit = $false
+
+function Invoke-Ssh([string] $Command, [switch] $Capture, [string] $Label) {
+    if ($Label -and $Audit -and -not $DryRun) {
+        # The command travels on stdin (no quoting through the remote shell); aionix-run
+        # runs it as this SSH user and records it in the audit log.
+        $Command | & ssh @SshBase $Server "aionix-run --user 'Deploy ${Version}: $Label'"
+        if ($LASTEXITCODE -ne 0) { throw "comando remoto falhou ($LASTEXITCODE): $Label" }
+        return
+    }
     if ($DryRun) {
         Write-Host "  [dry-run] ssh $Server $Command" -ForegroundColor DarkGray
         if ($Capture) { return '' } else { return }
@@ -115,6 +129,10 @@ try {
     $hello = Invoke-Ssh 'echo aionix-ok' -Capture
     if (-not $DryRun -and $hello -notmatch 'aionix-ok') { Fail "resposta inesperada do SSH: $hello" }
     Write-Host '  OK'
+    if (-not $NoAudit -and -not $DryRun) {
+        $Audit = (Invoke-Ssh 'command -v aionix-run >/dev/null && sudo -n true 2>/dev/null && echo audit-on || echo audit-off' -Capture) -match 'audit-on'
+        Write-Host ("  log de auditoria (aionix-run): " + $(if ($Audit) { 'ativo' } else { 'indisponível' }))
+    }
 
     # --- 2. OS ----------------------------------------------------------------------------
     Write-Step 'Sistema operacional do servidor'
@@ -147,9 +165,9 @@ try {
         Write-Host ("  pacote: {0:N1} MB" -f ((Get-Item $tmp).Length / 1MB))
     }
     $remoteRelease = "$RemoteRoot/releases/$Version"
-    Invoke-Ssh "mkdir -p $remoteRelease"
+    Invoke-Ssh "mkdir -p $remoteRelease" -Label 'criar diretório da versão'
     Send-File $tmp "$remoteRelease/source.tar.gz"
-    Invoke-Ssh "tar -xzf $remoteRelease/source.tar.gz -C $remoteRelease && rm -f $remoteRelease/source.tar.gz"
+    Invoke-Ssh "ls -l $remoteRelease/source.tar.gz && sha256sum $remoteRelease/source.tar.gz && tar -xzf $remoteRelease/source.tar.gz -C $remoteRelease && rm -f $remoteRelease/source.tar.gz" -Label 'extrair código-fonte enviado'
     if (-not $DryRun) { Remove-Item $tmp -ErrorAction SilentlyContinue }
 
     $remoteArgs = @('--version', $Version, '--health-timeout', "$HealthTimeoutSeconds")
@@ -162,14 +180,14 @@ try {
         Write-Step 'Enviando backup para restauração'
         $name = Split-Path $RestoreBackup -Leaf
         Assert-Safe 'RestoreBackup' $name
-        Invoke-Ssh "mkdir -p $RemoteRoot/backups/incoming"
+        Invoke-Ssh "mkdir -p $RemoteRoot/backups/incoming" -Label 'preparar recebimento do backup'
         Send-File $RestoreBackup "$RemoteRoot/backups/incoming/$name"
         $remoteArgs += @('--restore', "$RemoteRoot/backups/incoming/$name")
     }
 
     # --- 5. Remote deployment -----------------------------------------------------------------
     Write-Step 'Executando o deploy no servidor'
-    Invoke-Ssh ("bash $remoteRelease/src/infra/scripts/deploy-remote.sh " + ($remoteArgs -join ' '))
+    Invoke-Ssh ("bash $remoteRelease/src/infra/scripts/deploy-remote.sh " + ($remoteArgs -join ' ')) -Label 'deploy-remote.sh (config, build, migrações, start, health)'
 
     Write-Step 'Deploy concluído'
     Write-Host "  versão $Version ativa em $Server"

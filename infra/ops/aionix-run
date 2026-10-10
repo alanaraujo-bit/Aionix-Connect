@@ -3,6 +3,8 @@
 #
 #   sudo aionix-run "<label>" -- <command> [args...]
 #   sudo aionix-run "<label>" < script.sh        (script read from stdin, run with bash)
+#   aionix-run --user "<label>" ...              run as the invoking (sudo) user, not root;
+#                                                the log is still written by root
 #
 # Every line (command, stdout, stderr, start/end, exit code, duration) goes to stdout
 # AND to /var/log/aionix-ops/ops.log as it is produced, so `aionix-watch` (tmux window
@@ -14,7 +16,11 @@ set -o pipefail
 LOG_DIR=/var/log/aionix-ops
 LOG="$LOG_DIR/ops.log"
 
-[ "$(id -u)" -eq 0 ] || exec sudo -n "$0" "$@"
+# SSH_CLIENT is passed along so the log records where the operation came from.
+[ "$(id -u)" -eq 0 ] || exec sudo -n SSH_CLIENT="${SSH_CLIENT:-}" "$0" "$@"
+
+RUN_AS=""
+if [ "${1:-}" = "--user" ]; then RUN_AS="${SUDO_USER:-}"; shift; fi
 
 label="${1:?uso: aionix-run <label> -- <comando...>  |  aionix-run <label> < script}"
 shift
@@ -49,11 +55,12 @@ stamp() {
 }
 
 C_B=$'\e[1;36m'; C_OK=$'\e[1;32m'; C_ERR=$'\e[1;31m'; C_0=$'\e[0m'
-
 tmp=""
 if [ $# -eq 0 ]; then
     tmp="$(mktemp /tmp/aionix-op.XXXXXX)"
-    cat > "$tmp"
+    # CR stripped: scripts piped from Windows PowerShell arrive with CRLF.
+    tr -d '\r' > "$tmp"
+    chmod 0644 "$tmp"
     set -- bash "$tmp"
     display="bash <script>"
 else
@@ -61,10 +68,12 @@ else
 fi
 
 {
-    echo "${C_B}━━━━ BEGIN [$label] host=$host by=$caller ━━━━${C_0}"
+    echo "${C_B}━━━━ BEGIN [$label] host=$host by=$caller as=${RUN_AS:-root} ━━━━${C_0}"
     echo "\$ $display"
     if [ -n "$tmp" ]; then sed 's/^/  | /' "$tmp"; fi
 } | stamp '>>'
+
+[ -n "$RUN_AS" ] && set -- sudo -u "$RUN_AS" -H -- "$@"
 
 start=$(date +%s)
 # stdout and stderr are logged separately (ERR marks stderr lines).
