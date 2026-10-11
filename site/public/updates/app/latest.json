@@ -1,13 +1,15 @@
 {
   "product": "app",
-  "version": "0.2.5",
-  "published_at": "2026-10-11T11:04:32.0347174Z",
+  "version": "0.2.6",
+  "published_at": "2026-10-11T15:31:02.8377868Z",
   "notes": [
-    "Inicia minimizado de forma confiável quando abre com o Windows"
+    "Painel de administração: criar contas com senha temporária, papéis, redefinir senha, desconectar, desativar, sessões e histórico",
+    "Alterar senha para todas as contas; troca obrigatória no primeiro acesso",
+    "O login salvo volta sozinho quando a internet chega depois do app abrir"
   ],
   "installer": {
-    "url": "https://aionixconnect.aionixdev.com/releases/0.2.5/Aionix-Connect-Setup-0.2.5.exe",
-    "size": 34949120,
-    "sha256": "0b85dcecc2d6a4481a1d73f7b5e27b876a61af21ab3e58c7afc788e4e67d20f6"
+    "url": "https://aionixconnect.aionixdev.com/releases/0.2.6/Aionix-Connect-Setup-0.2.6.exe",
+    "size": 35278848,
+    "sha256": "3113c8118881682b2b80ab4e429290a13b445f730b864b743ceed30dade5ca53"
   }
 }
