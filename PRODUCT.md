@@ -8,9 +8,19 @@ web
 
 ## Stack
 
-Delegated: static HTML/CSS/JS (one page, no framework) on Vercel (`site/`, project
-`aionix-connect`, domain `aionixconnect.aionixdev.com`). Chosen because the site is a
-landing page plus downloads and the update channel files; nothing needs a server runtime.
+Two surfaces:
+
+- **The app** (the product people use every day): native Windows desktop, Rust +
+  egui 0.36 (wgpu) in `crates/desktop` (screens in `views.rs`, look in `theme.rs`,
+  icons in `icons.rs`); the consent prompt is plain Win32 + GDI/GDI+ in
+  `crates/platform/src/windows/consent.rs`; the installer is egui in `crates/setup`.
+  Screens render to PNG with sample data for review:
+  `cargo test -p aionix-desktop --test ui_preview -- --ignored`.
+- **The site** (`Platform: web` above refers to it): static HTML/CSS/JS (one page, no
+  framework) on Vercel (`site/`, project `aionix-connect`, domain
+  `aionixconnect.aionixdev.com`). Chosen because the site is a landing page plus
+  downloads and the update channel files; nothing needs a server runtime. Published only
+  by `infra/release.ps1` (git deploys are disabled).
 
 ## Users
 

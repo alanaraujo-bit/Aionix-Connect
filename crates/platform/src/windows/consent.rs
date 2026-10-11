@@ -11,8 +11,8 @@
 //!   as text and as a bar that empties.
 //! * Text is rendered without mnemonic processing (`&` is shown literally).
 //!
-//! Look: the Aionix Connect visual language (crates/desktop/src/theme.rs) in plain
-//! Win32: it follows the Windows light/dark setting, the caption takes the window color
+//! Look: the Aionix Connect visual language (crates/desktop/src/theme.rs; the colors
+//! below mirror its palettes, DESIGN.md documents both) in plain Win32: it follows the Windows light/dark setting, the caption takes the window color
 //! (Windows 11), shapes are antialiased with GDI+, text is ClearType GDI, and both
 //! buttons are owner-drawn `BUTTON` controls so focus, keyboard and click handling stay
 //! the system's.
@@ -209,6 +209,7 @@ struct Colors {
     secondary_press: u32,
     secondary_line: u32,
     warning: u32,
+    /// Disabled "Permitir": the app's disabled primary (pale accent, dimmed label).
     disabled_fill: u32,
     disabled_text: u32,
 }
@@ -218,7 +219,7 @@ const LIGHT: Colors = Colors {
     panel: 0xf4f4f6,
     text: 0x18191c,
     muted: 0x55585f,
-    faint: 0x72757c,
+    faint: 0x686b72,
     hairline: 0xe6e7ea,
     accent: 0x0b63e5,
     accent_hover: 0x0a58cc,
@@ -229,9 +230,9 @@ const LIGHT: Colors = Colors {
     secondary_hover: 0xe6e7ea,
     secondary_press: 0xdcdde1,
     secondary_line: 0xe2e3e7,
-    warning: 0xa86a0b,
-    disabled_fill: 0xf0f1f3,
-    disabled_text: 0x9a9ca2,
+    warning: 0x9a6008,
+    disabled_fill: 0xe8f0fd,
+    disabled_text: 0x7fa5e6,
 };
 
 const DARK: Colors = Colors {
@@ -239,20 +240,20 @@ const DARK: Colors = Colors {
     panel: 0x313136,
     text: 0xededef,
     muted: 0xa6a8af,
-    faint: 0x8a8c93,
+    faint: 0x95979e,
     hairline: 0x3a3a40,
-    accent: 0x2b74f0,
-    accent_hover: 0x3a80f5,
-    accent_press: 0x2366d8,
-    accent_soft: 0x24324d,
+    accent: 0x226ce8,
+    accent_hover: 0x2670ec,
+    accent_press: 0x1f62d4,
+    accent_soft: 0x222e45,
     accent_text: 0x6ca6ff,
     secondary: 0x38383e,
     secondary_hover: 0x414148,
     secondary_press: 0x4a4a52,
     secondary_line: 0x44444b,
     warning: 0xe6a23c,
-    disabled_fill: 0x323237,
-    disabled_text: 0x6e7076,
+    disabled_fill: 0x222e45,
+    disabled_text: 0x5b7fb6,
 };
 
 /// GDI color (0x00BBGGRR).

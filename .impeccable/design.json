@@ -1,0 +1,861 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-11T10:24:39+00:00",
+  "title": "Design System: Aionix Connect",
+  "extensions": {
+    "colorMeta": {
+      "bg-light": {
+        "role": "neutral",
+        "displayName": "Page (light)",
+        "canonical": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "bg-dark": {
+        "role": "neutral",
+        "displayName": "Page (dark)",
+        "canonical": "oklch(23.6% 0.006 286.0)",
+        "tonalRamp": [
+          "#0b0b0d",
+          "#252528",
+          "#424245",
+          "#616164",
+          "#828286",
+          "#a4a4a8",
+          "#c9c9cd",
+          "#eeeef2"
+        ]
+      },
+      "sidebar-light": {
+        "role": "neutral",
+        "displayName": "Rail (light)",
+        "canonical": "oklch(96.8% 0.003 286.4)",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252526",
+          "#424243",
+          "#616163",
+          "#828284",
+          "#a5a5a7",
+          "#c9c9cb",
+          "#eeeef0"
+        ]
+      },
+      "sidebar-dark": {
+        "role": "neutral",
+        "displayName": "Rail (dark)",
+        "canonical": "oklch(20.6% 0.006 285.9)",
+        "tonalRamp": [
+          "#0b0b0e",
+          "#252528",
+          "#424245",
+          "#616164",
+          "#828286",
+          "#a4a4a9",
+          "#c9c9cd",
+          "#eeeef2"
+        ]
+      },
+      "surface-light": {
+        "role": "neutral",
+        "displayName": "Raised (light)",
+        "canonical": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "surface-dark": {
+        "role": "neutral",
+        "displayName": "Raised (dark)",
+        "canonical": "oklch(27.8% 0.007 285.9)",
+        "tonalRamp": [
+          "#0b0b0e",
+          "#252529",
+          "#414146",
+          "#616165",
+          "#828287",
+          "#a4a4a9",
+          "#c8c8ce",
+          "#eeeef3"
+        ]
+      },
+      "surface-alt-light": {
+        "role": "neutral",
+        "displayName": "Control Fill (light)",
+        "canonical": "oklch(95.8% 0.003 264.5)",
+        "tonalRamp": [
+          "#0a0b0c",
+          "#242526",
+          "#414243",
+          "#606163",
+          "#818284",
+          "#a4a5a7",
+          "#c8c9cb",
+          "#edeef0"
+        ]
+      },
+      "surface-alt-dark": {
+        "role": "neutral",
+        "displayName": "Control Fill (dark)",
+        "canonical": "oklch(29.9% 0.009 285.8)",
+        "tonalRamp": [
+          "#0b0b0f",
+          "#242429",
+          "#414147",
+          "#616166",
+          "#828288",
+          "#a4a4ab",
+          "#c8c8cf",
+          "#eeeef4"
+        ]
+      },
+      "border-light": {
+        "role": "neutral",
+        "displayName": "Control Edge (light)",
+        "canonical": "oklch(88.8% 0.007 268.5)",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#232529",
+          "#404246",
+          "#5f6165",
+          "#808287",
+          "#a3a5aa",
+          "#c7c9ce",
+          "#eceef3"
+        ]
+      },
+      "border-dark": {
+        "role": "neutral",
+        "displayName": "Control Edge (dark)",
+        "canonical": "oklch(36.3% 0.012 285.8)",
+        "tonalRamp": [
+          "#0b0a10",
+          "#24242b",
+          "#414148",
+          "#606068",
+          "#818189",
+          "#a4a4ac",
+          "#c8c8d1",
+          "#ededf6"
+        ]
+      },
+      "field-border-light": {
+        "role": "neutral",
+        "displayName": "Field Edge (light)",
+        "canonical": "oklch(65.0% 0.011 267.3)",
+        "tonalRamp": [
+          "#090b10",
+          "#23252b",
+          "#3f4248",
+          "#5e6168",
+          "#7f8289",
+          "#a2a5ac",
+          "#c6c9d0",
+          "#ebeef6"
+        ]
+      },
+      "field-border-dark": {
+        "role": "neutral",
+        "displayName": "Field Edge (dark)",
+        "canonical": "oklch(56.0% 0.011 273.2)",
+        "tonalRamp": [
+          "#0a0b10",
+          "#23252b",
+          "#404248",
+          "#5f6168",
+          "#808289",
+          "#a3a5ac",
+          "#c7c9d1",
+          "#eceef6"
+        ]
+      },
+      "hairline-light": {
+        "role": "neutral",
+        "displayName": "Hairline (light)",
+        "canonical": "oklch(92.8% 0.004 271.4)",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#242527",
+          "#414244",
+          "#606164",
+          "#818285",
+          "#a4a5a8",
+          "#c8c9cc",
+          "#edeef1"
+        ]
+      },
+      "hairline-dark": {
+        "role": "neutral",
+        "displayName": "Hairline (dark)",
+        "canonical": "oklch(31.1% 0.009 285.9)",
+        "tonalRamp": [
+          "#0b0b0f",
+          "#242429",
+          "#414147",
+          "#616166",
+          "#828288",
+          "#a4a4aa",
+          "#c8c8cf",
+          "#eeeef4"
+        ]
+      },
+      "text-light": {
+        "role": "neutral",
+        "displayName": "Ink (light)",
+        "canonical": "oklch(21.4% 0.006 271.1)",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#242528",
+          "#414245",
+          "#606165",
+          "#818286",
+          "#a3a5a9",
+          "#c7c9cd",
+          "#edeef3"
+        ]
+      },
+      "text-dark": {
+        "role": "neutral",
+        "displayName": "Ink (dark)",
+        "canonical": "oklch(94.7% 0.003 286.3)",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252526",
+          "#424243",
+          "#616163",
+          "#828284",
+          "#a5a5a7",
+          "#c9c9cb",
+          "#eeeef0"
+        ]
+      },
+      "muted-light": {
+        "role": "neutral",
+        "displayName": "Muted (light)",
+        "canonical": "oklch(46.0% 0.012 267.3)",
+        "tonalRamp": [
+          "#090b10",
+          "#22252b",
+          "#3f4249",
+          "#5e6168",
+          "#7f828a",
+          "#a2a5ad",
+          "#c6c9d1",
+          "#ebeef7"
+        ]
+      },
+      "muted-dark": {
+        "role": "neutral",
+        "displayName": "Muted (dark)",
+        "canonical": "oklch(73.2% 0.010 273.3)",
+        "tonalRamp": [
+          "#0a0b10",
+          "#23252a",
+          "#404248",
+          "#5f6167",
+          "#808289",
+          "#a3a5ac",
+          "#c7c9d0",
+          "#eceef6"
+        ]
+      },
+      "faint-light": {
+        "role": "neutral",
+        "displayName": "Faint (light)",
+        "canonical": "oklch(52.8% 0.012 267.3)",
+        "tonalRamp": [
+          "#090b10",
+          "#22252b",
+          "#3f4248",
+          "#5e6168",
+          "#7f8289",
+          "#a2a5ad",
+          "#c6c9d1",
+          "#ebeef7"
+        ]
+      },
+      "faint-dark": {
+        "role": "neutral",
+        "displayName": "Faint (dark)",
+        "canonical": "oklch(67.7% 0.010 273.3)",
+        "tonalRamp": [
+          "#0a0b10",
+          "#23252a",
+          "#404248",
+          "#5f6167",
+          "#808289",
+          "#a3a5ac",
+          "#c7c9d0",
+          "#eceef6"
+        ]
+      },
+      "accent-light": {
+        "role": "primary",
+        "displayName": "Action Blue (light)",
+        "canonical": "oklch(53.7% 0.211 260.0)",
+        "tonalRamp": [
+          "#00062c",
+          "#002058",
+          "#003a92",
+          "#0057d0",
+          "#297afe",
+          "#70a5fc",
+          "#abcbfe",
+          "#e6efff"
+        ]
+      },
+      "accent-dark": {
+        "role": "primary",
+        "displayName": "Action Blue (dark)",
+        "canonical": "oklch(58.5% 0.200 260.4)",
+        "tonalRamp": [
+          "#00052d",
+          "#001f5b",
+          "#023a92",
+          "#0756d0",
+          "#327bf8",
+          "#71a4fc",
+          "#accafe",
+          "#e6efff"
+        ]
+      },
+      "accent-hover-light": {
+        "role": "primary",
+        "displayName": "Action Blue (hover) (light)",
+        "canonical": "oklch(49.3% 0.193 260.0)",
+        "tonalRamp": [
+          "#00072a",
+          "#002059",
+          "#043b8f",
+          "#0a58cc",
+          "#347cf3",
+          "#6fa5fd",
+          "#abcbfe",
+          "#e5efff"
+        ]
+      },
+      "accent-hover-dark": {
+        "role": "primary",
+        "displayName": "Action Blue (hover) (dark)",
+        "canonical": "oklch(61.8% 0.189 260.1)",
+        "tonalRamp": [
+          "#00062b",
+          "#001f5b",
+          "#013a92",
+          "#0f58ca",
+          "#377df1",
+          "#70a5fc",
+          "#abcbfd",
+          "#e6efff"
+        ]
+      },
+      "accent-press-light": {
+        "role": "primary",
+        "displayName": "Action Blue (press) (light)",
+        "canonical": "oklch(44.9% 0.174 260.0)",
+        "tonalRamp": [
+          "#00072a",
+          "#002059",
+          "#033b8f",
+          "#1a5bc2",
+          "#3e7ee9",
+          "#6fa5fd",
+          "#abcbfe",
+          "#e5efff"
+        ]
+      },
+      "accent-press-dark": {
+        "role": "primary",
+        "displayName": "Action Blue (press) (dark)",
+        "canonical": "oklch(53.6% 0.188 260.5)",
+        "tonalRamp": [
+          "#00062d",
+          "#001f5a",
+          "#003995",
+          "#1458c9",
+          "#397cf0",
+          "#72a4fb",
+          "#accafd",
+          "#e6effe"
+        ]
+      },
+      "accent-soft-light": {
+        "role": "primary",
+        "displayName": "Selection Wash (light)",
+        "canonical": "oklch(95.3% 0.019 260.2)",
+        "tonalRamp": [
+          "#070b13",
+          "#20252f",
+          "#3c424d",
+          "#5b626d",
+          "#7c838e",
+          "#9ea6b2",
+          "#c2cad6",
+          "#e7effc"
+        ]
+      },
+      "accent-soft-dark": {
+        "role": "primary",
+        "displayName": "Selection Wash (dark)",
+        "canonical": "oklch(30.2% 0.045 262.8)",
+        "tonalRamp": [
+          "#030a1e",
+          "#19253b",
+          "#35425a",
+          "#54617b",
+          "#74839e",
+          "#96a6c2",
+          "#bacae7",
+          "#e6efff"
+        ]
+      },
+      "accent-text-light": {
+        "role": "primary",
+        "displayName": "Link Blue (light)",
+        "canonical": "oklch(51.0% 0.201 260.1)",
+        "tonalRamp": [
+          "#00062c",
+          "#002058",
+          "#003a92",
+          "#0256d0",
+          "#307bf8",
+          "#70a5fc",
+          "#abcbfe",
+          "#e6efff"
+        ]
+      },
+      "accent-text-dark": {
+        "role": "primary",
+        "displayName": "Link Blue (dark)",
+        "canonical": "oklch(72.4% 0.144 258.7)",
+        "tonalRamp": [
+          "#000828",
+          "#002254",
+          "#013d8c",
+          "#285eb1",
+          "#4981d7",
+          "#6ba5fe",
+          "#a9cbff",
+          "#e5efff"
+        ]
+      },
+      "success-light": {
+        "role": "tertiary",
+        "displayName": "Connected Green (light)",
+        "canonical": "oklch(57.3% 0.142 152.1)",
+        "tonalRamp": [
+          "#001003",
+          "#002e13",
+          "#015026",
+          "#05753a",
+          "#2a9a56",
+          "#55be78",
+          "#7be39b",
+          "#c7ffd4"
+        ]
+      },
+      "success-dark": {
+        "role": "tertiary",
+        "displayName": "Connected Green (dark)",
+        "canonical": "oklch(72.6% 0.164 153.0)",
+        "tonalRamp": [
+          "#001004",
+          "#002e14",
+          "#005027",
+          "#01753c",
+          "#049c53",
+          "#3ac272",
+          "#66e795",
+          "#c6ffd5"
+        ]
+      },
+      "warning-light": {
+        "role": "tertiary",
+        "displayName": "In-Progress Amber (light)",
+        "canonical": "oklch(54.1% 0.116 68.3)",
+        "tonalRamp": [
+          "#160700",
+          "#371e00",
+          "#5e3803",
+          "#875409",
+          "#af7428",
+          "#d4974e",
+          "#fbbb73",
+          "#ffebd6"
+        ]
+      },
+      "warning-dark": {
+        "role": "tertiary",
+        "displayName": "In-Progress Amber (dark)",
+        "canonical": "oklch(76.1% 0.139 73.3)",
+        "tonalRamp": [
+          "#150800",
+          "#362000",
+          "#5b3a02",
+          "#845707",
+          "#af750e",
+          "#d9962c",
+          "#fdbb5f",
+          "#ffebd3"
+        ]
+      },
+      "danger-light": {
+        "role": "tertiary",
+        "displayName": "Stop Red (light)",
+        "canonical": "oklch(56.4% 0.193 24.2)",
+        "tonalRamp": [
+          "#200001",
+          "#4c0208",
+          "#7f0514",
+          "#b50e23",
+          "#de4245",
+          "#fc7570",
+          "#feb3ad",
+          "#ffe9e6"
+        ]
+      },
+      "danger-dark": {
+        "role": "tertiary",
+        "displayName": "Stop Red (dark)",
+        "canonical": "oklch(67.0% 0.186 25.0)",
+        "tonalRamp": [
+          "#200000",
+          "#4c0107",
+          "#800312",
+          "#b31924",
+          "#db4745",
+          "#fd756e",
+          "#ffb2ac",
+          "#fee9e6"
+        ]
+      },
+      "danger-fill": {
+        "role": "tertiary",
+        "displayName": "Stop Red (fill)",
+        "canonical": "oklch(57.0% 0.193 24.0)",
+        "tonalRamp": [
+          "#200001",
+          "#4c0208",
+          "#7f0515",
+          "#b60e23",
+          "#de4245",
+          "#fc7571",
+          "#feb3ad",
+          "#ffe8e6"
+        ]
+      },
+      "brand-tile": {
+        "role": "secondary",
+        "displayName": "Brand Tile Blue",
+        "canonical": "oklch(55.8% 0.209 260.4)",
+        "tonalRamp": [
+          "#00052d",
+          "#001f5a",
+          "#033a91",
+          "#0857cf",
+          "#2d7afc",
+          "#71a4fb",
+          "#accafd",
+          "#e6effe"
+        ]
+      },
+      "on-accent": {
+        "role": "neutral",
+        "displayName": "On Accent",
+        "canonical": "oklch(100% 0 0)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "id": {
+        "displayName": "ID",
+        "purpose": "This computer's 9-digit ID on Início; never monospace."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Page and sheet titles."
+      },
+      "id-input": {
+        "displayName": "ID input",
+        "purpose": "The ID typed in 'Acessar outro computador'."
+      },
+      "overlay-headline": {
+        "displayName": "Overlay headline",
+        "purpose": "Session status sheet headline."
+      },
+      "heading": {
+        "displayName": "Heading",
+        "purpose": "Section headings and empty-state titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Status lines, nav items, field text."
+      },
+      "button": {
+        "displayName": "Button",
+        "purpose": "Every button label."
+      },
+      "secondary": {
+        "displayName": "Secondary",
+        "purpose": "Muted explanations, banner detail, error lines."
+      },
+      "small": {
+        "displayName": "Small",
+        "purpose": "Links, metrics, last-seen times, field labels."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Version line, organization, 'ID …' under the session title."
+      }
+    },
+    "shadows": [
+      {
+        "name": "popup",
+        "value": "0 4px 14px rgba(0,0,0,0.133)",
+        "purpose": "Level 1, light theme: menus and tooltips (dark: rgba(0,0,0,0.431))."
+      },
+      {
+        "name": "sheet",
+        "value": "0 12px 36px rgba(0,0,0,0.20)",
+        "purpose": "Level 2, light theme: sign-in sheet, session overlay, windows (dark: rgba(0,0,0,0.647))."
+      },
+      {
+        "name": "backdrop",
+        "value": "rgba(0,0,0,0.314)",
+        "purpose": "Window dim behind the sign-in sheet, light (dark: rgba(0,0,0,0.549))."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-expo",
+        "value": "1 - 2^(-10t) (approx. cubic-bezier(0.16, 1, 0.3, 1))",
+        "purpose": "The only curve: fast start, long settle, no overshoot."
+      },
+      {
+        "name": "hover",
+        "value": "120ms",
+        "purpose": "Hover cross-fades on buttons, rows, nav, links."
+      },
+      {
+        "name": "press",
+        "value": "80ms",
+        "purpose": "Press color plus a 1 px settle."
+      },
+      {
+        "name": "toggle",
+        "value": "160ms",
+        "purpose": "Active toolbar toggles; egui default."
+      },
+      {
+        "name": "select",
+        "value": "180ms",
+        "purpose": "Nav selection."
+      },
+      {
+        "name": "disclosure",
+        "value": "220ms",
+        "purpose": "Disclosure content fades in."
+      },
+      {
+        "name": "sheet-in",
+        "value": "280ms, rise 14px",
+        "purpose": "Sign-in sheet over a dimming window."
+      },
+      {
+        "name": "overlay-in",
+        "value": "300ms, rise 8px",
+        "purpose": "Session status sheet."
+      },
+      {
+        "name": "page-in",
+        "value": "320ms, rise 6px",
+        "purpose": "Page change in the content area."
+      },
+      {
+        "name": "banner-in",
+        "value": "350ms",
+        "purpose": "Request / session banners fade in."
+      },
+      {
+        "name": "id-digits",
+        "value": "550ms each, 50ms delay + 35ms stagger, rise 55% of line height",
+        "purpose": "ID digits settle one by one on first appearance."
+      },
+      {
+        "name": "pulse",
+        "value": "~1.1s loop, ring 4 to 9px, 35% to 0",
+        "purpose": "In-progress status dots only."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "Windows 'Efeitos de animação' off",
+        "purpose": "Every transition jumps to its end state; pulse, shimmer and spinner hold still."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one blue action of a region; disabled = Selection Wash with dimmed Link Blue text.",
+      "html": "<button class=\"ds-btn-primary\">Conectar</button> <button class=\"ds-btn-primary\" disabled>Conectar</button>",
+      "css": ".ds-btn-primary{font-family:'Segoe UI',system-ui,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 16px;border-radius:8px;border:0;font-size:13.5px;font-weight:600;cursor:pointer;transition:background-color .12s cubic-bezier(.16,1,.3,1),transform .08s;background:#0b63e5;color:#fff;min-width:112px}.ds-btn-primary:hover{background:#0a58cc}.ds-btn-primary:active{background:#094db3;transform:translateY(1px)}.ds-btn-primary:focus-visible{outline:2px solid rgba(11,99,229,.8);outline-offset:2px;}.ds-btn-primary:disabled{background:#e8f0fd;color:rgba(11,92,214,.6);cursor:default;transform:none}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Neutral filled with a hairline; Copiar next to the ID.",
+      "html": "<button class=\"ds-btn-secondary\"><svg class=\"ds-ico\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"5.5\" y=\"5.5\" width=\"8\" height=\"8\" rx=\"1.75\"/><path d=\"M10.5 3.6 10.3 3 9.6 2.5H4L3.1 2.9 2.6 3.6 2.5 4V9.6L2.9 10.3 3.6 10.5\"/></svg>Copiar</button>",
+      "css": ".ds-btn-secondary{font-family:'Segoe UI',system-ui,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 16px;border-radius:8px;border:0;font-size:13.5px;font-weight:600;cursor:pointer;transition:background-color .12s cubic-bezier(.16,1,.3,1),transform .08s;background:#f0f1f3;color:#18191c;box-shadow:inset 0 0 0 1px #e6e7ea;width:112px}.ds-btn-secondary .ds-ico{width:16px;height:16px}.ds-btn-secondary:hover{background:#e3e4e6}.ds-btn-secondary:active{background:#d9dadc;transform:translateY(1px)}.ds-btn-secondary:focus-visible{outline:2px solid rgba(11,99,229,.8);outline-offset:2px;}"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Filled red; ends something for good (Encerrar, Encerrar acesso).",
+      "html": "<button class=\"ds-btn-danger\">Encerrar acesso</button>",
+      "css": ".ds-btn-danger{font-family:'Segoe UI',system-ui,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 16px;border-radius:8px;border:0;font-size:13.5px;font-weight:600;cursor:pointer;transition:background-color .12s cubic-bezier(.16,1,.3,1),transform .08s;background:#d1343a;color:#fff}.ds-btn-danger:hover{background:#d6484e}.ds-btn-danger:active{background:#da5d61;transform:translateY(1px)}.ds-btn-danger:focus-visible{outline:2px solid rgba(11,99,229,.8);outline-offset:2px;}"
+    },
+    {
+      "name": "Quiet Row Action",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "Link Blue text, Selection Wash on hover; Conectar in device rows.",
+      "html": "<button class=\"ds-btn-quiet\">Conectar</button>",
+      "css": ".ds-btn-quiet{font-family:'Segoe UI',system-ui,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 16px;border-radius:8px;border:0;font-size:13.5px;font-weight:600;cursor:pointer;transition:background-color .12s cubic-bezier(.16,1,.3,1),transform .08s;background:transparent;color:#0b5cd6}.ds-btn-quiet:hover{background:#e8f0fd}.ds-btn-quiet:active{background:#c7daf9;transform:translateY(1px)}.ds-btn-quiet:focus-visible{outline:2px solid rgba(11,99,229,.8);outline-offset:2px;}.ds-btn-quiet:disabled{color:#686b72;background:transparent;cursor:default}"
+    },
+    {
+      "name": "ID Field + Conectar",
+      "kind": "input",
+      "refersTo": "id-field",
+      "description": "Page fill, 1 px Field Edge, Muted on hover, accent on focus; digits auto-group.",
+      "html": "<div class=\"ds-idrow\"><input class=\"ds-field ds-field-id\" placeholder=\"000 000 000\" inputmode=\"numeric\"><button class=\"ds-idrow-go\">Conectar</button></div>",
+      "css": ".ds-idrow{display:flex;gap:10px;align-items:center}.ds-field{font-family:'Segoe UI',system-ui,sans-serif;height:36px;box-sizing:border-box;padding:0 12px;border-radius:8px;border:1px solid #8c8f96;background:#fff;color:#18191c;font-size:14px;outline:none;transition:border-color .12s}.ds-field::placeholder{color:#686b72}.ds-field:hover{border-color:#55585f}.ds-field:focus,.ds-field:focus-visible{border-color:#0b63e5}.ds-field-id{width:220px;font-size:17px;font-weight:600}.ds-idrow-go{font-family:'Segoe UI',system-ui,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 16px;border-radius:8px;border:0;font-size:13.5px;font-weight:600;cursor:pointer;transition:background-color .12s cubic-bezier(.16,1,.3,1),transform .08s;background:#0b63e5;color:#fff;min-width:112px}.ds-idrow-go:hover{background:#0a58cc}.ds-idrow-go:active{background:#094db3;transform:translateY(1px)}.ds-idrow-go:focus-visible{outline:2px solid rgba(11,99,229,.8);outline-offset:2px;}"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "232 px Rail; selected item in Selection Wash with Link Blue icon and Semibold label; trailing count or lock.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item ds-on\" href=\"#\"><svg class=\"ds-ico\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M2.5 7.5 8 3l5.5 4.5\"/><path d=\"M4 6.4V13h8V6.4\"/><path d=\"M6.75 13V9.75h2.5V13\"/></svg><span>Início</span></a><a class=\"ds-nav-item\" href=\"#\"><svg class=\"ds-ico\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"2\" y=\"3\" width=\"12\" height=\"7.5\" rx=\"1.5\"/><path d=\"M8 10.5V13M5.5 13.25h5\"/></svg><span>Computadores</span><em>3</em></a></nav>",
+      "css": ".ds-nav{font-family:'Segoe UI',system-ui,sans-serif;width:208px;padding:14px 12px;background:#f4f4f6;box-shadow:inset -1px 0 #e6e7ea;display:flex;flex-direction:column;gap:2px}.ds-nav-item{display:flex;align-items:center;gap:10px;height:34px;padding:0 10px 0 12px;border-radius:8px;color:#18191c;text-decoration:none;font-size:14px;transition:background-color .12s}.ds-nav-item .ds-ico{width:16px;height:16px;color:#55585f}.ds-nav-item span{flex:1}.ds-nav-item em{font-style:normal;font-size:12.5px;color:#686b72}.ds-nav-item:hover{background:#e8e8ea}.ds-nav-item:active{background:#e3e3e6}.ds-nav-item:focus-visible{outline:2px solid rgba(11,99,229,.8);outline-offset:2px;}.ds-on,.ds-on:hover{background:#e8f0fd;font-weight:600}.ds-on .ds-ico{color:#0b5cd6}"
+    },
+    {
+      "name": "Status Line",
+      "kind": "custom",
+      "refersTo": "status",
+      "description": "Dot + text, no container; only in-progress states pulse.",
+      "html": "<div class=\"ds-status\"><i class=\"ds-dot ds-ok\"></i>Pronto para receber suporte</div><div class=\"ds-status\"><i class=\"ds-dot ds-wait\"></i>Conectando ao servidor…</div><div class=\"ds-status\"><i class=\"ds-dot ds-off\"></i>Sem conexão com o servidor</div>",
+      "css": ".ds-status{font-family:'Segoe UI',system-ui,sans-serif;display:flex;align-items:center;gap:8px;font-size:14px;color:#18191c;height:24px}.ds-dot{position:relative;width:8px;height:8px;border-radius:50%;margin:1px}.ds-ok{background:#1a8f4c}.ds-off{background:#cf3238}.ds-wait{background:#9a6008}.ds-wait::after{content:'';position:absolute;inset:0;border-radius:50%;background:#9a6008;animation:ds-pulse 1.1s cubic-bezier(.16,1,.3,1) infinite}@keyframes ds-pulse{from{transform:scale(1);opacity:.35}to{transform:scale(2.25);opacity:0}}@media (prefers-reduced-motion:reduce){.ds-wait::after{animation:none;opacity:0}}"
+    },
+    {
+      "name": "Device Row",
+      "kind": "custom",
+      "refersTo": "device-row",
+      "description": "Hairline-separated row: presence dot, Semibold name, Faint ID, Quiet Conectar or last-seen time.",
+      "html": "<div class=\"ds-rows\"><div class=\"ds-row\" tabindex=\"0\"><i class=\"ds-pdot\"></i><b>Recepção</b><span>312 604 958</span><button class=\"ds-row-act\">Conectar</button></div><div class=\"ds-row ds-row-off\" tabindex=\"0\"><i class=\"ds-pdot\"></i><b>Financeiro</b><span>590 221 734</span><small>visto há 2 h</small></div></div>",
+      "css": ".ds-rows{font-family:'Segoe UI',system-ui,sans-serif;width:520px}.ds-row{display:flex;align-items:center;gap:12px;height:46px;padding:0 0 0 8px;border-bottom:1px solid #e6e7ea;border-radius:8px 8px 0 0;transition:background-color .12s}.ds-row:hover{background:#f0f1f3}.ds-row:focus-visible{outline:2px solid rgba(11,99,229,.8);outline-offset:2px;}.ds-pdot{width:8px;height:8px;border-radius:50%;background:#1a8f4c;margin-right:2px}.ds-row b{font-size:14px;font-weight:600;color:#18191c}.ds-row span{font-size:13px;color:#686b72;flex:1}.ds-row small{font-size:12.5px;color:#686b72;padding-right:16px}.ds-row-off .ds-pdot{background:#686b72}.ds-row-off b{color:#55585f}.ds-row-act{font-family:'Segoe UI',system-ui,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 16px;border-radius:8px;border:0;font-size:13.5px;font-weight:600;cursor:pointer;transition:background-color .12s cubic-bezier(.16,1,.3,1),transform .08s;background:transparent;color:#0b5cd6}.ds-row-act:hover{background:#e8f0fd}.ds-row-act:active{transform:translateY(1px)}.ds-row-act:focus-visible{outline:2px solid rgba(11,99,229,.8);outline-offset:2px;}"
+    },
+    {
+      "name": "Session Toolbar",
+      "kind": "custom",
+      "refersTo": "session-toolbar",
+      "description": "52 px Rail strip above the remote picture: title, state dot, metrics, icon toggles, Encerrar.",
+      "html": "<div class=\"ds-tb\"><div class=\"ds-tb-t\"><b>Recepção</b><small>ID 312 604 958</small></div><div class=\"ds-tb-s\"><i></i>Conectado</div><span class=\"ds-tb-m\">Direto · 42 ms · 30 fps</span><div class=\"ds-tb-r\"><button class=\"ds-ib ds-ib-on\" title=\"Controle ligado\"><svg class=\"ds-ico\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4 2.5v10.25l2.6-2.35 1.8 3.6 1.6-.75-1.75-3.5 3.5-.25z\"/></svg></button><button class=\"ds-ib\" title=\"Diagnóstico da sessão\"><svg class=\"ds-ico\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M1.75 8.5H4.5l1.75-4.5 3 8.5L11 8.5h3.25\"/></svg></button><button class=\"ds-tb-end\">Encerrar</button></div></div>",
+      "css": ".ds-tb{font-family:'Segoe UI',system-ui,sans-serif;display:flex;align-items:center;gap:10px;height:52px;padding:0 12px 0 16px;background:#f4f4f6;box-shadow:inset 0 -1px #e6e7ea;width:720px;box-sizing:border-box}.ds-tb-t{display:flex;flex-direction:column;width:140px}.ds-tb-t b{font-size:14px;color:#18191c}.ds-tb-t small{font-size:11.5px;color:#686b72}.ds-tb-s{display:flex;align-items:center;gap:6px;font-size:13px;color:#55585f}.ds-tb-s i{width:8px;height:8px;border-radius:50%;background:#1a8f4c}.ds-tb-m{font-size:12.5px;color:#686b72}.ds-tb-r{margin-left:auto;display:flex;align-items:center;gap:4px}.ds-ib{width:32px;height:32px;border:0;border-radius:8px;background:transparent;color:#55585f;display:grid;place-items:center;cursor:pointer;transition:background-color .12s}.ds-ib .ds-ico{width:16px;height:16px}.ds-ib:hover{background:#f0f1f3}.ds-ib:active{background:#e3e4e6}.ds-ib:focus-visible{outline:2px solid rgba(11,99,229,.8);outline-offset:2px;}.ds-ib-on,.ds-ib-on:hover{background:#e8f0fd;color:#0b5cd6}.ds-tb-end{font-family:'Segoe UI',system-ui,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 16px;border-radius:8px;border:0;font-size:13.5px;font-weight:600;cursor:pointer;transition:background-color .12s cubic-bezier(.16,1,.3,1),transform .08s;background:#d1343a;color:#fff;margin-left:8px}.ds-tb-end:hover{background:#d6484e}.ds-tb-end:active{transform:translateY(1px)}.ds-tb-end:focus-visible{outline:2px solid rgba(11,99,229,.8);outline-offset:2px;}"
+    },
+    {
+      "name": "Consent Prompt",
+      "kind": "custom",
+      "refersTo": "consent",
+      "description": "Win32 prompt in the same language (dark shown, urgent state): identity block, emphasized caution, countdown bar amber in the last 10 s, Recusar default with a neutral ring.",
+      "html": "<div class=\"ds-cp\"><div class=\"ds-cp-h\"><span class=\"ds-cp-mark\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect width=\"24\" height=\"24\" rx=\"5.4\" fill=\"#1b6aeb\"/><g fill=\"none\" stroke=\"#fff\" stroke-width=\"1.7\"><rect x=\"3.85\" y=\"4.45\" width=\"10.9\" height=\"6.5\" rx=\"0.75\"/><rect x=\"9.25\" y=\"9.65\" width=\"10.9\" height=\"6.5\" rx=\"0.75\"/></g><g fill=\"#fff\"><rect x=\"8.4\" y=\"8.8\" width=\"7.2\" height=\"3\" rx=\"0.5\"/><rect x=\"13.85\" y=\"17\" width=\"1.7\" height=\"2.4\" rx=\"0.4\"/><rect x=\"11.6\" y=\"19\" width=\"6.2\" height=\"1.6\" rx=\"0.6\"/></g></svg></span><b>Um técnico quer acessar este computador</b></div><div class=\"ds-cp-id\"><span>AS</span><div><b>Ana Souza</b><small>ana.souza@suporte-exemplo.com.br</small></div></div><p>Se você permitir, o técnico poderá ver a sua tela e usar o mouse e o teclado.</p><p class=\"ds-cp-c\">Permita somente se você reconhece esta solicitação.</p><small class=\"ds-cp-cd\">Recusa automática em 9 s</small><div class=\"ds-cp-bar\"><i></i></div><div class=\"ds-cp-b\"><button class=\"ds-cp-deny\">Recusar</button><button class=\"ds-cp-allow\">Permitir</button></div></div>",
+      "css": ".ds-cp{font-family:'Segoe UI',system-ui,sans-serif;width:404px;padding:28px;background:#28282c;color:#ededef;border-radius:8px;box-shadow:0 12px 36px rgba(0,0,0,.647)}.ds-cp-h{display:flex;align-items:center;gap:14px;font-size:18px}.ds-cp-mark svg{width:40px;height:40px;display:block}.ds-cp-id{display:flex;gap:12px;align-items:center;margin:20px 0 18px;padding:14px;background:#313136;border-radius:11px}.ds-cp-id>span{width:36px;height:36px;border-radius:50%;background:#222e45;color:#6ca6ff;display:grid;place-items:center;font-weight:600;font-size:14px}.ds-cp-id div{display:flex;flex-direction:column}.ds-cp-id b{font-size:15px}.ds-cp-id small{font-size:12.5px;color:#a6a8af}.ds-cp p{margin:0 0 8px;font-size:14px;color:#a6a8af}.ds-cp .ds-cp-c{color:#ededef;font-weight:600;margin-bottom:22px}.ds-cp-cd{font-size:12.5px;color:#e6a23c}.ds-cp-bar{height:3px;border-radius:2px;background:#3a3a40;margin:8px 0 24px}.ds-cp-bar i{display:block;height:100%;width:45%;border-radius:2px;background:#e6a23c}.ds-cp-b{display:flex;justify-content:flex-end;gap:10px}.ds-cp-b button{font-family:'Segoe UI',system-ui,sans-serif;height:36px;min-width:108px;padding:0 20px;border-radius:8.6px;border:0;font-size:14px;font-weight:600;cursor:pointer}.ds-cp-deny{background:#38383e;color:#ededef;box-shadow:inset 0 0 0 1px #44444b}.ds-cp-deny:hover{background:#414148}.ds-cp-deny:active{background:#4a4a52;padding-top:2px}.ds-cp-deny:focus-visible{outline:1.5px solid #a6a8af;outline-offset:-3px;box-shadow:none}.ds-cp-allow{background:#226ce8;color:#fff}.ds-cp-allow:hover{background:#2670ec}.ds-cp-allow:active{background:#1f62d4;padding-top:2px}.ds-cp-allow:focus-visible{outline:1.5px solid #a6a8af;outline-offset:-3px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Number Read Aloud",
+    "overview": "Aionix Connect looks like the standard remote-support app, built carefully. The window has a sidebar and a content area. The 9-digit ID is the largest thing on Início. Computers are listed as rows, and a session fills the window edge to edge. The person being helped reads out one number, and everything else stays quiet so that number reads clearly. The surfaces are Windows-native neutrals that follow the system light/dark setting. One blue marks where you act and where you are. Green appears only when something is actually connected.\n\nThe finish target is Apple Screen Sharing and the current TeamViewer. The surfaces are flat, the separators are 1 px hairlines, controls have 8 px corners and sheets have 12 px corners. All type is Segoe UI, in two weights. Icons are line icons drawn in code, and the mark is two overlapping screens. The interface has no gradients on controls, no glows, no neon, no monogram and no card grids. Status sits in dots and plain lines of text, not in badges.\n\nMotion is calm and serves a purpose. Everything uses an exponential ease-out with no overshoot. Only states that are still in progress pulse. All animation stops when Windows animation effects are turned off.",
+    "keyCharacteristics": [
+      "Neutral light and dark palettes that follow the Windows setting. Neither theme is the \"real\" one.",
+      "One blue accent for primary actions, focus, selection, links and progress.",
+      "Green for online, connected and in session. Amber for in progress and urgent. Red for offline, errors and ending things.",
+      "The ID at 44 px Segoe UI Semibold, with its digits settling into place the first time it appears.",
+      "Flat surfaces separated by hairlines. Shadows appear only on sheets and popups.",
+      "Line icons on a 16-unit grid, drawn in code."
+    ],
+    "rules": [
+      {
+        "name": "The One Blue Rule",
+        "body": "Blue means \"act here\", \"you are here\", or \"on its way\". It marks one filled primary button per region, plus focus, selection, links and progress. Blue never decorates, and a second filled blue button in the same region is a bug.",
+        "section": "colors"
+      },
+      {
+        "name": "The Earned Green Rule",
+        "body": "Green appears only when something is actually online or connected. It never means \"success\" in general, never appears on buttons, and never marks a list that could not be refreshed.",
+        "section": "colors"
+      },
+      {
+        "name": "The Honest List Rule",
+        "body": "When a signed-in list cannot be refreshed, every dot turns faint, names drop to Muted, and Conectar is disabled with the reason on hover (\"Sem conexão com o servidor. A lista volta quando a conexão voltar.\"). On Início the heading becomes \"Última lista conhecida\". On Computadores a Stop Red line (\"Não foi possível atualizar a lista: …\") sits above the table. Data the app cannot confirm is never shown as current.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Weights Rule",
+        "body": "Only Regular and Semibold exist. Hierarchy comes from size and from the Ink/Muted/Faint ladder, never from bold, italics or uppercase.",
+        "section": "typography"
+      },
+      {
+        "name": "The Float-Only Shadow Rule",
+        "body": "A shadow means \"this sits above the window\". Rows, banners, buttons and the sidebar never cast one. Tinted banners use a 10–35 % tint of their status color and a 1 px outline, not elevation.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** follow the Windows light/dark setting and design every screen in both palettes.",
+      "**Do** keep one filled Action Blue button per region, and give a disabled primary the Selection Wash fill with dimmed Link Blue text.",
+      "**Do** use a 1 px Field Edge outline on a Page fill for text fields. The outline turns Muted on hover and Action Blue on focus.",
+      "**Do** keep tertiary text on Faint (#686b72 / #95979e) so it stays at 4.5:1 or better on Page, Rail and Control Fill.",
+      "**Do** put status in a dot plus a plain line of text. Pulse only states that are still in progress.",
+      "**Do** show data the app cannot confirm as \"Última lista conhecida\" with neutral dots and Conectar disabled with the reason.",
+      "**Do** run every transition through the shared ease-out helpers so that turning off Windows animation effects stops it.",
+      "**Do** draw new icons on the 16-unit grid with a 1.5-unit stroke and round caps."
+    ],
+    "donts": [
+      "**Don't** put gradients on controls, glows, neon, or colored shadows anywhere.",
+      "**Don't** use a monogram or letter mark. The mark is the two screens, on Brand Tile Blue (#1b6aeb), and the accent never replaces it.",
+      "**Don't** lay content out as card grids. Lists are hairline-separated rows.",
+      "**Don't** use green for anything that is not online, connected or in session.",
+      "**Don't** set the ID or other numbers in a monospace or display face. The ID is Segoe UI Semibold.",
+      "**Don't** fill text fields with the control gray, and don't use that gray as a disabled primary.",
+      "**Don't** let chrome overlap the remote picture. The session toolbar sits above it, never on top of it.",
+      "**Don't** give the focused Recusar in the consent prompt a blue ring."
+    ]
+  }
+}

@@ -438,7 +438,12 @@ fn download_line(ui: &mut Ui, version: &str, fraction: f32) {
         let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 4.0), Sense::hover());
         let rect = rect.shrink2(vec2(6.0, 0.0));
         ui.painter().rect_filled(rect, CornerRadius::same(2), p.hairline);
-        let shown = ui.ctx().animate_value_with_time(Id::new("update-progress"), fraction.clamp(0.0, 1.0), 0.3);
+        let target = fraction.clamp(0.0, 1.0);
+        let shown = if theme::reduced_motion() {
+            target
+        } else {
+            ui.ctx().animate_value_with_time(Id::new("update-progress"), target, 0.3)
+        };
         let mut done = rect;
         done.set_width(rect.width() * shown);
         ui.painter().rect_filled(done, CornerRadius::same(2), p.accent);
