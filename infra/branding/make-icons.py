@@ -3,10 +3,11 @@
     python -I infra/branding/make-icons.py
 
 Writes branding/icons/setup.ico (app, installer, shortcuts), branding/icons/setup-512.png
-and branding/icons/app-256.png (window icon). The mark: two screens that overlap, the
-region they share filled solid; it is what both people see during a session. It sits on
-a blue rounded square with a soft top-to-bottom light. The same geometry (24-unit grid)
-is drawn at runtime by `theme::brand_mark` in crates/desktop/src/theme.rs.
+and branding/icons/app-256.png (window icon). The mark: two landscape screens that
+overlap (the front one on a stand), the region they share filled solid; it is what both
+people see during a session. It sits on a flat blue rounded square. The same geometry
+(24-unit grid) is drawn at runtime by `theme::paint_mark` (crates/desktop/src/theme.rs)
+and by the consent prompt (crates/platform/src/windows/consent.rs).
 Rendered at 1024 px and downsampled per size; small sizes use a heavier stroke so the
 two outlines never melt into one shape.
 """
@@ -20,13 +21,14 @@ OUT = ROOT / "branding" / "icons"
 
 BIG = 1024
 SIZES = [16, 20, 24, 32, 40, 48, 64, 96, 128, 256]
-# Tile: top and bottom of the vertical light.
-TOP, BOTTOM = (0x2B, 0x7B, 0xF6), (0x0A, 0x58, 0xDE)
+TILE = (0x1B, 0x6A, 0xEB)
 CORNER = 0.225  # tile corner radius, fraction of the side
 # Mark geometry on a 24-unit grid (kept in sync with theme.rs).
-SCREEN_A = (4.6, 5.4, 15.0, 14.4)
-SCREEN_B = (9.0, 9.6, 19.4, 18.6)
-RADIUS = 2.0
+SCREEN_A = (3.0, 3.6, 15.6, 11.8)
+SCREEN_B = (8.4, 8.8, 21.0, 17.0)
+RADIUS = 1.6
+# Stand of the front screen: neck and base.
+STAND = [((13.85, 17.0, 15.55, 19.4), 0.4), ((11.6, 19.0, 17.8, 20.6), 0.6)]
 
 
 def u(v):
@@ -49,21 +51,18 @@ def mark_mask(stroke):
     a, b = SCREEN_A, SCREEN_B
     shared = (max(a[0], b[0]), max(a[1], b[1]), min(a[2], b[2]), min(a[3], b[3]))
     m = ImageChops.lighter(outline(a, RADIUS, stroke), outline(b, RADIUS, stroke))
-    return ImageChops.lighter(m, rounded(shared, RADIUS * 0.35))
+    m = ImageChops.lighter(m, rounded(shared, RADIUS * 0.3))
+    for box, r in STAND:
+        m = ImageChops.lighter(m, rounded(box, r))
+    return m
 
 
 def tile():
-    grad = Image.new("RGBA", (BIG, BIG))
-    d = ImageDraw.Draw(grad)
-    for y in range(BIG):
-        t = y / (BIG - 1)
-        d.line([(0, y), (BIG, y)],
-               fill=tuple(round(TOP[i] + (BOTTOM[i] - TOP[i]) * t) for i in range(3)) + (255,))
     mask = Image.new("L", (BIG, BIG), 0)
     ImageDraw.Draw(mask).rounded_rectangle((0, 0, BIG - 1, BIG - 1),
                                            radius=int(BIG * CORNER), fill=255)
     out = Image.new("RGBA", (BIG, BIG), (0, 0, 0, 0))
-    out.paste(grad, (0, 0), mask)
+    out.paste(Image.new("RGBA", (BIG, BIG), TILE + (255,)), (0, 0), mask)
     return out
 
 
@@ -76,7 +75,7 @@ def icon(stroke):
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
-    regular, heavy = icon(1.6), icon(2.1)
+    regular, heavy = icon(1.7), icon(2.1)
     regular.resize((512, 512), Image.LANCZOS).save(OUT / "setup-512.png")
     regular.resize((256, 256), Image.LANCZOS).save(OUT / "app-256.png")
     frames = [(heavy if n <= 32 else regular).resize((n, n), Image.LANCZOS) for n in SIZES]

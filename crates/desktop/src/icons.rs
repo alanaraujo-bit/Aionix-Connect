@@ -18,6 +18,7 @@ pub enum Icon {
     ExitFullscreen,
     ChevronLeft,
     ChevronRight,
+    ChevronDown,
     Refresh,
     Download,
     Lock,
@@ -94,6 +95,7 @@ pub fn paint(painter: &Painter, rect: Rect, icon: Icon, color: Color32) {
         }
         Icon::ChevronLeft => line(vec![p(10.0, 3.0), p(5.0, 8.0), p(10.0, 13.0)]),
         Icon::ChevronRight => line(vec![p(6.0, 3.0), p(11.0, 8.0), p(6.0, 13.0)]),
+        Icon::ChevronDown => line(vec![p(3.0, 6.0), p(8.0, 11.0), p(13.0, 6.0)]),
         Icon::Refresh => {
             line(arc(p(8.0, 8.0), 5.25 * s, -60.0, 230.0));
             line(vec![p(13.5, 2.75), p(13.0, 5.6), p(10.2, 5.2)]);

@@ -30,7 +30,6 @@ use aionix_remote_core::session::{
 };
 use aionix_shared::FriendlyId;
 use async_trait::async_trait;
-use egui::RichText;
 use futures::StreamExt;
 use tokio::sync::watch;
 use tracing::{info, warn};
@@ -562,7 +561,6 @@ impl HostSide {
 
     /// Collapsible technical details (support and diagnostics).
     pub fn details(&self, ui: &mut egui::Ui) {
-        let p = theme::palette(ui);
         let (session, kind, device_id, log_path, addr) = {
             let u = self.ui.lock().unwrap();
             (
@@ -573,8 +571,7 @@ impl HostSide {
                 u.addr.clone(),
             )
         };
-        egui::CollapsingHeader::new(RichText::new("Detalhes técnicos").size(12.5).color(p.muted))
-            .show(ui, |ui| {
+        views::disclosure(ui, "Detalhes técnicos", |ui| {
                 if let Some(id) = device_id {
                     theme::kv(ui, "Dispositivo", &id.to_string());
                 }

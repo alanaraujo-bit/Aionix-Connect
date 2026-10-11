@@ -59,7 +59,9 @@ pub fn spinner(ui: &mut Ui, size: f32) {
         .collect();
     ui.painter()
         .add(egui::Shape::line(pts, Stroke::new(2.0, p.accent)));
-    ui.ctx().request_repaint();
+    if !theme::reduced_motion() {
+        ui.ctx().request_repaint();
+    }
 }
 
 /// Digits only, at most nine, grouped as "000 000 000".
@@ -101,6 +103,48 @@ fn section_heading(ui: &mut Ui, text: &str, detail: &str) {
     if !detail.is_empty() {
         ui.add_space(-4.0);
         ui.label(RichText::new(detail).size(13.5).color(p.muted));
+    }
+}
+
+/// A quiet "show more" row: chevron and label; the content fades in under it. The
+/// open state lives in egui memory.
+pub fn disclosure(ui: &mut Ui, label: &str, content: impl FnOnce(&mut Ui)) {
+    let p = theme::palette(ui);
+    let id = ui.id().with(("disclosure", label));
+    let mut open = ui.ctx().data(|d| d.get_temp::<bool>(id)).unwrap_or(false);
+    let galley = ui
+        .painter()
+        .layout_no_wrap(label.to_owned(), FontId::proportional(theme::SIZE_SMALL), p.muted);
+    let (rect, response) = ui.allocate_exact_size(vec2(galley.size().x + 22.0, 24.0), Sense::click());
+    if response.clicked() {
+        open = !open;
+        ui.ctx().data_mut(|d| d.insert_temp(id, open));
+    }
+    let h = theme::toggle(ui, id.with("h"), response.hovered(), 0.12);
+    let ink = theme::lerp_color(p.muted, p.text, h);
+    let icon = if open { Icon::ChevronDown } else { Icon::ChevronRight };
+    icons::paint(
+        ui.painter(),
+        Rect::from_center_size(pos2(rect.min.x + 7.0, rect.center().y), Vec2::splat(12.0)),
+        icon,
+        ink,
+    );
+    ui.painter().galley(
+        pos2(rect.min.x + 20.0, rect.center().y - galley.size().y / 2.0),
+        galley,
+        ink,
+    );
+    if response.has_focus() {
+        theme::focus_ring(ui, rect, 6);
+    }
+    response.on_hover_cursor(egui::CursorIcon::PointingHand);
+    let t = theme::toggle(ui, id.with("t"), open, 0.22);
+    if open {
+        ui.scope(|ui| {
+            ui.multiply_opacity(t);
+            ui.add_space(6.0);
+            content(ui);
+        });
     }
 }
 
@@ -475,7 +519,7 @@ pub fn inbound_banner(ui: &mut Ui, m: &HostModel) -> Option<HostAction> {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 12.0;
                     let (dot, pulse) = match &s.state {
-                        Some((_, tone)) => (tone.color(&p), *tone != Tone::Danger),
+                        Some((_, tone)) => (tone.color(&p), *tone == Tone::Warning),
                         None => (p.success, false),
                     };
                     ui.add_space(4.0);
@@ -550,14 +594,16 @@ pub fn this_computer(ui: &mut Ui, m: &HostModel) -> Option<HostAction> {
         HostStatus::Starting | HostStatus::Connecting => (Tone::Warning, true),
         HostStatus::Offline => (Tone::Danger, false),
     };
-    theme::status_line(ui, &m.status_text, tone.color(&p), pulse);
-    if let Some(d) = &m.status_detail {
-        ui.add_space(-6.0);
-        ui.horizontal(|ui| {
-            ui.add_space(18.0);
-            ui.label(RichText::new(d).size(13.0).color(p.muted));
-        });
-    }
+    ui.vertical(|ui| {
+        ui.spacing_mut().item_spacing.y = 0.0;
+        theme::status_line(ui, &m.status_text, tone.color(&p), pulse);
+        if let Some(d) = &m.status_detail {
+            ui.horizontal(|ui| {
+                ui.add_space(18.0);
+                ui.label(RichText::new(d).size(13.0).color(p.muted));
+            });
+        }
+    });
     ui.add_space(14.0);
     ui.label(
         RichText::new("Passe este ID para quem vai te ajudar. Ninguém acessa este computador sem a sua permissão.")
@@ -642,6 +688,8 @@ pub struct ConnectModel<'a> {
     /// Online computers to offer right on Início (signed in).
     pub quick: &'a [DeviceModel],
     pub total: usize,
+    /// The list could not be refreshed (no server).
+    pub stale: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -708,7 +756,8 @@ pub fn connect_section(ui: &mut Ui, m: &ConnectModel<'_>, typed: &mut String) ->
     } else if !m.quick.is_empty() {
         ui.add_space(26.0);
         ui.horizontal(|ui| {
-            ui.label(theme::title("Disponíveis agora", 13.5));
+            let title = if m.stale { "Última lista conhecida" } else { "Disponíveis agora" };
+            ui.label(theme::title(title, 13.5));
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if theme::link(ui, &format!("Ver todos ({})", m.total)).clicked() {
                     action = Some(ConnectAction::ShowAll);
@@ -718,7 +767,7 @@ pub fn connect_section(ui: &mut Ui, m: &ConnectModel<'_>, typed: &mut String) ->
         ui.add_space(4.0);
         theme::hairline(ui);
         for (i, d) in m.quick.iter().enumerate() {
-            if device_row(ui, d, false) {
+            if device_row(ui, d, false, m.stale) {
                 action = Some(ConnectAction::Device(i));
             }
         }
@@ -798,7 +847,7 @@ pub fn computers_page(ui: &mut Ui, m: &ComputersModel<'_>, filter: &mut String) 
         .auto_shrink([false, false])
         .show(ui, |ui| {
             for (i, d) in m.devices.iter().enumerate() {
-                if device_row(ui, d, true) {
+                if device_row(ui, d, true, m.error.is_some()) {
                     pick = Some(i);
                 }
             }
@@ -841,9 +890,11 @@ fn column_header(ui: &mut Ui) {
 
 /// One computer; `columns` lays it out as a table row (Computadores) instead of the
 /// compact Início row. Returns true when the user asks to connect.
-fn device_row(ui: &mut Ui, d: &DeviceModel, columns: bool) -> bool {
+/// `stale`: the list could not be refreshed (no server); presence is not shown as
+/// current and connecting is not offered.
+fn device_row(ui: &mut Ui, d: &DeviceModel, columns: bool, stale: bool) -> bool {
     let p = theme::palette(ui);
-    let online = d.presence == Presence::Online;
+    let online = d.presence == Presence::Online && !stale;
     let height = if columns { 52.0 } else { 46.0 };
     let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::click());
     let h = theme::toggle(ui, response.id.with("h"), response.hovered(), 0.12);
@@ -857,11 +908,18 @@ fn device_row(ui: &mut Ui, d: &DeviceModel, columns: bool) -> bool {
     ui.painter().hline(rect.x_range(), rect.max.y - 0.5, Stroke::new(1.0, p.hairline));
     let cy = rect.center().y;
     let dot = match d.presence {
+        _ if stale => p.faint,
         Presence::Online => p.success,
         Presence::Connecting => p.warning,
-        Presence::Offline => p.border,
+        Presence::Offline => p.faint,
     };
-    ui.painter().circle_filled(pos2(rect.min.x + 12.0, cy), 4.0, dot);
+    let center = pos2(rect.min.x + 12.0, cy);
+    if d.presence == Presence::Connecting && !stale && !theme::reduced_motion() {
+        let t = (ui.input(|i| i.time) * 0.9).fract() as f32;
+        ui.painter().circle_filled(center, 4.0 + 5.0 * theme::ease_out(t), dot.gamma_multiply(0.35 * (1.0 - t)));
+        ui.ctx().request_repaint();
+    }
+    ui.painter().circle_filled(center, 4.0, dot);
     let text_color = if online { p.text } else { p.muted };
     let name_x = rect.min.x + 26.0;
     let name = ui.painter().layout_no_wrap(d.name.clone(), theme::semibold(14.0), text_color);
@@ -899,21 +957,20 @@ fn device_row(ui: &mut Ui, d: &DeviceModel, columns: bool) -> bool {
         };
         ui.painter().text(pos2(x, y), Align2::LEFT_CENTER, "este computador", FontId::proportional(12.0), p.accent_text);
     }
-    // Trailing: Conectar for online computers (fades in with hover), the last-seen
-    // time for the rest.
+    // Trailing, on one right edge: Conectar for online computers, the last-seen time
+    // for the rest. The button's label ends where the text does (16 px padding).
     let mut clicked = false;
-    let right = Rect::from_min_max(pos2(rect.max.x - 120.0, rect.min.y), rect.max);
-    if online {
+    let right = Rect::from_min_max(pos2(rect.max.x - 140.0, rect.min.y), rect.max);
+    if d.presence == Presence::Online {
         let mut child = ui.new_child(UiBuilder::new().max_rect(right).layout(Layout::right_to_left(Align::Center)));
-        child.add_space(4.0);
-        let kind = Kind::Quiet;
-        clicked |= theme::button(&mut child, kind, None, "Conectar", true, Some(96.0)).clicked();
+        let r = theme::button(&mut child, Kind::Quiet, None, "Conectar", !stale, None);
+        clicked |= r.on_disabled_hover_text("Sem conexão com o servidor. A lista volta quando a conexão voltar.").clicked() && !stale;
     } else {
         let text = match d.presence {
             Presence::Connecting => "conectando…".to_owned(),
             _ => d.seen.clone().unwrap_or_else(|| "offline".into()),
         };
-        ui.painter().text(pos2(rect.max.x - 12.0, cy), Align2::RIGHT_CENTER, text, FontId::proportional(12.5), p.faint);
+        ui.painter().text(pos2(rect.max.x - 16.0, cy), Align2::RIGHT_CENTER, text, FontId::proportional(12.5), p.faint);
     }
     if online && response.double_clicked() {
         clicked = true;

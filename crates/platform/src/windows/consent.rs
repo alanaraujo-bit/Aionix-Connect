@@ -235,8 +235,8 @@ const LIGHT: Colors = Colors {
 };
 
 const DARK: Colors = Colors {
-    bg: 0x26262a,
-    panel: 0x2f2f34,
+    bg: 0x28282c,
+    panel: 0x313136,
     text: 0xededef,
     muted: 0xa6a8af,
     faint: 0x8a8c93,
@@ -246,12 +246,12 @@ const DARK: Colors = Colors {
     accent_press: 0x2366d8,
     accent_soft: 0x24324d,
     accent_text: 0x6ca6ff,
-    secondary: 0x35353b,
-    secondary_hover: 0x3e3e45,
-    secondary_press: 0x47474f,
-    secondary_line: 0x404047,
+    secondary: 0x38383e,
+    secondary_hover: 0x414148,
+    secondary_press: 0x4a4a52,
+    secondary_line: 0x44444b,
     warning: 0xe6a23c,
-    disabled_fill: 0x303035,
+    disabled_fill: 0x323237,
     disabled_text: 0x6e7076,
 };
 
@@ -369,13 +369,14 @@ impl Canvas {
         }
     }
 
-    /// The Aionix Connect mark: two overlapping screens, the shared region filled, on
-    /// the blue tile (same geometry as infra/branding/make-icons.py).
+    /// The Aionix Connect mark: two landscape screens that overlap (the front one on a
+    /// stand), the shared region filled, on the blue tile (same geometry as
+    /// infra/branding/make-icons.py).
     fn mark(&self, x: f32, y: f32, size: f32) {
         let s = size / 24.0;
         self.fill_round(x, y, size, size, size * 0.225, 0x1b6aeb);
-        let w = if size <= 32.0 { 2.1 } else { 1.6 } * s;
-        for (x0, y0, x1, y1) in [(4.6, 5.4, 15.0, 14.4), (9.0, 9.6, 19.4, 18.6)] {
+        let w = if size <= 32.0 { 2.1 } else { 1.7 } * s;
+        for (x0, y0, x1, y1) in [(3.0, 3.6, 15.6, 11.8), (8.4, 8.8, 21.0, 17.0)] {
             self.stroke_round(
                 [
                     x + (x0 * s) + w / 2.0,
@@ -383,12 +384,18 @@ impl Canvas {
                     (x1 - x0) * s - w,
                     (y1 - y0) * s - w,
                 ],
-                (2.0 * s - w / 2.0).max(0.5),
+                (1.6 * s - w / 2.0).max(0.5),
                 0xffffff,
                 w,
             );
         }
-        self.fill_round(x + 9.0 * s, y + 9.6 * s, 6.0 * s, 4.8 * s, 0.7 * s, 0xffffff);
+        for (x0, y0, x1, y1, r) in [
+            (8.4, 8.8, 15.6, 11.8, 0.5),
+            (13.85, 17.0, 15.55, 19.4, 0.4),
+            (11.6, 19.0, 17.8, 20.6, 0.6),
+        ] {
+            self.fill_round(x + x0 * s, y + y0 * s, (x1 - x0) * s, (y1 - y0) * s, r * s, 0xffffff);
+        }
     }
 }
 
@@ -896,7 +903,7 @@ fn paint_window(hdc: HDC, client: RECT, st: &DialogState) {
         let total = p.timeout.as_secs_f32().max(0.001);
         let left = st.deadline.saturating_duration_since(Instant::now()).as_secs_f32();
         let frac = (left / total).clamp(0.0, 1.0);
-        let urgent = left <= 10.0;
+        let urgent = st.shown_seconds <= 10;
         if frac > 0.0 {
             canvas.fill_round(
                 b.left as f32,
@@ -924,8 +931,7 @@ fn paint_window(hdc: HDC, client: RECT, st: &DialogState) {
     }
     draw_text(hdc, &p.body, g.body, &st.fonts.body, c.muted, wrap);
     draw_text(hdc, &p.caution, g.caution, &st.fonts.strong, c.text, wrap);
-    let left = st.deadline.saturating_duration_since(Instant::now());
-    let urgent = left.as_secs() < 10;
+    let urgent = st.shown_seconds <= 10;
     draw_text(
         hdc,
         &countdown_text(&p.countdown_template, st.shown_seconds),
@@ -983,13 +989,15 @@ fn paint_button(dis: &DRAWITEMSTRUCT, st: &DialogState) {
         {
             let canvas = Canvas::new(hdc);
             // Room for the focus ring inside the control.
-            let inset = if focused { 2.5 } else { 0.0 };
+            let inset = if focused { 3.0 } else { 0.0 };
             canvas.fill_round(inset, inset, w - 2.0 * inset, h - 2.0 * inset, radius - inset * 0.5, fill_c);
             if !primary && !disabled && !focused {
                 canvas.stroke_round([0.5, 0.5, w - 1.0, h - 1.0], radius, c.secondary_line, 1.0);
             }
             if focused {
-                canvas.stroke_round([1.0, 1.0, w - 2.0, h - 2.0], radius, c.accent, 2.0);
+                // Neutral ring with a gap, so the focused "Recusar" never reads as a
+                // second blue button.
+                canvas.stroke_round([1.0, 1.0, w - 2.0, h - 2.0], radius, c.muted, 1.5);
             }
         }
         let shift = if pressed { 1 } else { 0 };

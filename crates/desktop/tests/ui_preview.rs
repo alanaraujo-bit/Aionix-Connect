@@ -104,6 +104,7 @@ fn home(name: &str, mode: Theme, h: HostModel, signed_in: bool, update: fn() -> 
     let devs = devices();
     let quick: Vec<DeviceModel> = devs.into_iter().filter(|d| d.presence == Presence::Online).collect();
     let mut typed = String::new();
+    let stale = h.status == HostStatus::Offline;
     shot(name, mode, WINDOW, move |ui| {
         let connect = ConnectModel {
             signed_in,
@@ -111,10 +112,11 @@ fn home(name: &str, mode: Theme, h: HostModel, signed_in: bool, update: fn() -> 
             error: None,
             quick: &quick,
             total: 6,
+            stale,
         };
         views::shell(ui, &side(Page::Home, signed_in, update()), |ui| {
             views::home_page(ui, &h, |ui| { views::connect_section(ui, &connect, &mut typed); }, |ui| {
-                ui.label(egui::RichText::new("▸ Detalhes técnicos").size(12.5).color(theme::palette(ui).faint));
+                views::disclosure(ui, "Detalhes técnicos", |_| {});
             });
         });
     });
@@ -161,7 +163,7 @@ fn preview() {
         let h = host(HostStatus::Online);
         let mut typed = "312 604 958".to_owned();
         shot("login", mode, WINDOW, move |ui| {
-            let connect = ConnectModel { signed_in: false, signing_in: false, error: None, quick: &[], total: 0 };
+            let connect = ConnectModel { signed_in: false, signing_in: false, error: None, quick: &[], total: 0, stale: false };
             views::shell(ui, &side(Page::Home, false, UpdateModel::Idle), |ui| {
                 views::home_page(ui, &h, |ui| { views::connect_section(ui, &connect, &mut typed); }, |_| {});
             });

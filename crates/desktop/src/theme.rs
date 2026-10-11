@@ -40,12 +40,14 @@ pub struct Palette {
     pub surface_alt: Color32,
     /// Control outlines.
     pub border: Color32,
+    /// Text field outline at rest (≥ 3:1 on `bg`).
+    pub field_border: Color32,
     /// Separators between regions and rows.
     pub hairline: Color32,
     pub text: Color32,
     /// Secondary text.
     pub muted: Color32,
-    /// Tertiary text and placeholders (still ≥ 4.5:1 on `bg`).
+    /// Tertiary text and placeholders (≥ 4.5:1 on `bg`, `sidebar` and `surface_alt`).
     pub faint: Color32,
     pub accent: Color32,
     pub accent_hover: Color32,
@@ -71,10 +73,11 @@ pub const LIGHT: Palette = Palette {
     surface: Color32::from_rgb(0xff, 0xff, 0xff),
     surface_alt: Color32::from_rgb(0xf0, 0xf1, 0xf3),
     border: Color32::from_rgb(0xd8, 0xda, 0xdf),
+    field_border: Color32::from_rgb(0x8c, 0x8f, 0x96),
     hairline: Color32::from_rgb(0xe6, 0xe7, 0xea),
     text: Color32::from_rgb(0x18, 0x19, 0x1c),
     muted: Color32::from_rgb(0x55, 0x58, 0x5f),
-    faint: Color32::from_rgb(0x72, 0x75, 0x7c),
+    faint: Color32::from_rgb(0x68, 0x6b, 0x72),
     accent: Color32::from_rgb(0x0b, 0x63, 0xe5),
     accent_hover: Color32::from_rgb(0x0a, 0x58, 0xcc),
     accent_press: Color32::from_rgb(0x09, 0x4d, 0xb3),
@@ -82,7 +85,7 @@ pub const LIGHT: Palette = Palette {
     accent_text: Color32::from_rgb(0x0b, 0x5c, 0xd6),
     on_accent: Color32::WHITE,
     success: Color32::from_rgb(0x1a, 0x8f, 0x4c),
-    warning: Color32::from_rgb(0xa8, 0x6a, 0x0b),
+    warning: Color32::from_rgb(0x9a, 0x60, 0x08),
     danger: Color32::from_rgb(0xcf, 0x32, 0x38),
     danger_fill: Color32::from_rgb(0xd1, 0x34, 0x3a),
     info: Color32::from_rgb(0x0b, 0x63, 0xe5),
@@ -95,10 +98,11 @@ pub const DARK: Palette = Palette {
     surface: Color32::from_rgb(0x28, 0x28, 0x2c),
     surface_alt: Color32::from_rgb(0x2d, 0x2d, 0x32),
     border: Color32::from_rgb(0x3d, 0x3d, 0x44),
+    field_border: Color32::from_rgb(0x72, 0x74, 0x7b),
     hairline: Color32::from_rgb(0x30, 0x30, 0x35),
     text: Color32::from_rgb(0xed, 0xed, 0xef),
     muted: Color32::from_rgb(0xa6, 0xa8, 0xaf),
-    faint: Color32::from_rgb(0x8a, 0x8c, 0x93),
+    faint: Color32::from_rgb(0x95, 0x97, 0x9e),
     accent: Color32::from_rgb(0x2b, 0x74, 0xf0),
     accent_hover: Color32::from_rgb(0x3a, 0x80, 0xf5),
     accent_press: Color32::from_rgb(0x23, 0x66, 0xd8),
@@ -171,7 +175,7 @@ fn visuals(theme: Theme, p: Palette) -> Visuals {
     v.panel_fill = p.bg;
     v.window_fill = p.surface;
     v.extreme_bg_color = p.surface_alt;
-    v.text_edit_bg_color = Some(p.surface_alt);
+    v.text_edit_bg_color = Some(p.bg);
     v.faint_bg_color = p.surface_alt;
     v.code_bg_color = p.surface_alt;
     v.window_stroke = Stroke::new(1.0, p.hairline);
@@ -207,8 +211,9 @@ fn visuals(theme: Theme, p: Palette) -> Visuals {
         state.bg_stroke = Stroke::new(1.0, stroke);
         state.expansion = 0.0;
     }
-    // Text fields: a hairline at rest, the accent ring when focused.
-    w.inactive.bg_stroke = Stroke::new(1.0, p.border.gamma_multiply(0.0));
+    // Text fields: an outline at rest, darker on hover, the accent ring when focused.
+    w.inactive.bg_stroke = Stroke::new(1.0, p.field_border);
+    w.hovered.bg_stroke = Stroke::new(1.0, p.muted);
     v
 }
 
@@ -393,7 +398,11 @@ pub fn button(
         Kind::Danger => (p.danger_fill, p.danger_fill.gamma_multiply(0.9), p.danger_fill.gamma_multiply(0.8), Color32::WHITE),
         Kind::Quiet => (p.accent_soft.gamma_multiply(0.0), p.accent_soft, lerp_color(p.accent_soft, p.accent, 0.15), p.accent_text),
     };
-    let ink = if enabled { fg } else { p.faint };
+    let ink = match (enabled, kind) {
+        (true, _) => fg,
+        (false, Kind::Primary) => p.accent_text.gamma_multiply(0.6),
+        (false, _) => p.faint,
+    };
     let galley = ui.painter().layout_no_wrap(text.to_owned(), font, ink);
     let icon_w = if icon.is_some() { 16.0 + if text.is_empty() { 0.0 } else { 8.0 } } else { 0.0 };
     let content = galley.size().x + icon_w;
@@ -407,7 +416,9 @@ pub fn button(
     let d = toggle(ui, response.id.with("d"), pressed, 0.08);
     if ui.is_rect_visible(rect) {
         let mut color = lerp_color(lerp_color(fill, hover, h), press, d);
-        if !enabled && !matches!(kind, Kind::Ghost | Kind::Quiet) {
+        if !enabled && kind == Kind::Primary {
+            color = p.accent_soft;
+        } else if !enabled && !matches!(kind, Kind::Ghost | Kind::Quiet) {
             color = p.surface_alt;
         }
         let r = rect.translate(Vec2::new(0.0, d));
@@ -661,8 +672,9 @@ pub fn skeleton(ui: &mut Ui, size: Vec2) -> Response {
 
 // ------------------------------------------------------------------ brand
 
-/// The mark: two screens that overlap, the region they share filled solid, on the blue
-/// tile. Same 24-unit geometry as infra/branding/make-icons.py.
+/// The mark: two landscape screens that overlap (the front one on a stand), the region
+/// they share filled solid, on the blue tile. Same 24-unit geometry as
+/// infra/branding/make-icons.py.
 pub fn brand_mark(ui: &mut Ui, size: f32) -> Response {
     let (rect, response) = ui.allocate_exact_size(Vec2::splat(size), Sense::hover());
     paint_mark(ui.painter(), rect);
@@ -674,13 +686,16 @@ pub fn paint_mark(painter: &egui::Painter, rect: Rect) {
     let at = |x0: f32, y0: f32, x1: f32, y1: f32| {
         Rect::from_min_max(rect.min + Vec2::new(x0, y0) * s, rect.min + Vec2::new(x1, y1) * s)
     };
+    let radius = |r: f32| CornerRadius::same((r * s).round() as u8);
     painter.rect_filled(rect, CornerRadius::same((rect.width() * 0.225) as u8), Color32::from_rgb(0x1b, 0x6a, 0xeb));
-    let w = if rect.width() <= 32.0 { 2.1 } else { 1.6 } * s;
+    let w = if rect.width() <= 32.0 { 2.1 } else { 1.7 } * s;
     let white = Color32::WHITE;
-    for r in [at(4.6, 5.4, 15.0, 14.4), at(9.0, 9.6, 19.4, 18.6)] {
-        painter.rect_stroke(r, CornerRadius::same((2.0 * s) as u8), Stroke::new(w, white), egui::StrokeKind::Inside);
+    for r in [at(3.0, 3.6, 15.6, 11.8), at(8.4, 8.8, 21.0, 17.0)] {
+        painter.rect_stroke(r, radius(1.6), Stroke::new(w, white), egui::StrokeKind::Inside);
     }
-    painter.rect_filled(at(9.0, 9.6, 15.0, 14.4), CornerRadius::same((0.7 * s) as u8), white);
+    painter.rect_filled(at(8.4, 8.8, 15.6, 11.8), radius(0.5), white);
+    painter.rect_filled(at(13.85, 17.0, 15.55, 19.4), radius(0.4), white);
+    painter.rect_filled(at(11.6, 19.0, 17.8, 20.6), radius(0.6), white);
 }
 
 /// Product name next to the mark.

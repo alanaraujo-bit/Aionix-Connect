@@ -603,7 +603,7 @@ impl TechSide {
     /// needed) and, signed in, the computers online now. Returns a page to open.
     pub fn connect_section(&mut self, ui: &mut egui::Ui) -> Option<views::Page> {
         let ws = self.ws.clone();
-        let (quick_src, total): (Vec<DeviceSummary>, usize) = match &ws {
+        let (quick_src, total, stale): (Vec<DeviceSummary>, usize, bool) = match &ws {
             Some(ws) => {
                 let st = ws.devices.lock().unwrap();
                 (
@@ -614,9 +614,10 @@ impl TechSide {
                         .cloned()
                         .collect(),
                     st.devices.len(),
+                    st.error.is_some(),
                 )
             }
-            None => (Vec::new(), 0),
+            None => (Vec::new(), 0, false),
         };
         let quick: Vec<_> = quick_src
             .iter()
@@ -628,6 +629,7 @@ impl TechSide {
             error: self.connect_error.as_deref(),
             quick: &quick,
             total,
+            stale,
         };
         match views::connect_section(ui, &m, &mut self.connect_id) {
             Some(views::ConnectAction::Connect(digits)) => {

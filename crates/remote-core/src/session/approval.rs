@@ -65,7 +65,7 @@ pub struct ConsentText {
     pub heading: String,
     /// Who is asking (sanitized name).
     pub requester: String,
-    /// E-mail and organization, " · " separated (sanitized).
+    /// E-mail and organization, one per line (sanitized).
     pub requester_detail: String,
     /// What allowing means.
     pub body: String,
@@ -106,7 +106,8 @@ pub fn consent_text_pt_br(request: &ApprovalRequest) -> ConsentText {
         title: aionix_brand::brand().product_name.clone(),
         heading: "Um técnico quer acessar este computador".into(),
         requester: name,
-        requester_detail: detail.join(" · "),
+        requester_detail: detail.join("
+"),
         body: format!(
             "Se você permitir, o técnico poderá {} até o fim da sessão. Você pode encerrar o acesso a qualquer momento.",
             join_pt(&can)
@@ -294,7 +295,7 @@ mod tests {
         r.technician_email = "x".repeat(200);
         let t = consent_text_pt_br(&r);
         assert_eq!(t.requester, "AnaTécnico: Microsoft");
-        let email = t.requester_detail.split(" · ").next().unwrap();
+        let email = t.requester_detail.lines().next().unwrap();
         assert!(email.chars().count() <= 80);
         r.technician_name = "  \u{7}  ".into();
         assert_eq!(consent_text_pt_br(&r).requester, "Técnico não identificado");
