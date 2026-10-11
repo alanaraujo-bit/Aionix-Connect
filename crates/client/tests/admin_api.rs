@@ -37,13 +37,21 @@ async fn admin_panel_calls_round_trip() {
         .await
         .unwrap();
     assert!(created.member.must_change_password);
-    let friend = UserSession::login(client.clone(), "amigo@example.test", &created.temporary_password)
-        .await
-        .unwrap();
+    let friend = UserSession::login(
+        client.clone(),
+        "amigo@example.test",
+        &created.temporary_password,
+    )
+    .await
+    .unwrap();
     assert!(friend.profile().await.must_change_password);
     let friend_access = friend.access_token().await.unwrap();
     client
-        .change_password(&friend_access, &created.temporary_password, "uma senha só minha")
+        .change_password(
+            &friend_access,
+            &created.temporary_password,
+            "uma senha só minha",
+        )
         .await
         .unwrap();
 
@@ -59,12 +67,21 @@ async fn admin_panel_calls_round_trip() {
             },
         )
         .await;
-    assert!(matches!(dup, Err(ClientError::Api { code: ErrorCode::Conflict, .. })));
+    assert!(matches!(
+        dup,
+        Err(ClientError::Api {
+            code: ErrorCode::Conflict,
+            ..
+        })
+    ));
 
     // Members, role change, reset, sign-out, disable, enable.
     let members = client.org_members(&access, org).await.unwrap().members;
     assert_eq!(members.len(), 2);
-    let m = members.iter().find(|m| m.email == "amigo@example.test").unwrap();
+    let m = members
+        .iter()
+        .find(|m| m.email == "amigo@example.test")
+        .unwrap();
     assert!(!m.must_change_password);
     assert!(m.last_login_at.is_some());
     let user = m.user_id;
@@ -73,35 +90,58 @@ async fn admin_panel_calls_round_trip() {
         .await
         .unwrap();
     assert_eq!(promoted.role, OrgRole::Admin);
-    let reset = client.reset_member_password(&access, org, user).await.unwrap();
+    let reset = client
+        .reset_member_password(&access, org, user)
+        .await
+        .unwrap();
     assert_eq!(reset.temporary_password.len(), 19);
     let out = client.sign_out_member(&access, org, user).await.unwrap();
     assert_eq!(out.ended_sessions, 0);
     client.disable_member(&access, org, user).await.unwrap();
-    assert!(client
-        .org_members(&access, org)
-        .await
-        .unwrap()
-        .members
-        .iter()
-        .any(|m| m.user_id == user && m.disabled));
+    assert!(
+        client
+            .org_members(&access, org)
+            .await
+            .unwrap()
+            .members
+            .iter()
+            .any(|m| m.user_id == user && m.disabled)
+    );
     let enabled = client.enable_member(&access, org, user).await.unwrap();
     assert!(!enabled.disabled && enabled.must_change_password);
 
     // Sessions and history decode.
-    assert!(client.org_sessions(&access, org).await.unwrap().sessions.is_empty());
+    assert!(
+        client
+            .org_sessions(&access, org)
+            .await
+            .unwrap()
+            .sessions
+            .is_empty()
+    );
     let audit = client.org_audit(&access, org, 100).await.unwrap().events;
-    assert!(audit.iter().any(|e| e.action == "user.created"
-        && e.target_name.as_deref() == Some("Amigo Teste")));
+    assert!(
+        audit
+            .iter()
+            .any(|e| e.action == "user.created" && e.target_name.as_deref() == Some("Amigo Teste"))
+    );
     assert!(audit.iter().any(|e| e.action == "auth.password_changed"));
 
     // An account that does not manage: refused, and the app can tell.
-    let viewer = UserSession::login(client.clone(), "amigo@example.test", &reset.temporary_password)
-        .await
-        .unwrap();
+    let viewer = UserSession::login(
+        client.clone(),
+        "amigo@example.test",
+        &reset.temporary_password,
+    )
+    .await
+    .unwrap();
     let viewer_access = viewer.access_token().await.unwrap();
     client
-        .change_password(&viewer_access, &reset.temporary_password, "outra senha bem longa")
+        .change_password(
+            &viewer_access,
+            &reset.temporary_password,
+            "outra senha bem longa",
+        )
         .await
         .unwrap();
     client
@@ -109,6 +149,12 @@ async fn admin_panel_calls_round_trip() {
         .await
         .unwrap();
     let denied = client.org_sessions(&viewer_access, org).await;
-    assert!(matches!(denied, Err(ClientError::Api { code: ErrorCode::Forbidden, .. })));
+    assert!(matches!(
+        denied,
+        Err(ClientError::Api {
+            code: ErrorCode::Forbidden,
+            ..
+        })
+    ));
     api.stop().await;
 }

@@ -184,7 +184,9 @@ fn visuals(theme: Theme, p: Palette) -> Visuals {
     v.window_shadow = elevation(&p, 2);
     v.popup_shadow = elevation(&p, 1);
     v.hyperlink_color = p.accent_text;
-    v.selection.bg_fill = p.accent.gamma_multiply(if theme == Theme::Dark { 0.45 } else { 0.22 });
+    v.selection.bg_fill = p
+        .accent
+        .gamma_multiply(if theme == Theme::Dark { 0.45 } else { 0.22 });
     v.selection.stroke = Stroke::new(1.5, p.accent);
     v.text_cursor.stroke = Stroke::new(1.5, p.accent);
     v.override_text_color = Some(p.text);
@@ -318,7 +320,11 @@ pub fn reduced_motion() -> bool {
 /// Exponential ease-out: fast start, long gentle settle, no overshoot.
 pub fn ease_out(t: f32) -> f32 {
     let t = t.clamp(0.0, 1.0);
-    if t >= 1.0 { 1.0 } else { 1.0 - 2f32.powf(-10.0 * t) }
+    if t >= 1.0 {
+        1.0
+    } else {
+        1.0 - 2f32.powf(-10.0 * t)
+    }
 }
 
 /// 0→1 while `on` becomes true (and back), eased; instant under reduced motion.
@@ -360,7 +366,12 @@ pub fn restart(ui: &Ui, id: Id) {
 pub fn lerp_color(a: Color32, b: Color32, t: f32) -> Color32 {
     let t = t.clamp(0.0, 1.0);
     let l = |x: u8, y: u8| (f32::from(x) + (f32::from(y) - f32::from(x)) * t).round() as u8;
-    Color32::from_rgba_unmultiplied(l(a.r(), b.r()), l(a.g(), b.g()), l(a.b(), b.b()), l(a.a(), b.a()))
+    Color32::from_rgba_unmultiplied(
+        l(a.r(), b.r()),
+        l(a.g(), b.g()),
+        l(a.b(), b.b()),
+        l(a.a(), b.a()),
+    )
 }
 
 // ------------------------------------------------------------------ buttons
@@ -395,11 +406,36 @@ pub fn button(
     let font = semibold(13.5);
     let (fill, hover, press, fg) = match kind {
         Kind::Primary => (p.accent, p.accent_hover, p.accent_press, p.on_accent),
-        Kind::Secondary => (p.surface_alt, hover_of(&p, p.surface_alt), press_of(&p, p.surface_alt), p.text),
-        Kind::Ghost => (p.surface_alt.gamma_multiply(0.0), p.surface_alt, press_of(&p, p.surface_alt), p.text),
-        Kind::Danger => (p.danger_fill, p.danger_fill.gamma_multiply(0.9), p.danger_fill.gamma_multiply(0.8), Color32::WHITE),
-        Kind::Quiet => (p.accent_soft.gamma_multiply(0.0), p.accent_soft, lerp_color(p.accent_soft, p.accent, 0.15), p.accent_text),
-        Kind::QuietDanger => (p.danger.gamma_multiply(0.0), p.danger.gamma_multiply(0.12), p.danger.gamma_multiply(0.2), p.danger),
+        Kind::Secondary => (
+            p.surface_alt,
+            hover_of(&p, p.surface_alt),
+            press_of(&p, p.surface_alt),
+            p.text,
+        ),
+        Kind::Ghost => (
+            p.surface_alt.gamma_multiply(0.0),
+            p.surface_alt,
+            press_of(&p, p.surface_alt),
+            p.text,
+        ),
+        Kind::Danger => (
+            p.danger_fill,
+            p.danger_fill.gamma_multiply(0.9),
+            p.danger_fill.gamma_multiply(0.8),
+            Color32::WHITE,
+        ),
+        Kind::Quiet => (
+            p.accent_soft.gamma_multiply(0.0),
+            p.accent_soft,
+            lerp_color(p.accent_soft, p.accent, 0.15),
+            p.accent_text,
+        ),
+        Kind::QuietDanger => (
+            p.danger.gamma_multiply(0.0),
+            p.danger.gamma_multiply(0.12),
+            p.danger.gamma_multiply(0.2),
+            p.danger,
+        ),
     };
     let ink = match (enabled, kind) {
         (true, _) => fg,
@@ -407,11 +443,22 @@ pub fn button(
         (false, _) => p.faint,
     };
     let galley = ui.painter().layout_no_wrap(text.to_owned(), font, ink);
-    let icon_w = if icon.is_some() { 16.0 + if text.is_empty() { 0.0 } else { 8.0 } } else { 0.0 };
+    let icon_w = if icon.is_some() {
+        16.0 + if text.is_empty() { 0.0 } else { 8.0 }
+    } else {
+        0.0
+    };
     let content = galley.size().x + icon_w;
     let pad = if text.is_empty() { 9.0 } else { 16.0 };
-    let size = Vec2::new(width.unwrap_or(content + pad * 2.0).max(content + 18.0), 36.0);
-    let sense = if enabled { Sense::click() } else { Sense::hover() };
+    let size = Vec2::new(
+        width.unwrap_or(content + pad * 2.0).max(content + 18.0),
+        36.0,
+    );
+    let sense = if enabled {
+        Sense::click()
+    } else {
+        Sense::hover()
+    };
     let (rect, response) = ui.allocate_exact_size(size, sense);
     let hovered = enabled && response.hovered();
     let pressed = enabled && response.is_pointer_button_down_on();
@@ -427,7 +474,12 @@ pub fn button(
         let r = rect.translate(Vec2::new(0.0, d));
         ui.painter().rect_filled(r, CornerRadius::same(8), color);
         if kind == Kind::Secondary && enabled {
-            ui.painter().rect_stroke(r, CornerRadius::same(8), Stroke::new(1.0, p.hairline), egui::StrokeKind::Inside);
+            ui.painter().rect_stroke(
+                r,
+                CornerRadius::same(8),
+                Stroke::new(1.0, p.hairline),
+                egui::StrokeKind::Inside,
+            );
         }
         let x0 = r.center().x - content / 2.0;
         if let Some(icon) = icon {
@@ -479,11 +531,26 @@ pub fn danger_button(ui: &mut Ui, text: &str, enabled: bool, width: Option<f32>)
 }
 
 /// Square icon-only button (toolbars). `active` keeps it tinted like a pressed toggle.
-pub fn icon_button(ui: &mut Ui, icon: Icon, tooltip: &str, active: bool, enabled: bool) -> Response {
+pub fn icon_button(
+    ui: &mut Ui,
+    icon: Icon,
+    tooltip: &str,
+    active: bool,
+    enabled: bool,
+) -> Response {
     let p = palette(ui);
-    let sense = if enabled { Sense::click() } else { Sense::hover() };
+    let sense = if enabled {
+        Sense::click()
+    } else {
+        Sense::hover()
+    };
     let (rect, response) = ui.allocate_exact_size(Vec2::splat(32.0), sense);
-    let h = toggle(ui, response.id.with("h"), enabled && response.hovered(), 0.12);
+    let h = toggle(
+        ui,
+        response.id.with("h"),
+        enabled && response.hovered(),
+        0.12,
+    );
     let a = toggle(ui, response.id.with("a"), active, 0.16);
     if ui.is_rect_visible(rect) {
         let rest = lerp_color(p.surface_alt.gamma_multiply(0.0), p.accent_soft, a);
@@ -510,9 +577,11 @@ pub fn icon_button(ui: &mut Ui, icon: Icon, tooltip: &str, active: bool, enabled
 /// Text-only link-style action.
 pub fn link(ui: &mut Ui, text: &str) -> Response {
     let p = palette(ui);
-    let galley = ui
-        .painter()
-        .layout_no_wrap(text.to_owned(), FontId::proportional(SIZE_SMALL), p.accent_text);
+    let galley = ui.painter().layout_no_wrap(
+        text.to_owned(),
+        FontId::proportional(SIZE_SMALL),
+        p.accent_text,
+    );
     let (rect, response) = ui.allocate_exact_size(galley.size(), Sense::click());
     let h = toggle(ui, response.id.with("h"), response.hovered(), 0.12);
     let color = lerp_color(p.accent_text, p.text, h * 0.35);
@@ -530,11 +599,15 @@ pub fn link(ui: &mut Ui, text: &str) -> Response {
 /// On/off switch with a label (installer options, settings).
 pub fn toggle_chip(ui: &mut Ui, on: &mut bool, text: &str, enabled: bool) -> Response {
     let p = palette(ui);
-    let galley = ui
-        .painter()
-        .layout_no_wrap(text.to_owned(), FontId::proportional(SIZE_BODY), p.text);
+    let galley =
+        ui.painter()
+            .layout_no_wrap(text.to_owned(), FontId::proportional(SIZE_BODY), p.text);
     let size = Vec2::new(galley.size().x + 50.0, 32.0);
-    let sense = if enabled { Sense::click() } else { Sense::hover() };
+    let sense = if enabled {
+        Sense::click()
+    } else {
+        Sense::hover()
+    };
     let (rect, mut response) = ui.allocate_exact_size(size, sense);
     if response.clicked() {
         *on = !*on;
@@ -543,14 +616,27 @@ pub fn toggle_chip(ui: &mut Ui, on: &mut bool, text: &str, enabled: bool) -> Res
     let t = toggle(ui, response.id.with("on"), *on, 0.18);
     if ui.is_rect_visible(rect) {
         let alpha = if enabled { 1.0 } else { 0.45 };
-        let track = Rect::from_center_size(pos2(rect.min.x + 18.0, rect.center().y), Vec2::new(34.0, 20.0));
+        let track = Rect::from_center_size(
+            pos2(rect.min.x + 18.0, rect.center().y),
+            Vec2::new(34.0, 20.0),
+        );
         let off = p.border;
-        ui.painter().rect_filled(track, CornerRadius::same(10), lerp_color(off, p.accent, t).gamma_multiply(alpha));
+        ui.painter().rect_filled(
+            track,
+            CornerRadius::same(10),
+            lerp_color(off, p.accent, t).gamma_multiply(alpha),
+        );
         let knob = pos2(track.min.x + 10.0 + t * 14.0, track.center().y);
-        ui.painter().circle_filled(knob + Vec2::new(0.0, 0.5), 8.0, Color32::from_black_alpha(30));
-        ui.painter().circle_filled(knob, 8.0, Color32::WHITE.gamma_multiply(alpha));
+        ui.painter().circle_filled(
+            knob + Vec2::new(0.0, 0.5),
+            8.0,
+            Color32::from_black_alpha(30),
+        );
+        ui.painter()
+            .circle_filled(knob, 8.0, Color32::WHITE.gamma_multiply(alpha));
         let pos = pos2(rect.min.x + 44.0, rect.center().y - galley.size().y / 2.0);
-        ui.painter().galley(pos, galley, p.text.gamma_multiply(alpha));
+        ui.painter()
+            .galley(pos, galley, p.text.gamma_multiply(alpha));
         if response.has_focus() {
             focus_ring(ui, track, 10);
         }
@@ -570,7 +656,11 @@ pub fn status_dot(ui: &mut Ui, color: Color32, pulse: bool) -> Response {
     let c = rect.center();
     if pulse && !reduced_motion() {
         let t = (ui.input(|i| i.time) * 0.9).fract() as f32;
-        ui.painter().circle_filled(c, 4.0 + 5.0 * ease_out(t), color.gamma_multiply(0.35 * (1.0 - t)));
+        ui.painter().circle_filled(
+            c,
+            4.0 + 5.0 * ease_out(t),
+            color.gamma_multiply(0.35 * (1.0 - t)),
+        );
         ui.ctx().request_repaint();
     }
     ui.painter().circle_filled(c, 4.0, color);
@@ -592,7 +682,11 @@ pub fn status_pill(ui: &mut Ui, text: &str, color: Color32) -> Response {
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 6.0;
         status_dot(ui, color, false);
-        ui.label(RichText::new(text).size(SIZE_SMALL).color(palette(ui).muted));
+        ui.label(
+            RichText::new(text)
+                .size(SIZE_SMALL)
+                .color(palette(ui).muted),
+        );
     })
     .response
 }
@@ -648,7 +742,8 @@ pub fn avatar(ui: &mut Ui, name: &str, size: f32) -> Response {
         .flat_map(char::to_uppercase)
         .collect();
     let (rect, response) = ui.allocate_exact_size(Vec2::splat(size), Sense::hover());
-    ui.painter().circle_filled(rect.center(), size / 2.0, p.accent_soft);
+    ui.painter()
+        .circle_filled(rect.center(), size / 2.0, p.accent_soft);
     ui.painter().text(
         rect.center(),
         egui::Align2::CENTER_CENTER,
@@ -664,9 +759,17 @@ pub fn skeleton(ui: &mut Ui, size: Vec2) -> Response {
     let p = palette(ui);
     let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
     let base = p.surface_alt;
-    let t = if reduced_motion() { 0.5 } else { (ui.input(|i| i.time) * 0.8).fract() as f32 };
+    let t = if reduced_motion() {
+        0.5
+    } else {
+        (ui.input(|i| i.time) * 0.8).fract() as f32
+    };
     let shine = (1.0 - ((t * 2.0 - 1.0).abs())) * 0.5;
-    ui.painter().rect_filled(rect, CornerRadius::same(6), lerp_color(base, p.hairline, shine));
+    ui.painter().rect_filled(
+        rect,
+        CornerRadius::same(6),
+        lerp_color(base, p.hairline, shine),
+    );
     if !reduced_motion() {
         ui.ctx().request_repaint();
     }
@@ -687,14 +790,26 @@ pub fn brand_mark(ui: &mut Ui, size: f32) -> Response {
 pub fn paint_mark(painter: &egui::Painter, rect: Rect) {
     let s = rect.width() / 24.0;
     let at = |x0: f32, y0: f32, x1: f32, y1: f32| {
-        Rect::from_min_max(rect.min + Vec2::new(x0, y0) * s, rect.min + Vec2::new(x1, y1) * s)
+        Rect::from_min_max(
+            rect.min + Vec2::new(x0, y0) * s,
+            rect.min + Vec2::new(x1, y1) * s,
+        )
     };
     let radius = |r: f32| CornerRadius::same((r * s).round() as u8);
-    painter.rect_filled(rect, CornerRadius::same((rect.width() * 0.225) as u8), Color32::from_rgb(0x1b, 0x6a, 0xeb));
+    painter.rect_filled(
+        rect,
+        CornerRadius::same((rect.width() * 0.225) as u8),
+        Color32::from_rgb(0x1b, 0x6a, 0xeb),
+    );
     let w = if rect.width() <= 32.0 { 2.1 } else { 1.7 } * s;
     let white = Color32::WHITE;
     for r in [at(3.0, 3.6, 15.6, 11.8), at(8.4, 8.8, 21.0, 17.0)] {
-        painter.rect_stroke(r, radius(1.6), Stroke::new(w, white), egui::StrokeKind::Inside);
+        painter.rect_stroke(
+            r,
+            radius(1.6),
+            Stroke::new(w, white),
+            egui::StrokeKind::Inside,
+        );
     }
     painter.rect_filled(at(8.4, 8.8, 15.6, 11.8), radius(0.5), white);
     painter.rect_filled(at(13.85, 17.0, 15.55, 19.4), radius(0.4), white);

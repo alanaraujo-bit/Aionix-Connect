@@ -204,7 +204,9 @@ async fn run(cmd: Cmd) -> Result<(), String> {
                 .await
                 .map_err(|e| e.to_string())?;
             println!("{temporary}");
-            eprintln!("Temporary password for {email} (shown once; it must be replaced at the next sign-in).");
+            eprintln!(
+                "Temporary password for {email} (shown once; it must be replaced at the next sign-in)."
+            );
         }
         Cmd::AddMember { org, email, role } => {
             let role = OrgRole::parse(&role).ok_or("role must be viewer|technician|admin|owner")?;

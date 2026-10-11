@@ -331,14 +331,21 @@ impl SetupApp {
         let p = theme::palette(ui);
         let painter = ui.painter_at(rect);
         painter.rect_filled(rect, CornerRadius::ZERO, p.sidebar);
-        painter.vline(rect.max.x - 0.5, rect.y_range(), Stroke::new(1.0, p.hairline));
+        painter.vline(
+            rect.max.x - 0.5,
+            rect.y_range(),
+            Stroke::new(1.0, p.hairline),
+        );
         let drag = ui.interact(rect, ui.id().with("brand-drag"), Sense::drag());
         if drag.drag_started() {
             ui.ctx().send_viewport_cmd(ViewportCommand::StartDrag);
         }
         let x = rect.min.x + 36.0;
         let mut y = rect.min.y + 64.0;
-        theme::paint_mark(&painter, Rect::from_min_size(Pos2::new(x, y), Vec2::splat(64.0)));
+        theme::paint_mark(
+            &painter,
+            Rect::from_min_size(Pos2::new(x, y), Vec2::splat(64.0)),
+        );
         y += 64.0 + 28.0;
         let width = rect.width() - 72.0;
         let name = painter.layout(
@@ -491,7 +498,11 @@ impl SetupApp {
         };
         Self::heading(ui, &title, &subtitle);
         let dir = default_options(&self.product, true).dir;
-        ui.label(RichText::new("Local de instalação").size(12.5).color(p.muted));
+        ui.label(
+            RichText::new("Local de instalação")
+                .size(12.5)
+                .color(p.muted),
+        );
         ui.add(
             egui::Label::new(
                 RichText::new(dir.display().to_string())
@@ -510,7 +521,12 @@ impl SetupApp {
         ui.add_space(10.0);
         ui.spacing_mut().item_spacing.y = 4.0;
         if self.installed.is_none() {
-            theme::toggle_chip(ui, &mut self.desktop_shortcut, "Atalho na Área de Trabalho", true);
+            theme::toggle_chip(
+                ui,
+                &mut self.desktop_shortcut,
+                "Atalho na Área de Trabalho",
+                true,
+            );
         }
         theme::toggle_chip(ui, &mut self.start_with_windows, "Iniciar com o Windows", true)
             .on_hover_text("Abre minimizado ao entrar no Windows, para este computador continuar acessível pelo ID depois de reiniciar.");
@@ -580,8 +596,11 @@ impl SetupApp {
         let name = self.product.display;
         let (rect, _) = ui.allocate_exact_size(Vec2::splat(48.0), Sense::hover());
         let t = theme::entrance(ui, ui.id().with("done-check"), 0.05, 0.45);
-        ui.painter()
-            .circle_filled(rect.center(), 24.0 * (0.85 + 0.15 * t), p.success.gamma_multiply(0.15 * t));
+        ui.painter().circle_filled(
+            rect.center(),
+            24.0 * (0.85 + 0.15 * t),
+            p.success.gamma_multiply(0.15 * t),
+        );
         icons::paint(
             &ui.painter().with_clip_rect(rect),
             rect.shrink(12.0),
@@ -660,9 +679,12 @@ impl SetupApp {
                         .color(p.text),
                 );
                 ui.label(
-                    RichText::new(format!("Versão {}. O app abre de novo sozinho.", install::VERSION))
-                        .size(13.0)
-                        .color(p.muted),
+                    RichText::new(format!(
+                        "Versão {}. O app abre de novo sozinho.",
+                        install::VERSION
+                    ))
+                    .size(13.0)
+                    .color(p.muted),
                 );
             });
         });
@@ -675,8 +697,7 @@ impl SetupApp {
                     if theme::primary_button(ui, "Tentar novamente", true, None).clicked() {
                         self.start(ui.ctx().clone());
                     }
-                    if theme::button(ui, theme::Kind::Ghost, None, "Fechar", true, None).clicked()
-                    {
+                    if theme::button(ui, theme::Kind::Ghost, None, "Fechar", true, None).clicked() {
                         ui.ctx().send_viewport_cmd(ViewportCommand::Close);
                     }
                 });
@@ -703,7 +724,8 @@ impl SetupApp {
 fn progress_bar(ui: &mut egui::Ui, fraction: f32) {
     let p = theme::palette(ui);
     let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 6.0), Sense::hover());
-    ui.painter().rect_filled(rect, CornerRadius::same(3), p.hairline);
+    ui.painter()
+        .rect_filled(rect, CornerRadius::same(3), p.hairline);
     let w = (rect.width() * fraction.clamp(0.0, 1.0)).max(6.0);
     ui.painter().rect_filled(
         Rect::from_min_size(rect.min, Vec2::new(w, rect.height())),

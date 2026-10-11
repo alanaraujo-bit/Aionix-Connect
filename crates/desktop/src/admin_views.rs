@@ -121,8 +121,15 @@ pub fn admin_page(ui: &mut Ui, m: &AdminModel<'_>) -> Option<AdminAction> {
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             ui.spacing_mut().item_spacing.x = 6.0;
             if m.tab == AdminTab::Accounts
-                && theme::button(ui, Kind::Primary, Some(Icon::Plus), "Nova conta", true, None)
-                    .clicked()
+                && theme::button(
+                    ui,
+                    Kind::Primary,
+                    Some(Icon::Plus),
+                    "Nova conta",
+                    true,
+                    None,
+                )
+                .clicked()
             {
                 action = Some(AdminAction::NewAccount);
             }
@@ -166,7 +173,11 @@ fn tabs(ui: &mut Ui, current: AdminTab) -> Option<AdminTab> {
     let mut selected_span = (bar.min.x, bar.min.x);
     for (tab, label) in items {
         let selected = tab == current;
-        let font = if selected { theme::semibold(14.0) } else { FontId::proportional(14.0) };
+        let font = if selected {
+            theme::semibold(14.0)
+        } else {
+            FontId::proportional(14.0)
+        };
         let galley = ui.painter().layout_no_wrap(label.to_owned(), font, p.text);
         let w = galley.size().x;
         let rect = Rect::from_min_size(pos2(x, bar.min.y), vec2(w + 4.0, bar.height()));
@@ -192,8 +203,16 @@ fn tabs(ui: &mut Ui, current: AdminTab) -> Option<AdminTab> {
         x += w + 28.0;
     }
     let ctx = ui.ctx().clone();
-    let a = ctx.animate_value_with_time(Id::new("admin-tab-a"), selected_span.0, if theme::reduced_motion() { 0.0 } else { 0.22 });
-    let b = ctx.animate_value_with_time(Id::new("admin-tab-b"), selected_span.1, if theme::reduced_motion() { 0.0 } else { 0.22 });
+    let a = ctx.animate_value_with_time(
+        Id::new("admin-tab-a"),
+        selected_span.0,
+        if theme::reduced_motion() { 0.0 } else { 0.22 },
+    );
+    let b = ctx.animate_value_with_time(
+        Id::new("admin-tab-b"),
+        selected_span.1,
+        if theme::reduced_motion() { 0.0 } else { 0.22 },
+    );
     ui.painter().rect_filled(
         Rect::from_min_max(pos2(a, bar.max.y - 2.0), pos2(b, bar.max.y)),
         CornerRadius::same(1),
@@ -236,14 +255,18 @@ fn header(ui: &mut Ui, cols: &[(&str, f32)]) {
             p.faint,
         );
     }
-    ui.painter()
-        .hline(rect.x_range(), rect.max.y - 0.5, Stroke::new(1.0, p.hairline));
+    ui.painter().hline(
+        rect.x_range(),
+        rect.max.y - 0.5,
+        Stroke::new(1.0, p.hairline),
+    );
 }
 
 /// A table row of `height` with hover fill and a hairline; returns its rect.
 fn row(ui: &mut Ui, height: f32) -> (Rect, egui::Response, f32) {
     let p = theme::palette(ui);
-    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::hover());
+    let (rect, response) =
+        ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::hover());
     let h = theme::toggle(ui, response.id.with("h"), response.hovered(), 0.12);
     if h > 0.0 {
         ui.painter().rect_filled(
@@ -252,8 +275,11 @@ fn row(ui: &mut Ui, height: f32) -> (Rect, egui::Response, f32) {
             p.surface_alt.gamma_multiply(h),
         );
     }
-    ui.painter()
-        .hline(rect.x_range(), rect.max.y - 0.5, Stroke::new(1.0, p.hairline));
+    ui.painter().hline(
+        rect.x_range(),
+        rect.max.y - 0.5,
+        Stroke::new(1.0, p.hairline),
+    );
     (rect, response, h)
 }
 
@@ -323,7 +349,8 @@ fn accounts(ui: &mut Ui, m: &AdminModel<'_>) -> Option<AdminAction> {
                     ("Ativa", p.success)
                 };
                 let sx = rect.min.x + w * ACC_COLS[2];
-                ui.painter().circle_filled(pos2(sx + 4.0, cy - 8.0), 4.0, dot);
+                ui.painter()
+                    .circle_filled(pos2(sx + 4.0, cy - 8.0), 4.0, dot);
                 ui.painter().text(
                     pos2(sx + 14.0, cy - 8.0),
                     Align2::LEFT_CENTER,
@@ -349,7 +376,12 @@ fn accounts(ui: &mut Ui, m: &AdminModel<'_>) -> Option<AdminAction> {
                             ui.set_min_width(250.0);
                             for &role in m.assignable {
                                 if role != a.role
-                                    && menu_item(ui, Icon::User, &format!("Tornar {}", role_label(role).to_lowercase()), false)
+                                    && menu_item(
+                                        ui,
+                                        Icon::User,
+                                        &format!("Tornar {}", role_label(role).to_lowercase()),
+                                        false,
+                                    )
                                 {
                                     action = Some(AdminAction::Role(i, role));
                                 }
@@ -358,7 +390,12 @@ fn accounts(ui: &mut Ui, m: &AdminModel<'_>) -> Option<AdminAction> {
                             if menu_item(ui, Icon::Key, "Redefinir senha", false) {
                                 action = Some(AdminAction::Reset(i));
                             }
-                            if menu_item(ui, Icon::SignOut, "Desconectar de todos os dispositivos", false) {
+                            if menu_item(
+                                ui,
+                                Icon::SignOut,
+                                "Desconectar de todos os dispositivos",
+                                false,
+                            ) {
                                 action = Some(AdminAction::SignOut(i));
                             }
                             menu_separator(ui);
@@ -379,7 +416,8 @@ fn accounts(ui: &mut Ui, m: &AdminModel<'_>) -> Option<AdminAction> {
 /// A menu entry; `danger` paints it red. Closes the menu when clicked.
 fn menu_item(ui: &mut Ui, icon: Icon, text: &str, danger: bool) -> bool {
     let p = theme::palette(ui);
-    let (rect, r) = ui.allocate_exact_size(vec2(ui.available_width().max(230.0), 32.0), Sense::click());
+    let (rect, r) =
+        ui.allocate_exact_size(vec2(ui.available_width().max(230.0), 32.0), Sense::click());
     let h = theme::toggle(ui, r.id.with("h"), r.hovered(), 0.1);
     if h > 0.0 {
         ui.painter()
@@ -410,8 +448,11 @@ fn menu_item(ui: &mut Ui, icon: Icon, text: &str, danger: bool) -> bool {
 fn menu_separator(ui: &mut Ui) {
     let p = theme::palette(ui);
     let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 9.0), Sense::hover());
-    ui.painter()
-        .hline(rect.x_range(), rect.center().y, Stroke::new(1.0, p.hairline));
+    ui.painter().hline(
+        rect.x_range(),
+        rect.center().y,
+        Stroke::new(1.0, p.hairline),
+    );
 }
 
 fn sessions(ui: &mut Ui, m: &AdminModel<'_>) -> Option<AdminAction> {
@@ -428,7 +469,11 @@ fn sessions(ui: &mut Ui, m: &AdminModel<'_>) -> Option<AdminAction> {
     );
     ui.add_space(4.0);
     if rows.is_empty() {
-        empty(ui, "Nenhuma sessão ainda.", "Os acessos feitos pelas contas desta organização aparecem aqui.");
+        empty(
+            ui,
+            "Nenhuma sessão ainda.",
+            "Os acessos feitos pelas contas desta organização aparecem aqui.",
+        );
         return None;
     }
     let mut action = None;
@@ -442,15 +487,18 @@ fn sessions(ui: &mut Ui, m: &AdminModel<'_>) -> Option<AdminAction> {
                 let c = pos2(rect.min.x + 10.0, cy - 8.0);
                 if s.live && s.tone == Tone::Warning && !theme::reduced_motion() {
                     let t = (ui.input(|i| i.time) * 0.9).fract() as f32;
-                    ui.painter()
-                        .circle_filled(c, 4.0 + 5.0 * theme::ease_out(t), dot.gamma_multiply(0.35 * (1.0 - t)));
+                    ui.painter().circle_filled(
+                        c,
+                        4.0 + 5.0 * theme::ease_out(t),
+                        dot.gamma_multiply(0.35 * (1.0 - t)),
+                    );
                     ui.ctx().request_repaint();
                 }
                 ui.painter().circle_filled(c, 4.0, dot);
                 let x0 = rect.min.x + 24.0;
-                let host = ui
-                    .painter()
-                    .layout_no_wrap(s.host.clone(), theme::semibold(14.0), p.text);
+                let host =
+                    ui.painter()
+                        .layout_no_wrap(s.host.clone(), theme::semibold(14.0), p.text);
                 let hw = host.size().x;
                 ui.painter().galley(pos2(x0, cy - 17.0), host, p.text);
                 ui.painter().text(
@@ -469,9 +517,14 @@ fn sessions(ui: &mut Ui, m: &AdminModel<'_>) -> Option<AdminAction> {
                 );
                 if s.live {
                     let r = Rect::from_min_max(pos2(rect.max.x - 140.0, rect.min.y), rect.max);
-                    let mut child =
-                        ui.new_child(UiBuilder::new().max_rect(r).layout(Layout::right_to_left(Align::Center)));
-                    if theme::button(&mut child, Kind::QuietDanger, None, "Encerrar", true, None).clicked() {
+                    let mut child = ui.new_child(
+                        UiBuilder::new()
+                            .max_rect(r)
+                            .layout(Layout::right_to_left(Align::Center)),
+                    );
+                    if theme::button(&mut child, Kind::QuietDanger, None, "Encerrar", true, None)
+                        .clicked()
+                    {
                         action = Some(AdminAction::EndSession(i));
                     }
                 }
@@ -487,7 +540,11 @@ fn history(ui: &mut Ui, m: &AdminModel<'_>) -> Option<AdminAction> {
         return None;
     };
     if rows.is_empty() {
-        empty(ui, "Nada registrado ainda.", "Logins, contas criadas e acessos aparecem aqui.");
+        empty(
+            ui,
+            "Nada registrado ainda.",
+            "Logins, contas criadas e acessos aparecem aqui.",
+        );
         return None;
     }
     egui::ScrollArea::vertical()
@@ -505,7 +562,10 @@ fn history(ui: &mut Ui, m: &AdminModel<'_>) -> Option<AdminAction> {
                 );
                 ui.painter()
                     .circle_filled(pos2(rect.min.x + 104.0, cy), 3.5, h.tone.color(&p));
-                let text_rect = Rect::from_min_max(pos2(rect.min.x + 118.0, rect.min.y), pos2(rect.max.x - 4.0, rect.max.y));
+                let text_rect = Rect::from_min_max(
+                    pos2(rect.min.x + 118.0, rect.min.y),
+                    pos2(rect.max.x - 4.0, rect.max.y),
+                );
                 let galley = ui.painter().layout(
                     h.text.clone(),
                     FontId::proportional(13.5),
@@ -558,21 +618,45 @@ pub fn new_account_sheet(
         let mut action = None;
         ui.label(theme::title("Nova conta", theme::SIZE_TITLE));
         ui.label(
-            RichText::new("A pessoa recebe uma senha temporária e cria a própria no primeiro acesso.")
-                .size(13.5)
-                .color(p.muted),
+            RichText::new(
+                "A pessoa recebe uma senha temporária e cria a própria no primeiro acesso.",
+            )
+            .size(13.5)
+            .color(p.muted),
         );
         ui.add_space(12.0);
         ui.label(RichText::new("Nome").size(theme::SIZE_SMALL).color(p.muted));
-        let (n, _) = views::field(ui, &mut form.name, "Nome e sobrenome", 380.0, false, !working);
+        let (n, _) = views::field(
+            ui,
+            &mut form.name,
+            "Nome e sobrenome",
+            380.0,
+            false,
+            !working,
+        );
         if form.name.is_empty() && form.email.is_empty() && !n.has_focus() {
             n.request_focus();
         }
         ui.add_space(4.0);
-        ui.label(RichText::new("E-mail").size(theme::SIZE_SMALL).color(p.muted));
-        let (_, enter) = views::field(ui, &mut form.email, "nome@empresa.com.br", 380.0, false, !working);
+        ui.label(
+            RichText::new("E-mail")
+                .size(theme::SIZE_SMALL)
+                .color(p.muted),
+        );
+        let (_, enter) = views::field(
+            ui,
+            &mut form.email,
+            "nome@empresa.com.br",
+            380.0,
+            false,
+            !working,
+        );
         ui.add_space(8.0);
-        ui.label(RichText::new("Papel").size(theme::SIZE_SMALL).color(p.muted));
+        ui.label(
+            RichText::new("Papel")
+                .size(theme::SIZE_SMALL)
+                .color(p.muted),
+        );
         for &r in roles {
             if role_choice(ui, r, form.role == r, !working) {
                 form.role = r;
@@ -587,7 +671,9 @@ pub fn new_account_sheet(
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             ui.spacing_mut().item_spacing.x = 8.0;
             let label = if working { "Criando…" } else { "Criar conta" };
-            if theme::button(ui, Kind::Primary, None, label, ok, Some(120.0)).clicked() || (enter && ok) {
+            if theme::button(ui, Kind::Primary, None, label, ok, Some(120.0)).clicked()
+                || (enter && ok)
+            {
                 action = Some(SheetAction::Submit);
             }
             if theme::button(ui, Kind::Ghost, None, "Cancelar", !working, None).clicked() {
@@ -608,14 +694,24 @@ pub fn new_account_sheet(
 /// One radio row: role name and what it allows.
 fn role_choice(ui: &mut Ui, role: OrgRole, selected: bool, enabled: bool) -> bool {
     let p = theme::palette(ui);
-    let (rect, r) = ui.allocate_exact_size(vec2(ui.available_width(), 44.0), if enabled { Sense::click() } else { Sense::hover() });
+    let (rect, r) = ui.allocate_exact_size(
+        vec2(ui.available_width(), 44.0),
+        if enabled {
+            Sense::click()
+        } else {
+            Sense::hover()
+        },
+    );
     let h = theme::toggle(ui, r.id.with("h"), r.hovered(), 0.12);
     let s = theme::toggle(ui, r.id.with("s"), selected, 0.16);
     let fill = theme::lerp_color(p.surface_alt.gamma_multiply(h), p.accent_soft, s);
     ui.painter().rect_filled(rect, CornerRadius::same(8), fill);
     let c = pos2(rect.min.x + 16.0, rect.center().y);
-    ui.painter()
-        .circle_stroke(c, 7.0, Stroke::new(1.5, theme::lerp_color(p.field_border, p.accent, s)));
+    ui.painter().circle_stroke(
+        c,
+        7.0,
+        Stroke::new(1.5, theme::lerp_color(p.field_border, p.accent, s)),
+    );
     ui.painter().circle_filled(c, 3.5 * s, p.accent);
     ui.painter().text(
         pos2(rect.min.x + 32.0, rect.center().y - 8.0),
@@ -654,9 +750,11 @@ pub fn secret_sheet(
         let mut action = None;
         ui.label(theme::title(title, theme::SIZE_TITLE));
         ui.label(
-            RichText::new(format!("Envie para {first} o e-mail e a senha temporária abaixo."))
-                .size(13.5)
-                .color(p.muted),
+            RichText::new(format!(
+                "Envie para {first} o e-mail e a senha temporária abaixo."
+            ))
+            .size(13.5)
+            .color(p.muted),
         );
         ui.add_space(12.0);
         egui::Frame::new()
@@ -771,7 +869,11 @@ pub fn password_sheet(
         ui.add_space(12.0);
         let mut enter = false;
         if !mandatory {
-            ui.label(RichText::new("Senha atual").size(theme::SIZE_SMALL).color(p.muted));
+            ui.label(
+                RichText::new("Senha atual")
+                    .size(theme::SIZE_SMALL)
+                    .color(p.muted),
+            );
             let (c, e) = views::field(ui, &mut form.current, "", 360.0, true, !working);
             if form.current.is_empty() && !c.has_focus() && form.new.is_empty() {
                 c.request_focus();
@@ -779,14 +881,29 @@ pub fn password_sheet(
             enter |= e;
             ui.add_space(4.0);
         }
-        ui.label(RichText::new("Nova senha").size(theme::SIZE_SMALL).color(p.muted));
-        let (n, e) = views::field(ui, &mut form.new, "Pelo menos 12 caracteres", 360.0, true, !working);
+        ui.label(
+            RichText::new("Nova senha")
+                .size(theme::SIZE_SMALL)
+                .color(p.muted),
+        );
+        let (n, e) = views::field(
+            ui,
+            &mut form.new,
+            "Pelo menos 12 caracteres",
+            360.0,
+            true,
+            !working,
+        );
         if mandatory && form.new.is_empty() && !n.has_focus() {
             n.request_focus();
         }
         enter |= e;
         ui.add_space(4.0);
-        ui.label(RichText::new("Repita a nova senha").size(theme::SIZE_SMALL).color(p.muted));
+        ui.label(
+            RichText::new("Repita a nova senha")
+                .size(theme::SIZE_SMALL)
+                .color(p.muted),
+        );
         let (_, e) = views::field(ui, &mut form.confirm, "", 360.0, true, !working);
         enter |= e;
         let length_ok = form.new.chars().count() >= 12;
@@ -836,7 +953,12 @@ mod tests {
 
     #[test]
     fn every_role_has_portuguese_words() {
-        for r in [OrgRole::Owner, OrgRole::Admin, OrgRole::Technician, OrgRole::Viewer] {
+        for r in [
+            OrgRole::Owner,
+            OrgRole::Admin,
+            OrgRole::Technician,
+            OrgRole::Viewer,
+        ] {
             assert!(!role_label(r).is_empty());
             assert!(!role_hint(r).is_empty());
         }

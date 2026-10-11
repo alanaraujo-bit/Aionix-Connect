@@ -130,11 +130,20 @@ impl ApiClient {
         self.call(r).await
     }
 
-    async fn get_auth<T: DeserializeOwned>(&self, path: &str, access: &str) -> Result<T, ClientError> {
-        self.call(self.req(Method::GET, path).bearer_auth(access)).await
+    async fn get_auth<T: DeserializeOwned>(
+        &self,
+        path: &str,
+        access: &str,
+    ) -> Result<T, ClientError> {
+        self.call(self.req(Method::GET, path).bearer_auth(access))
+            .await
     }
 
-    async fn post_empty<T: DeserializeOwned>(&self, path: &str, access: &str) -> Result<T, ClientError> {
+    async fn post_empty<T: DeserializeOwned>(
+        &self,
+        path: &str,
+        access: &str,
+    ) -> Result<T, ClientError> {
         self.post(path, &serde_json::json!({}), Some(access)).await
     }
 
@@ -243,7 +252,8 @@ impl ApiClient {
     // ---- organization administration (admin panel)
 
     pub async fn org_members(&self, access: &str, org: Uuid) -> Result<MemberList, ClientError> {
-        self.get_auth(&format!("/v1/orgs/{org}/members"), access).await
+        self.get_auth(&format!("/v1/orgs/{org}/members"), access)
+            .await
     }
 
     pub async fn create_account(
@@ -280,8 +290,11 @@ impl ApiClient {
         org: Uuid,
         user: Uuid,
     ) -> Result<TemporaryPassword, ClientError> {
-        self.post_empty(&format!("/v1/orgs/{org}/members/{user}/reset-password"), access)
-            .await
+        self.post_empty(
+            &format!("/v1/orgs/{org}/members/{user}/reset-password"),
+            access,
+        )
+        .await
     }
 
     pub async fn sign_out_member(
@@ -304,7 +317,12 @@ impl ApiClient {
             .await
     }
 
-    pub async fn enable_member(&self, access: &str, org: Uuid, user: Uuid) -> Result<Member, ClientError> {
+    pub async fn enable_member(
+        &self,
+        access: &str,
+        org: Uuid,
+        user: Uuid,
+    ) -> Result<Member, ClientError> {
         self.post_empty(&format!("/v1/orgs/{org}/members/{user}/enable"), access)
             .await
     }
@@ -314,14 +332,27 @@ impl ApiClient {
             .await
     }
 
-    pub async fn terminate_session(&self, access: &str, org: Uuid, session: Uuid) -> Result<(), ClientError> {
+    pub async fn terminate_session(
+        &self,
+        access: &str,
+        org: Uuid,
+        session: Uuid,
+    ) -> Result<(), ClientError> {
         let _: serde_json::Value = self
-            .post_empty(&format!("/v1/orgs/{org}/sessions/{session}/terminate"), access)
+            .post_empty(
+                &format!("/v1/orgs/{org}/sessions/{session}/terminate"),
+                access,
+            )
             .await?;
         Ok(())
     }
 
-    pub async fn org_audit(&self, access: &str, org: Uuid, limit: u32) -> Result<AuditList, ClientError> {
+    pub async fn org_audit(
+        &self,
+        access: &str,
+        org: Uuid,
+        limit: u32,
+    ) -> Result<AuditList, ClientError> {
         self.get_auth(&format!("/v1/orgs/{org}/audit?limit={limit}"), access)
             .await
     }

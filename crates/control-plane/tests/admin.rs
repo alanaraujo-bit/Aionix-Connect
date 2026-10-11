@@ -25,7 +25,13 @@ async fn token(http: &Http, email: &str, password: &str) -> String {
     v["access_token"].as_str().unwrap().to_owned()
 }
 
-async fn create(http: &Http, access: &str, org: Uuid, email: &str, role: &str) -> (StatusCode, Value) {
+async fn create(
+    http: &Http,
+    access: &str,
+    org: Uuid,
+    email: &str,
+    role: &str,
+) -> (StatusCode, Value) {
     http.post(
         &format!("/v1/orgs/{org}/accounts"),
         json!({"email": email, "display_name": "Amigo Teste", "role": role}),
@@ -67,7 +73,11 @@ async fn new_account_must_replace_its_temporary_password() {
         .await;
     assert_eq!(s, StatusCode::FORBIDDEN, "{v}");
     let (s, v) = http
-        .post("/v1/sessions", json!({"target": "123456789"}), Some(&access1))
+        .post(
+            "/v1/sessions",
+            json!({"target": "123456789"}),
+            Some(&access1),
+        )
         .await;
     assert_eq!(s, StatusCode::FORBIDDEN, "{v}");
 
@@ -101,7 +111,10 @@ async fn new_account_must_replace_its_temporary_password() {
     let (s, me) = http.get("/v1/me", Some(&access1)).await;
     assert_eq!(s, StatusCode::OK);
     assert_eq!(me["must_change_password"], false);
-    assert_eq!(http.get("/v1/me", Some(&access2)).await.0, StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        http.get("/v1/me", Some(&access2)).await.0,
+        StatusCode::UNAUTHORIZED
+    );
     assert_eq!(
         http.login("amigo@example.test", &temporary).await.0,
         StatusCode::UNAUTHORIZED
@@ -147,29 +160,82 @@ async fn who_may_manage_whom() {
     let reset = |user: Uuid| format!("/v1/orgs/{org}/members/{user}/reset-password");
 
     // Technicians see members but manage nothing, and see no sessions or history.
-    assert_eq!(http.get(&format!("/v1/orgs/{org}/members"), Some(&tech)).await.0, StatusCode::OK);
-    assert_eq!(create(&http, &tech, org, "x@example.test", "viewer").await.0, StatusCode::FORBIDDEN);
-    assert_eq!(http.post(&reset(admin_id), json!({}), Some(&tech)).await.0, StatusCode::FORBIDDEN);
-    assert_eq!(http.get(&format!("/v1/orgs/{org}/sessions"), Some(&tech)).await.0, StatusCode::FORBIDDEN);
-    assert_eq!(http.get(&format!("/v1/orgs/{org}/audit"), Some(&tech)).await.0, StatusCode::FORBIDDEN);
+    assert_eq!(
+        http.get(&format!("/v1/orgs/{org}/members"), Some(&tech))
+            .await
+            .0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        create(&http, &tech, org, "x@example.test", "viewer")
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        http.post(&reset(admin_id), json!({}), Some(&tech)).await.0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        http.get(&format!("/v1/orgs/{org}/sessions"), Some(&tech))
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        http.get(&format!("/v1/orgs/{org}/audit"), Some(&tech))
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
 
     // Admins: no role above their own, nobody of equal or higher rank, not themselves.
-    assert_eq!(create(&http, &adm, org, "y@example.test", "owner").await.0, StatusCode::FORBIDDEN);
-    assert_eq!(create(&http, &adm, org, "y@example.test", "admin").await.0, StatusCode::OK);
-    assert_eq!(http.post(&reset(admin2_id), json!({}), Some(&adm)).await.0, StatusCode::FORBIDDEN);
-    assert_eq!(http.post(&reset(owner_id), json!({}), Some(&adm)).await.0, StatusCode::FORBIDDEN);
-    assert_eq!(http.post(&reset(admin_id), json!({}), Some(&adm)).await.0, StatusCode::FORBIDDEN);
-    assert_eq!(http.post(&reset(tech_id), json!({}), Some(&adm)).await.0, StatusCode::OK);
+    assert_eq!(
+        create(&http, &adm, org, "y@example.test", "owner").await.0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        create(&http, &adm, org, "y@example.test", "admin").await.0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        http.post(&reset(admin2_id), json!({}), Some(&adm)).await.0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        http.post(&reset(owner_id), json!({}), Some(&adm)).await.0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        http.post(&reset(admin_id), json!({}), Some(&adm)).await.0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        http.post(&reset(tech_id), json!({}), Some(&adm)).await.0,
+        StatusCode::OK
+    );
     // Owners manage admins.
-    assert_eq!(http.post(&reset(admin2_id), json!({}), Some(&owner)).await.0, StatusCode::OK);
+    assert_eq!(
+        http.post(&reset(admin2_id), json!({}), Some(&owner))
+            .await
+            .0,
+        StatusCode::OK
+    );
     // Not a member here: 404. Member here and elsewhere: refused.
-    assert_eq!(http.post(&reset(stranger_id), json!({}), Some(&owner)).await.0, StatusCode::NOT_FOUND);
+    assert_eq!(
+        http.post(&reset(stranger_id), json!({}), Some(&owner))
+            .await
+            .0,
+        StatusCode::NOT_FOUND
+    );
     let (s, v) = http.post(&reset(shared_id), json!({}), Some(&owner)).await;
     assert_eq!(s, StatusCode::FORBIDDEN, "{v}");
     assert_eq!(code(&v), "forbidden");
     // Another organization's routes: no permission there.
     assert_eq!(
-        http.get(&format!("/v1/orgs/{other_org}/members"), Some(&owner)).await.0,
+        http.get(&format!("/v1/orgs/{other_org}/members"), Some(&owner))
+            .await
+            .0,
         StatusCode::FORBIDDEN
     );
     // Role changes: admins cannot touch admins; nobody demotes the only owner.
@@ -203,15 +269,26 @@ async fn disable_sign_out_enable_and_reset() {
     let (s, v) = http.post(&path("sign-out"), json!({}), Some(&owner)).await;
     assert_eq!(s, StatusCode::OK, "{v}");
     assert_eq!(v["revoked_logins"], 1);
-    assert_eq!(http.get("/v1/me", Some(&t)).await.0, StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        http.get("/v1/me", Some(&t)).await.0,
+        StatusCode::UNAUTHORIZED
+    );
     let t = http.access(&tech_email).await;
 
     // Disable: login dies and no new one; enable restores.
     let (s, _) = http.post(&path("disable"), json!({}), Some(&owner)).await;
     assert_eq!(s, StatusCode::OK);
-    assert_eq!(http.get("/v1/me", Some(&t)).await.0, StatusCode::UNAUTHORIZED);
-    assert_eq!(http.login(&tech_email, TEST_PASSWORD).await.0, StatusCode::UNAUTHORIZED);
-    let (_, members) = http.get(&format!("/v1/orgs/{org}/members"), Some(&owner)).await;
+    assert_eq!(
+        http.get("/v1/me", Some(&t)).await.0,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        http.login(&tech_email, TEST_PASSWORD).await.0,
+        StatusCode::UNAUTHORIZED
+    );
+    let (_, members) = http
+        .get(&format!("/v1/orgs/{org}/members"), Some(&owner))
+        .await;
     let me = members["members"]
         .as_array()
         .unwrap()
@@ -222,13 +299,21 @@ async fn disable_sign_out_enable_and_reset() {
     let (s, v) = http.post(&path("enable"), json!({}), Some(&owner)).await;
     assert_eq!(s, StatusCode::OK, "{v}");
     assert_eq!(v["disabled"], false);
-    assert_eq!(http.login(&tech_email, TEST_PASSWORD).await.0, StatusCode::OK);
+    assert_eq!(
+        http.login(&tech_email, TEST_PASSWORD).await.0,
+        StatusCode::OK
+    );
 
     // Reset: old password gone, a temporary one that must be replaced.
-    let (s, v) = http.post(&path("reset-password"), json!({}), Some(&owner)).await;
+    let (s, v) = http
+        .post(&path("reset-password"), json!({}), Some(&owner))
+        .await;
     assert_eq!(s, StatusCode::OK);
     let temporary = v["temporary_password"].as_str().unwrap().to_owned();
-    assert_eq!(http.login(&tech_email, TEST_PASSWORD).await.0, StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        http.login(&tech_email, TEST_PASSWORD).await.0,
+        StatusCode::UNAUTHORIZED
+    );
     let (s, t) = http.login(&tech_email, &temporary).await;
     assert_eq!(s, StatusCode::OK);
     assert_eq!(t["user"]["must_change_password"], true);
@@ -240,7 +325,12 @@ async fn device(api: &TestApi, http: &Http, org: Uuid) -> Uuid {
         .await
         .unwrap();
     let (s, v) = http
-        .register(&IdentityKey::generate(), DeviceKind::Agent, Some(&token), None)
+        .register(
+            &IdentityKey::generate(),
+            DeviceKind::Agent,
+            Some(&token),
+            None,
+        )
         .await;
     assert_eq!(s, StatusCode::OK, "{v}");
     v["device_id"].as_str().unwrap().parse().unwrap()
@@ -298,7 +388,9 @@ async fn sessions_are_listed_and_terminated_and_devices_told() {
     let s1 = live_session(&api, org, host, ws, tech_id).await;
     let s_other = live_session(&api, other_org, other_host, other_host, tech_id).await;
 
-    let (s, v) = http.get(&format!("/v1/orgs/{org}/sessions"), Some(&owner)).await;
+    let (s, v) = http
+        .get(&format!("/v1/orgs/{org}/sessions"), Some(&owner))
+        .await;
     assert_eq!(s, StatusCode::OK, "{v}");
     let list = v["sessions"].as_array().unwrap();
     assert_eq!(list.len(), 1);
@@ -307,8 +399,15 @@ async fn sessions_are_listed_and_terminated_and_devices_told() {
 
     // Another organization's session: not found from here.
     let terminate = |o: Uuid, s: Uuid| format!("/v1/orgs/{o}/sessions/{s}/terminate");
-    assert_eq!(http.post(&terminate(org, s_other), json!({}), Some(&owner)).await.0, StatusCode::NOT_FOUND);
-    let (s, _) = http.post(&terminate(org, s1), json!({}), Some(&owner)).await;
+    assert_eq!(
+        http.post(&terminate(org, s_other), json!({}), Some(&owner))
+            .await
+            .0,
+        StatusCode::NOT_FOUND
+    );
+    let (s, _) = http
+        .post(&terminate(org, s1), json!({}), Some(&owner))
+        .await;
     assert_eq!(s, StatusCode::NO_CONTENT);
     let (status, reason): (String, Option<String>) =
         sqlx::query_as("SELECT status, end_reason FROM sessions WHERE id = $1")
@@ -316,8 +415,16 @@ async fn sessions_are_listed_and_terminated_and_devices_told() {
             .fetch_one(db)
             .await
             .unwrap();
-    assert_eq!((status.as_str(), reason.as_deref()), ("ended", Some("terminated_by_admin")));
-    assert_eq!(http.post(&terminate(org, s1), json!({}), Some(&owner)).await.0, StatusCode::CONFLICT);
+    assert_eq!(
+        (status.as_str(), reason.as_deref()),
+        ("ended", Some("terminated_by_admin"))
+    );
+    assert_eq!(
+        http.post(&terminate(org, s1), json!({}), Some(&owner))
+            .await
+            .0,
+        StatusCode::CONFLICT
+    );
 
     // Both computers of the session were told to stop.
     let mut told = Vec::new();
@@ -342,7 +449,11 @@ async fn sessions_are_listed_and_terminated_and_devices_told() {
     // Disabling the technician ends their live sessions in the organization.
     let s2 = live_session(&api, org, host, ws, tech_id).await;
     let (s, v) = http
-        .post(&format!("/v1/orgs/{org}/members/{tech_id}/disable"), json!({}), Some(&owner))
+        .post(
+            &format!("/v1/orgs/{org}/members/{tech_id}/disable"),
+            json!({}),
+            Some(&owner),
+        )
         .await;
     assert_eq!(s, StatusCode::OK, "{v}");
     // Account-wide: this organization's session and the one elsewhere.
@@ -353,7 +464,10 @@ async fn sessions_are_listed_and_terminated_and_devices_told() {
             .fetch_one(db)
             .await
             .unwrap();
-    assert_eq!((status.as_str(), reason.as_deref()), ("ended", Some("account_disabled")));
+    assert_eq!(
+        (status.as_str(), reason.as_deref()),
+        ("ended", Some("account_disabled"))
+    );
     let _ = (tech_email, other_owner_email);
     api.stop().await;
 }
@@ -374,10 +488,15 @@ async fn history_includes_the_members_account_events_with_names() {
     let (s, v) = create(&http, &owner, org, "novo@example.test", "viewer").await;
     assert_eq!(s, StatusCode::OK, "{v}");
 
-    let (s, v) = http.get(&format!("/v1/orgs/{org}/audit?limit=200"), Some(&owner)).await;
+    let (s, v) = http
+        .get(&format!("/v1/orgs/{org}/audit?limit=200"), Some(&owner))
+        .await;
     assert_eq!(s, StatusCode::OK, "{v}");
     let events = v["events"].as_array().unwrap();
-    let logins = events.iter().filter(|e| e["action"] == "auth.login").count();
+    let logins = events
+        .iter()
+        .filter(|e| e["action"] == "auth.login")
+        .count();
     assert_eq!(logins, 2, "owner and technician logins, not the stranger's");
     let created = events
         .iter()

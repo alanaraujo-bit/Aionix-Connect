@@ -106,8 +106,10 @@ pub fn consent_text_pt_br(request: &ApprovalRequest) -> ConsentText {
         title: aionix_brand::brand().product_name.clone(),
         heading: "Um técnico quer acessar este computador".into(),
         requester: name,
-        requester_detail: detail.join("
-"),
+        requester_detail: detail.join(
+            "
+",
+        ),
         body: format!(
             "Se você permitir, o técnico poderá {} até o fim da sessão. Você pode encerrar o acesso a qualquer momento.",
             join_pt(&can)

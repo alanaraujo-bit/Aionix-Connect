@@ -498,7 +498,10 @@ mod app {
             return fail(
                 &s,
                 0,
-                format!("aionix-connect.exe não encontrado em {}", paths.bin.display()),
+                format!(
+                    "aionix-connect.exe não encontrado em {}",
+                    paths.bin.display()
+                ),
             );
         }
         if mode == Mode::Native {

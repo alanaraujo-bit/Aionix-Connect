@@ -38,10 +38,15 @@ pub struct AdminHandle {
 impl AdminHandle {
     /// Roles this account may hand out.
     fn assignable(&self) -> Vec<OrgRole> {
-        [OrgRole::Technician, OrgRole::Admin, OrgRole::Viewer, OrgRole::Owner]
-            .into_iter()
-            .filter(|r| *r <= self.role)
-            .collect()
+        [
+            OrgRole::Technician,
+            OrgRole::Admin,
+            OrgRole::Viewer,
+            OrgRole::Owner,
+        ]
+        .into_iter()
+        .filter(|r| *r <= self.role)
+        .collect()
     }
 }
 
@@ -61,10 +66,23 @@ enum Task {
 }
 
 enum Op {
-    Reset { user: Uuid, name: String, email: String },
-    SignOut { user: Uuid, name: String },
-    Disable { user: Uuid, name: String },
-    EndSession { id: Uuid, host: String },
+    Reset {
+        user: Uuid,
+        name: String,
+        email: String,
+    },
+    SignOut {
+        user: Uuid,
+        name: String,
+    },
+    Disable {
+        user: Uuid,
+        name: String,
+    },
+    EndSession {
+        id: Uuid,
+        host: String,
+    },
 }
 
 enum Sheet {
@@ -320,7 +338,13 @@ impl AdminSide {
         match &self.sheet {
             Some(Sheet::NewAccount) => {
                 let roles = h.assignable();
-                match admin_views::new_account_sheet(ctx, &mut self.form, &roles, working, failed.as_deref()) {
+                match admin_views::new_account_sheet(
+                    ctx,
+                    &mut self.form,
+                    &roles,
+                    working,
+                    failed.as_deref(),
+                ) {
                     Some(SheetAction::Submit) => {
                         let req = CreateAccountRequest {
                             email: self.form.email.trim().to_owned(),
@@ -371,15 +395,29 @@ impl AdminSide {
                 match admin_views::confirm_sheet(ctx, &title, &body, confirm, danger, working) {
                     Some(SheetAction::Submit) => {
                         let op = match op {
-                            Op::Reset { user, name, email } => Op::Reset { user: *user, name: name.clone(), email: email.clone() },
-                            Op::SignOut { user, name } => Op::SignOut { user: *user, name: name.clone() },
-                            Op::Disable { user, name } => Op::Disable { user: *user, name: name.clone() },
-                            Op::EndSession { id, host } => Op::EndSession { id: *id, host: host.clone() },
+                            Op::Reset { user, name, email } => Op::Reset {
+                                user: *user,
+                                name: name.clone(),
+                                email: email.clone(),
+                            },
+                            Op::SignOut { user, name } => Op::SignOut {
+                                user: *user,
+                                name: name.clone(),
+                            },
+                            Op::Disable { user, name } => Op::Disable {
+                                user: *user,
+                                name: name.clone(),
+                            },
+                            Op::EndSession { id, host } => Op::EndSession {
+                                id: *id,
+                                host: host.clone(),
+                            },
                         };
                         self.run(h, ctx, move |h, access| async move {
                             match op {
                                 Op::Reset { user, name, email } => {
-                                    let t = h.api.reset_member_password(&access, h.org, user).await?;
+                                    let t =
+                                        h.api.reset_member_password(&access, h.org, user).await?;
                                     Ok(Some(Secret {
                                         title: "Senha redefinida",
                                         name,
@@ -416,10 +454,15 @@ impl AdminSide {
             }
         }
         if let Some(s) = &self.secret {
-            let copied = self.copied_at.is_some_and(|t| t.elapsed() < Duration::from_secs(2));
+            let copied = self
+                .copied_at
+                .is_some_and(|t| t.elapsed() < Duration::from_secs(2));
             match admin_views::secret_sheet(ctx, s.title, &s.name, &s.email, &s.password, copied) {
                 Some(SecretAction::Copy) => {
-                    ctx.copy_text(format!("E-mail: {}\nSenha temporária: {}", s.email, s.password));
+                    ctx.copy_text(format!(
+                        "E-mail: {}\nSenha temporária: {}",
+                        s.email, s.password
+                    ));
                     self.copied_at = Some(Instant::now());
                     ctx.request_repaint_after(Duration::from_millis(2050));
                 }
@@ -436,19 +479,30 @@ impl AdminSide {
 /// pt-BR text for a refused admin request.
 fn error_text(e: &ClientError) -> String {
     match e {
-        ClientError::Api { status: 404, code, .. } if *code != ErrorCode::NotFound => {
+        ClientError::Api {
+            status: 404, code, ..
+        } if *code != ErrorCode::NotFound => {
             "O servidor ainda não tem o painel de administração.".into()
         }
-        ClientError::Api { code: ErrorCode::Conflict, detail, .. } => {
+        ClientError::Api {
+            code: ErrorCode::Conflict,
+            detail,
+            ..
+        } => {
             if detail.contains("e-mail") {
                 "Já existe uma conta com este e-mail.".into()
             } else {
                 "A sessão já tinha terminado.".into()
             }
         }
-        ClientError::Api { code: ErrorCode::Forbidden, detail, .. } => {
+        ClientError::Api {
+            code: ErrorCode::Forbidden,
+            detail,
+            ..
+        } => {
             if detail.contains("another organization") {
-                "Essa conta também pertence a outra organização; ela só pode ser gerenciada lá.".into()
+                "Essa conta também pertence a outra organização; ela só pode ser gerenciada lá."
+                    .into()
             } else if detail.contains("last owner") {
                 "A organização precisa de pelo menos um dono ativo.".into()
             } else if detail.contains("above your own") {
@@ -457,9 +511,10 @@ fn error_text(e: &ClientError) -> String {
                 "Você não tem permissão para isso.".into()
             }
         }
-        ClientError::Api { code: ErrorCode::BadRequest, .. } => {
-            "Confira o nome e o e-mail.".into()
-        }
+        ClientError::Api {
+            code: ErrorCode::BadRequest,
+            ..
+        } => "Confira o nome e o e-mail.".into(),
         other => common::client_error_text(other),
     }
 }
@@ -509,7 +564,9 @@ fn session_rows(sessions: &[SessionRecord]) -> Vec<SessionRow> {
         .iter()
         .map(|s| {
             let (state, tone, live) = match s.status.as_str() {
-                "requested" | "offered" | "accepted" => ("Aguardando autorização", Tone::Warning, true),
+                "requested" | "offered" | "accepted" => {
+                    ("Aguardando autorização", Tone::Warning, true)
+                }
                 "approved" => ("Conectando", Tone::Warning, true),
                 "connected" => ("Conectado", Tone::Success, true),
                 "ended" => ("Encerrada", Tone::Neutral, false),
@@ -521,7 +578,11 @@ fn session_rows(sessions: &[SessionRecord]) -> Vec<SessionRow> {
             if let Some(start) = s.connected_at {
                 let end = s.ended_at.unwrap_or_else(OffsetDateTime::now_utc);
                 let mins = (end - start).whole_minutes().max(0);
-                at.push_str(&if mins < 1 { " · menos de 1 min".to_owned() } else { format!(" · {mins} min") });
+                at.push_str(&if mins < 1 {
+                    " · menos de 1 min".to_owned()
+                } else {
+                    format!(" · {mins} min")
+                });
             }
             SessionRow {
                 host: s.host_name.clone(),
@@ -548,7 +609,11 @@ fn history_rows(events: &[AuditEvent]) -> Vec<HistoryRow> {
                 _ => Tone::Neutral,
             };
             Some(HistoryRow {
-                when: e.occurred_at.to_offset(local).format(DAY_TIME).unwrap_or_default(),
+                when: e
+                    .occurred_at
+                    .to_offset(local)
+                    .format(DAY_TIME)
+                    .unwrap_or_default(),
                 text,
                 tone,
             })
@@ -569,7 +634,9 @@ fn describe(e: &AuditEvent) -> Option<String> {
         .map(|r| admin_views::role_label(r).to_lowercase());
     Some(match e.action.as_str() {
         "auth.login" if ok => format!("{actor} entrou"),
-        "auth.login" if e.outcome == "denied" => format!("{actor} não conseguiu entrar (conta desativada ou bloqueada)"),
+        "auth.login" if e.outcome == "denied" => {
+            format!("{actor} não conseguiu entrar (conta desativada ou bloqueada)")
+        }
         "auth.login" => match &e.actor_name {
             Some(a) => format!("Senha errada ao entrar na conta de {a}"),
             None => "Tentativa de entrar numa conta que não existe".into(),
@@ -602,7 +669,10 @@ fn describe(e: &AuditEvent) -> Option<String> {
         "permission.denied" => format!("{actor} tentou algo sem permissão"),
         "device.revoked" => format!("{actor} removeu o computador {target}"),
         "org.created" => "Organização criada".into(),
-        "session.ticket_issued" | "session.offer_answered" | "device.enrolled" | "enrollment.token_created" => return None,
+        "session.ticket_issued"
+        | "session.offer_answered"
+        | "device.enrolled"
+        | "enrollment.token_created" => return None,
         other => other.to_owned(),
     })
 }

@@ -37,8 +37,8 @@ use windows::{
                 CreateFontIndirectW, CreateSolidBrush, DRAW_TEXT_FORMAT, DT_CALCRECT, DT_CENTER,
                 DT_END_ELLIPSIS, DT_LEFT, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER, DT_WORDBREAK,
                 DeleteDC, DeleteObject, DrawTextW, EndPaint, FillRect, GetDC, HBRUSH, HDC, HFONT,
-                HGDIOBJ, InvalidateRect, PAINTSTRUCT, ReleaseDC, SRCCOPY, SelectObject,
-                SetBkMode, SetTextColor, TRANSPARENT,
+                HGDIOBJ, InvalidateRect, PAINTSTRUCT, ReleaseDC, SRCCOPY, SelectObject, SetBkMode,
+                SetTextColor, TRANSPARENT,
             },
             GdiPlus::{
                 FillModeAlternate, GdipAddPathArc, GdipClosePathFigure, GdipCreateFromHDC,
@@ -64,17 +64,16 @@ use windows::{
                 AdjustWindowRectEx, BN_CLICKED, BS_OWNERDRAW, CREATESTRUCTW, CallWindowProcW,
                 CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, FLASHW_ALL,
                 FLASHW_TIMERNOFG, FLASHWINFO, FlashWindowEx, GWLP_USERDATA, GWLP_WNDPROC,
-                GetClientRect, GetMessageW, GetParent, GetWindowLongPtrW, GetWindowTextW,
-                HMENU, IDC_ARROW, IDCANCEL, IDI_SHIELD, IDOK, IsDialogMessageW, KillTimer,
-                LoadCursorW, LoadIconW, MSG, NONCLIENTMETRICSW, PostMessageW, PostQuitMessage,
-                RegisterClassExW, SPI_GETNONCLIENTMETRICS, SPI_GETWORKAREA, SW_SHOW,
+                GetClientRect, GetMessageW, GetParent, GetWindowLongPtrW, GetWindowTextW, HMENU,
+                IDC_ARROW, IDCANCEL, IDI_SHIELD, IDOK, IsDialogMessageW, KillTimer, LoadCursorW,
+                LoadIconW, MSG, NONCLIENTMETRICSW, PostMessageW, PostQuitMessage, RegisterClassExW,
+                SPI_GETNONCLIENTMETRICS, SPI_GETWORKAREA, SW_SHOW,
                 SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS, SetForegroundWindow, SetTimer,
                 SetWindowLongPtrW, ShowWindow, SystemParametersInfoW, TranslateMessage,
                 WINDOW_EX_STYLE, WINDOW_STYLE, WM_APP, WM_CLOSE, WM_COMMAND, WM_DESTROY,
-                WM_DRAWITEM, WM_ERASEBKGND, WM_MOUSEMOVE, WM_NCCREATE, WM_PAINT,
-                WM_TIMER, WM_USER, WNDCLASSEXW, WNDPROC, WS_CAPTION, WS_CHILD,
-                WS_EX_CONTROLPARENT, WS_EX_DLGMODALFRAME, WS_EX_TOPMOST, WS_POPUP, WS_SYSMENU,
-                WS_TABSTOP, WS_VISIBLE,
+                WM_DRAWITEM, WM_ERASEBKGND, WM_MOUSEMOVE, WM_NCCREATE, WM_PAINT, WM_TIMER, WM_USER,
+                WNDCLASSEXW, WNDPROC, WS_CAPTION, WS_CHILD, WS_EX_CONTROLPARENT,
+                WS_EX_DLGMODALFRAME, WS_EX_TOPMOST, WS_POPUP, WS_SYSMENU, WS_TABSTOP, WS_VISIBLE,
             },
         },
     },
@@ -395,7 +394,14 @@ impl Canvas {
             (13.85, 17.0, 15.55, 19.4, 0.4),
             (11.6, 19.0, 17.8, 20.6, 0.6),
         ] {
-            self.fill_round(x + x0 * s, y + y0 * s, (x1 - x0) * s, (y1 - y0) * s, r * s, 0xffffff);
+            self.fill_round(
+                x + x0 * s,
+                y + y0 * s,
+                (x1 - x0) * s,
+                (y1 - y0) * s,
+                r * s,
+                0xffffff,
+            );
         }
     }
 }
@@ -464,7 +470,10 @@ fn fonts(scale: impl Fn(f32) -> i32) -> Result<Fonts, PlatformError> {
 }
 
 fn wide(s: &str) -> Vec<u16> {
-    s.replace("\r\n", "\n").replace('\n', "\r\n").encode_utf16().collect()
+    s.replace("\r\n", "\n")
+        .replace('\n', "\r\n")
+        .encode_utf16()
+        .collect()
 }
 
 /// Height of `text` wrapped at `width` (0 for empty text).
@@ -482,7 +491,12 @@ fn measure(text: &str, font: &Font, width: i32) -> i32 {
     unsafe {
         let hdc = GetDC(None);
         let old = SelectObject(hdc, HGDIOBJ(font.0.0));
-        DrawTextW(hdc, &mut buf, &mut rc, DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX);
+        DrawTextW(
+            hdc,
+            &mut buf,
+            &mut rc,
+            DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX,
+        );
         SelectObject(hdc, old);
         ReleaseDC(None, hdc);
     }
@@ -496,7 +510,12 @@ fn measure_width(text: &str, font: &Font) -> i32 {
     unsafe {
         let hdc = GetDC(None);
         let old = SelectObject(hdc, HGDIOBJ(font.0.0));
-        DrawTextW(hdc, &mut buf, &mut rc, DT_CALCRECT | DT_SINGLELINE | DT_NOPREFIX);
+        DrawTextW(
+            hdc,
+            &mut buf,
+            &mut rc,
+            DT_CALCRECT | DT_SINGLELINE | DT_NOPREFIX,
+        );
         SelectObject(hdc, old);
         ReleaseDC(None, hdc);
     }
@@ -625,7 +644,11 @@ fn button(
     // Hover tracking: our procedure in front of the system one, which stays in charge
     // of focus, keyboard and click handling.
     unsafe {
-        let old = SetWindowLongPtrW(hwnd, GWLP_WNDPROC, button_proc as *const () as usize as isize);
+        let old = SetWindowLongPtrW(
+            hwnd,
+            GWLP_WNDPROC,
+            button_proc as *const () as usize as isize,
+        );
         SetWindowLongPtrW(hwnd, GWLP_USERDATA, old);
     }
     Ok(hwnd)
@@ -638,9 +661,17 @@ fn style_frame(hwnd: HWND, dark: bool, c: &Colors) {
             let _ = DwmSetWindowAttribute(hwnd, attr, value, size as u32);
         };
         let dark = BOOL::from(dark);
-        set(DWMWA_USE_IMMERSIVE_DARK_MODE, &dark as *const _ as _, std::mem::size_of::<BOOL>());
+        set(
+            DWMWA_USE_IMMERSIVE_DARK_MODE,
+            &dark as *const _ as _,
+            std::mem::size_of::<BOOL>(),
+        );
         let corner = DWMWCP_ROUND;
-        set(DWMWA_WINDOW_CORNER_PREFERENCE, &corner as *const _ as _, std::mem::size_of_val(&corner));
+        set(
+            DWMWA_WINDOW_CORNER_PREFERENCE,
+            &corner as *const _ as _,
+            std::mem::size_of_val(&corner),
+        );
         for (attr, color) in [
             (DWMWA_CAPTION_COLOR, c.bg),
             (DWMWA_TEXT_COLOR, c.text),
@@ -698,7 +729,11 @@ fn run(prompt: ConsentPrompt, shared: &Mutex<Shared>) -> Result<ConsentResult, P
     geo.caution = rect(pad, y, inner, caution_h);
     y += caution_h + s(22.0);
     let total_secs = prompt.timeout.as_secs().max(1);
-    let countdown_h = measure(&countdown_text(&prompt.countdown_template, total_secs), &fonts.small, inner);
+    let countdown_h = measure(
+        &countdown_text(&prompt.countdown_template, total_secs),
+        &fonts.small,
+        inner,
+    );
     geo.countdown = rect(pad, y, inner, countdown_h);
     y += countdown_h + s(8.0);
     geo.bar = rect(pad, y, inner, s(3.0).max(2));
@@ -778,7 +813,12 @@ fn run(prompt: ConsentPrompt, shared: &Mutex<Shared>) -> Result<ConsentResult, P
             instance,
             &deny_label,
             ID_DENY,
-            (width - pad - allow_w - gap - deny_w, buttons_y, deny_w, btn_h),
+            (
+                width - pad - allow_w - gap - deny_w,
+                buttons_y,
+                deny_w,
+                btn_h,
+            ),
         )?;
         let allow = button(
             hwnd,
@@ -882,7 +922,11 @@ fn paint_window(hdc: HDC, client: RECT, st: &DialogState) {
     fill(hdc, client, c.bg);
     {
         let canvas = Canvas::new(hdc);
-        canvas.mark(g.mark.left as f32, g.mark.top as f32, (g.mark.right - g.mark.left) as f32);
+        canvas.mark(
+            g.mark.left as f32,
+            g.mark.top as f32,
+            (g.mark.right - g.mark.left) as f32,
+        );
         if !p.requester.is_empty() {
             let r = &g.panel;
             canvas.fill_round(
@@ -902,7 +946,10 @@ fn paint_window(hdc: HDC, client: RECT, st: &DialogState) {
         let (bw, bh) = ((b.right - b.left) as f32, (b.bottom - b.top) as f32);
         canvas.fill_round(b.left as f32, b.top as f32, bw, bh, bh / 2.0, c.hairline);
         let total = p.timeout.as_secs_f32().max(0.001);
-        let left = st.deadline.saturating_duration_since(Instant::now()).as_secs_f32();
+        let left = st
+            .deadline
+            .saturating_duration_since(Instant::now())
+            .as_secs_f32();
         let frac = (left / total).clamp(0.0, 1.0);
         let urgent = st.shown_seconds <= 10;
         if frac > 0.0 {
@@ -928,7 +975,14 @@ fn paint_window(hdc: HDC, client: RECT, st: &DialogState) {
             DT_CENTER | DT_VCENTER | DT_SINGLELINE,
         );
         draw_text(hdc, &p.requester, g.name, &st.fonts.name, c.text, wrap);
-        draw_text(hdc, &p.requester_detail, g.detail, &st.fonts.small, c.muted, wrap);
+        draw_text(
+            hdc,
+            &p.requester_detail,
+            g.detail,
+            &st.fonts.small,
+            c.muted,
+            wrap,
+        );
     }
     draw_text(hdc, &p.body, g.body, &st.fonts.body, c.muted, wrap);
     draw_text(hdc, &p.caution, g.caution, &st.fonts.strong, c.text, wrap);
@@ -948,7 +1002,8 @@ fn paint_button(dis: &DRAWITEMSTRUCT, st: &DialogState) {
     let primary = dis.hwndItem == st.allow;
     let disabled = (dis.itemState.0 & ODS_DISABLED.0) != 0;
     let pressed = (dis.itemState.0 & ODS_SELECTED.0) != 0;
-    let focused = (dis.itemState.0 & ODS_FOCUS.0) != 0 && (dis.itemState.0 & ODS_NOFOCUSRECT.0) == 0;
+    let focused =
+        (dis.itemState.0 & ODS_FOCUS.0) != 0 && (dis.itemState.0 & ODS_NOFOCUSRECT.0) == 0;
     let hovered = !disabled && dis.hwndItem == st.hover;
     let (fill_c, text_c) = match (primary, disabled) {
         (_, true) => (c.disabled_fill, c.disabled_text),
@@ -991,7 +1046,14 @@ fn paint_button(dis: &DRAWITEMSTRUCT, st: &DialogState) {
             let canvas = Canvas::new(hdc);
             // Room for the focus ring inside the control.
             let inset = if focused { 3.0 } else { 0.0 };
-            canvas.fill_round(inset, inset, w - 2.0 * inset, h - 2.0 * inset, radius - inset * 0.5, fill_c);
+            canvas.fill_round(
+                inset,
+                inset,
+                w - 2.0 * inset,
+                h - 2.0 * inset,
+                radius - inset * 0.5,
+                fill_c,
+            );
             if !primary && !disabled && !focused {
                 canvas.stroke_round([0.5, 0.5, w - 1.0, h - 1.0], radius, c.secondary_line, 1.0);
             }
@@ -1026,7 +1088,12 @@ enum Action {
 }
 
 /// Front of the system BUTTON procedure: tracks hover for painting only.
-unsafe extern "system" fn button_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+unsafe extern "system" fn button_proc(
+    hwnd: HWND,
+    msg: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> LRESULT {
     unsafe {
         let parent = GetParent(hwnd).unwrap_or_default();
         let state = GetWindowLongPtrW(parent, GWLP_USERDATA) as *mut DialogState;

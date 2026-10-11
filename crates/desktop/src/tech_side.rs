@@ -19,10 +19,9 @@ use std::{
 use crate::{
     admin_side::AdminHandle,
     admin_views::{self, PasswordForm, SheetAction},
-    common, keymap,
-    theme,
-    views,
+    common, keymap, theme,
     video::{FrameSlot, VideoSink},
+    views,
 };
 use aionix_client::{
     ApiClient, ClientError,
@@ -45,10 +44,7 @@ use aionix_remote_core::session::{
 };
 use aionix_shared::{FriendlyId, TransportKind};
 use aionix_transport::Transport;
-use egui::{
-    Color32, Pos2, Rect, Sense, Stroke, TextureHandle,
-    TextureOptions, Vec2,
-};
+use egui::{Color32, Pos2, Rect, Sense, Stroke, TextureHandle, TextureOptions, Vec2};
 use tokio::sync::mpsc;
 use tracing::{info, warn};
 use uuid::Uuid;
@@ -724,8 +720,7 @@ impl TechSide {
                     filter.is_empty()
                         || d.display_name.to_lowercase().contains(&filter)
                         || d.hostname.to_lowercase().contains(&filter)
-                        || d
-                            .customer_name
+                        || d.customer_name
                             .as_ref()
                             .is_some_and(|c| c.to_lowercase().contains(&filter))
                         || (!digits.is_empty() && d.friendly_id.compact().contains(&digits))
@@ -943,7 +938,13 @@ impl TechSide {
             return;
         }
         let mandatory = mode == PasswordSheet::Mandatory;
-        match admin_views::password_sheet(ctx, &mut self.password_form, mandatory, working, error.as_deref()) {
+        match admin_views::password_sheet(
+            ctx,
+            &mut self.password_form,
+            mandatory,
+            working,
+            error.as_deref(),
+        ) {
             Some(SheetAction::Submit) => {
                 *self.password_task.lock().unwrap() = PasswordTask::Working;
                 let new = self.password_form.new.clone();
@@ -955,8 +956,11 @@ impl TechSide {
                     };
                     let current = self.change_current.clone();
                     let (server, dir) = (self.opts.server.clone(), self.opts.dir.clone());
-                    let (status, pending, change) =
-                        (self.login.clone(), self.pending_ws.clone(), self.pending_change.clone());
+                    let (status, pending, change) = (
+                        self.login.clone(),
+                        self.pending_ws.clone(),
+                        self.pending_change.clone(),
+                    );
                     self.rt.spawn(async move {
                         let changed = match user.access_token().await {
                             Ok(access) => user.api().change_password(&access, &current, &new).await,
@@ -966,7 +970,15 @@ impl TechSide {
                             Ok(()) => {
                                 *task.lock().unwrap() = PasswordTask::Done;
                                 *status.lock().unwrap() = LoginState::Working("Entrando…");
-                                match open_workspace(server, dir, user, status.clone(), ctx2.clone()).await {
+                                match open_workspace(
+                                    server,
+                                    dir,
+                                    user,
+                                    status.clone(),
+                                    ctx2.clone(),
+                                )
+                                .await
+                                {
                                     Ok(ws) => *pending.lock().unwrap() = Some(ws),
                                     Err(e) => *status.lock().unwrap() = LoginState::Failed(e),
                                 }
@@ -1009,7 +1021,6 @@ impl TechSide {
             None => {}
         }
     }
-
 }
 
 impl TechSide {
@@ -1163,7 +1174,10 @@ impl TechSide {
             }))
             .show(ui, |ui| {
                 let area = ui.available_rect_before_wrap();
-                match (&s.texture, live || status.state == SessionState::Reconnecting) {
+                match (
+                    &s.texture,
+                    live || status.state == SessionState::Reconnecting,
+                ) {
                     (Some(tex), true) => {
                         let img_rect = fit_rect(area, tex.size_vec2());
                         ui.painter().image(
@@ -1600,7 +1614,9 @@ fn diagnostics_panel(
 
 fn password_error(e: &ClientError) -> String {
     match e.code() {
-        Some(aionix_control_api::ErrorCode::InvalidCredentials) => "A senha atual está incorreta.".into(),
+        Some(aionix_control_api::ErrorCode::InvalidCredentials) => {
+            "A senha atual está incorreta.".into()
+        }
         Some(aionix_control_api::ErrorCode::BadRequest) => {
             "A nova senha precisa ter pelo menos 12 caracteres.".into()
         }
@@ -1635,7 +1651,9 @@ fn device_model(d: &DeviceSummary, local_host: &str) -> views::DeviceModel {
 
 /// "visto há 3 h" from the last time the server heard from a computer.
 fn seen_text(at: time::OffsetDateTime) -> String {
-    let secs = (time::OffsetDateTime::now_utc() - at).whole_seconds().max(0);
+    let secs = (time::OffsetDateTime::now_utc() - at)
+        .whole_seconds()
+        .max(0);
     match secs {
         0..60 => "visto agora".into(),
         60..3_600 => format!("visto há {} min", secs / 60),

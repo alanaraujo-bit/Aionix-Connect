@@ -240,20 +240,22 @@ async fn run(args: HostOptions, ui: Shared, runtime: Arc<Mutex<Runtime>>, ctx: e
         SignalingOptions::new(signal_url),
         session.clone(),
         presence_rx.clone(),
-        Arc::new(HostOfferHandler::new(validator, presence_rx).with_revocation({
-            // The server ended this session (admin, disabled account…): stop it here too.
-            let (ui, ctx) = (ui.clone(), ctx.clone());
-            Arc::new(move |sid: uuid::Uuid| {
-                let running = ui.lock().unwrap().session.as_ref().map(|(h, _)| h.clone());
-                if let Some(h) = running
-                    && h.diagnostics().session_id.value().copied() == Some(sid)
-                {
-                    info!(session_id = %sid, "session ended by the server");
-                    h.end();
-                    ctx.request_repaint();
-                }
-            })
-        })),
+        Arc::new(
+            HostOfferHandler::new(validator, presence_rx).with_revocation({
+                // The server ended this session (admin, disabled account…): stop it here too.
+                let (ui, ctx) = (ui.clone(), ctx.clone());
+                Arc::new(move |sid: uuid::Uuid| {
+                    let running = ui.lock().unwrap().session.as_ref().map(|(h, _)| h.clone());
+                    if let Some(h) = running
+                        && h.diagnostics().session_id.value().copied() == Some(sid)
+                    {
+                        info!(session_id = %sid, "session ended by the server");
+                        h.end();
+                        ctx.request_repaint();
+                    }
+                })
+            }),
+        ),
     );
     runtime.lock().unwrap().signaling = Some(signaling.clone());
     {
@@ -585,50 +587,50 @@ impl HostSide {
             )
         };
         views::disclosure(ui, "Detalhes técnicos", |ui| {
-                if let Some(id) = device_id {
-                    theme::kv(ui, "Dispositivo", &id.to_string());
-                }
-                if !kind.is_empty() {
-                    theme::kv(ui, "Tipo", &kind);
-                }
-                theme::kv(ui, "Rede", &addr);
-                theme::kv(ui, "Registro", &log_path.display().to_string());
-                if let Some((h, _)) = &session {
-                    let d = h.diagnostics();
-                    let na = || "—".to_string();
-                    theme::kv(
-                        ui,
-                        "Captura",
-                        d.capture_backend.value().map(String::as_str).unwrap_or("—"),
-                    );
-                    theme::kv(
-                        ui,
-                        "Codificador",
-                        d.encoder.value().map(String::as_str).unwrap_or("—"),
-                    );
-                    theme::kv(
-                        ui,
-                        "Quadros/s",
-                        &d.fps.value().map(|v| format!("{v:.0}")).unwrap_or_else(na),
-                    );
-                    theme::kv(
-                        ui,
-                        "Taxa",
-                        &d.bitrate_kbps
-                            .value()
-                            .map(|v| format!("{v:.0} kbit/s"))
-                            .unwrap_or_else(na),
-                    );
-                    theme::kv(
-                        ui,
-                        "Transporte",
-                        &d.transport
-                            .value()
-                            .map(|t| format!("{t:?}"))
-                            .unwrap_or_else(na),
-                    );
-                }
-            });
+            if let Some(id) = device_id {
+                theme::kv(ui, "Dispositivo", &id.to_string());
+            }
+            if !kind.is_empty() {
+                theme::kv(ui, "Tipo", &kind);
+            }
+            theme::kv(ui, "Rede", &addr);
+            theme::kv(ui, "Registro", &log_path.display().to_string());
+            if let Some((h, _)) = &session {
+                let d = h.diagnostics();
+                let na = || "—".to_string();
+                theme::kv(
+                    ui,
+                    "Captura",
+                    d.capture_backend.value().map(String::as_str).unwrap_or("—"),
+                );
+                theme::kv(
+                    ui,
+                    "Codificador",
+                    d.encoder.value().map(String::as_str).unwrap_or("—"),
+                );
+                theme::kv(
+                    ui,
+                    "Quadros/s",
+                    &d.fps.value().map(|v| format!("{v:.0}")).unwrap_or_else(na),
+                );
+                theme::kv(
+                    ui,
+                    "Taxa",
+                    &d.bitrate_kbps
+                        .value()
+                        .map(|v| format!("{v:.0} kbit/s"))
+                        .unwrap_or_else(na),
+                );
+                theme::kv(
+                    ui,
+                    "Transporte",
+                    &d.transport
+                        .value()
+                        .map(|t| format!("{t:?}"))
+                        .unwrap_or_else(na),
+                );
+            }
+        });
     }
 }
 

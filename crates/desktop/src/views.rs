@@ -50,8 +50,13 @@ pub fn spinner(ui: &mut Ui, size: f32) {
     let t = ui.input(|i| i.time) as f32;
     let c = rect.center();
     let r = size / 2.0 - 1.5;
-    ui.painter().circle_stroke(c, r, Stroke::new(2.0, p.hairline));
-    let start = if theme::reduced_motion() { 0.0 } else { t * 5.5 };
+    ui.painter()
+        .circle_stroke(c, r, Stroke::new(2.0, p.hairline));
+    let start = if theme::reduced_motion() {
+        0.0
+    } else {
+        t * 5.5
+    };
     let pts: Vec<_> = (0..=24)
         .map(|i| {
             let a = start + i as f32 / 24.0 * 1.6;
@@ -113,17 +118,24 @@ pub fn disclosure(ui: &mut Ui, label: &str, content: impl FnOnce(&mut Ui)) {
     let p = theme::palette(ui);
     let id = ui.id().with(("disclosure", label));
     let mut open = ui.ctx().data(|d| d.get_temp::<bool>(id)).unwrap_or(false);
-    let galley = ui
-        .painter()
-        .layout_no_wrap(label.to_owned(), FontId::proportional(theme::SIZE_SMALL), p.muted);
-    let (rect, response) = ui.allocate_exact_size(vec2(galley.size().x + 22.0, 24.0), Sense::click());
+    let galley = ui.painter().layout_no_wrap(
+        label.to_owned(),
+        FontId::proportional(theme::SIZE_SMALL),
+        p.muted,
+    );
+    let (rect, response) =
+        ui.allocate_exact_size(vec2(galley.size().x + 22.0, 24.0), Sense::click());
     if response.clicked() {
         open = !open;
         ui.ctx().data_mut(|d| d.insert_temp(id, open));
     }
     let h = theme::toggle(ui, id.with("h"), response.hovered(), 0.12);
     let ink = theme::lerp_color(p.muted, p.text, h);
-    let icon = if open { Icon::ChevronDown } else { Icon::ChevronRight };
+    let icon = if open {
+        Icon::ChevronDown
+    } else {
+        Icon::ChevronRight
+    };
     icons::paint(
         ui.painter(),
         Rect::from_center_size(pos2(rect.min.x + 7.0, rect.center().y), Vec2::splat(12.0)),
@@ -162,9 +174,17 @@ pub enum UpdateModel<'a> {
     Idle,
     Checking,
     UpToDate,
-    Downloading { version: &'a str, fraction: f32 },
-    Ready { version: &'a str, can_restart: bool },
-    Failed { error: &'a str },
+    Downloading {
+        version: &'a str,
+        fraction: f32,
+    },
+    Ready {
+        version: &'a str,
+        can_restart: bool,
+    },
+    Failed {
+        error: &'a str,
+    },
 }
 
 pub struct SidebarModel<'a> {
@@ -203,7 +223,11 @@ pub fn sidebar(ui: &mut Ui, m: &SidebarModel<'_>) -> Option<SidebarAction> {
         Stroke::new(1.0, p.hairline),
     );
     let inner = full.shrink2(vec2(12.0, 14.0));
-    let mut ui = ui.new_child(UiBuilder::new().max_rect(inner).layout(Layout::top_down(Align::Min)));
+    let mut ui = ui.new_child(
+        UiBuilder::new()
+            .max_rect(inner)
+            .layout(Layout::top_down(Align::Min)),
+    );
     let ui = &mut ui;
     // The bottom block first, so the rest takes what is left above it.
     egui::Panel::bottom("sidebar-bottom")
@@ -227,7 +251,11 @@ pub fn sidebar(ui: &mut Ui, m: &SidebarModel<'_>) -> Option<SidebarAction> {
             .corner_radius(CornerRadius::same(6))
             .inner_margin(Margin::symmetric(8, 3))
             .show(ui, |ui| {
-                ui.label(RichText::new(label).size(theme::SIZE_CAPTION).color(p.warning));
+                ui.label(
+                    RichText::new(label)
+                        .size(theme::SIZE_CAPTION)
+                        .color(p.warning),
+                );
             });
     }
     ui.add_space(20.0);
@@ -237,7 +265,15 @@ pub fn sidebar(ui: &mut Ui, m: &SidebarModel<'_>) -> Option<SidebarAction> {
         (Some(_), Some(n)) if n > 0 => Trailing::Count(n),
         _ => Trailing::None,
     };
-    if nav_item(ui, Icon::Home, "Início", m.page == Page::Home, Trailing::None).clicked() {
+    if nav_item(
+        ui,
+        Icon::Home,
+        "Início",
+        m.page == Page::Home,
+        Trailing::None,
+    )
+    .clicked()
+    {
         action = Some(SidebarAction::Go(Page::Home));
     }
     if nav_item(
@@ -252,8 +288,14 @@ pub fn sidebar(ui: &mut Ui, m: &SidebarModel<'_>) -> Option<SidebarAction> {
         action = Some(SidebarAction::Go(Page::Computers));
     }
     if m.admin
-        && nav_item(ui, Icon::Shield, "Administração", m.page == Page::Admin, Trailing::None)
-            .clicked()
+        && nav_item(
+            ui,
+            Icon::Shield,
+            "Administração",
+            m.page == Page::Admin,
+            Trailing::None,
+        )
+        .clicked()
     {
         action = Some(SidebarAction::Go(Page::Admin));
     }
@@ -266,7 +308,10 @@ fn sidebar_bottom(ui: &mut Ui, m: &SidebarModel<'_>, action: &mut Option<Sidebar
     let p = theme::palette(ui);
     ui.spacing_mut().item_spacing.y = 0.0;
     match &m.update {
-        UpdateModel::Ready { version, can_restart } => {
+        UpdateModel::Ready {
+            version,
+            can_restart,
+        } => {
             update_card(ui, version, *can_restart, action);
             ui.add_space(12.0);
         }
@@ -308,10 +353,18 @@ fn sidebar_bottom(ui: &mut Ui, m: &SidebarModel<'_>, action: &mut Option<Sidebar
         );
         match &m.update {
             UpdateModel::Checking => {
-                ui.label(RichText::new("· verificando…").size(theme::SIZE_CAPTION).color(p.faint));
+                ui.label(
+                    RichText::new("· verificando…")
+                        .size(theme::SIZE_CAPTION)
+                        .color(p.faint),
+                );
             }
             UpdateModel::UpToDate => {
-                ui.label(RichText::new("· atualizado").size(theme::SIZE_CAPTION).color(p.faint));
+                ui.label(
+                    RichText::new("· atualizado")
+                        .size(theme::SIZE_CAPTION)
+                        .color(p.faint),
+                );
             }
             UpdateModel::Idle => {
                 ui.label(RichText::new("·").size(theme::SIZE_CAPTION).color(p.faint));
@@ -330,13 +383,23 @@ enum Trailing {
     Icon(Icon),
 }
 
-fn nav_item(ui: &mut Ui, icon: Icon, text: &str, selected: bool, trailing: Trailing) -> egui::Response {
+fn nav_item(
+    ui: &mut Ui,
+    icon: Icon,
+    text: &str,
+    selected: bool,
+    trailing: Trailing,
+) -> egui::Response {
     let p = theme::palette(ui);
     let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 34.0), Sense::click());
     let h = theme::toggle(ui, response.id.with("h"), response.hovered(), 0.12);
     let s = theme::toggle(ui, response.id.with("s"), selected, 0.18);
     let hover_fill = theme::lerp_color(p.sidebar, p.text, 0.05);
-    let fill = theme::lerp_color(theme::lerp_color(p.sidebar, hover_fill, h), p.accent_soft, s);
+    let fill = theme::lerp_color(
+        theme::lerp_color(p.sidebar, hover_fill, h),
+        p.accent_soft,
+        s,
+    );
     ui.painter().rect_filled(rect, CornerRadius::same(8), fill);
     let ink = theme::lerp_color(p.muted, p.accent_text, s);
     icons::paint(
@@ -345,7 +408,11 @@ fn nav_item(ui: &mut Ui, icon: Icon, text: &str, selected: bool, trailing: Trail
         icon,
         ink,
     );
-    let font = if selected { theme::semibold(theme::SIZE_BODY) } else { FontId::proportional(theme::SIZE_BODY) };
+    let font = if selected {
+        theme::semibold(theme::SIZE_BODY)
+    } else {
+        FontId::proportional(theme::SIZE_BODY)
+    };
     ui.painter().text(
         pos2(rect.min.x + 38.0, rect.center().y),
         Align2::LEFT_CENTER,
@@ -380,31 +447,63 @@ fn nav_item(ui: &mut Ui, icon: Icon, text: &str, selected: bool, trailing: Trail
 fn account_row(ui: &mut Ui, m: &SidebarModel<'_>, action: &mut Option<SidebarAction>) {
     let p = theme::palette(ui);
     if let Some(a) = &m.account {
-        ui.allocate_ui_with_layout(vec2(ui.available_width(), 40.0), Layout::left_to_right(Align::Center), |ui| {
-            ui.add_space(4.0);
-            ui.spacing_mut().item_spacing.x = 10.0;
-            theme::avatar(ui, a.name, 32.0);
-            let w = ui.available_width() - 76.0;
-            ui.allocate_ui_with_layout(vec2(w, 36.0), Layout::top_down(Align::Min), |ui| {
-                ui.spacing_mut().item_spacing.y = 0.0;
-                ui.add(egui::Label::new(theme::title(a.name, 13.5)).truncate());
-                ui.add(egui::Label::new(RichText::new(a.org).size(theme::SIZE_CAPTION).color(p.muted)).truncate());
-            });
-            ui.spacing_mut().item_spacing.x = 2.0;
-            if theme::icon_button(ui, Icon::Key, "Alterar senha", false, true).clicked() {
-                *action = Some(SidebarAction::ChangePassword);
-            }
-            if theme::icon_button(ui, Icon::SignOut, "Sair da conta neste computador", false, true).clicked() {
-                *action = Some(SidebarAction::SignOut);
-            }
-        });
+        ui.allocate_ui_with_layout(
+            vec2(ui.available_width(), 40.0),
+            Layout::left_to_right(Align::Center),
+            |ui| {
+                ui.add_space(4.0);
+                ui.spacing_mut().item_spacing.x = 10.0;
+                theme::avatar(ui, a.name, 32.0);
+                let w = ui.available_width() - 76.0;
+                ui.allocate_ui_with_layout(vec2(w, 36.0), Layout::top_down(Align::Min), |ui| {
+                    ui.spacing_mut().item_spacing.y = 0.0;
+                    ui.add(egui::Label::new(theme::title(a.name, 13.5)).truncate());
+                    ui.add(
+                        egui::Label::new(
+                            RichText::new(a.org)
+                                .size(theme::SIZE_CAPTION)
+                                .color(p.muted),
+                        )
+                        .truncate(),
+                    );
+                });
+                ui.spacing_mut().item_spacing.x = 2.0;
+                if theme::icon_button(ui, Icon::Key, "Alterar senha", false, true).clicked() {
+                    *action = Some(SidebarAction::ChangePassword);
+                }
+                if theme::icon_button(
+                    ui,
+                    Icon::SignOut,
+                    "Sair da conta neste computador",
+                    false,
+                    true,
+                )
+                .clicked()
+                {
+                    *action = Some(SidebarAction::SignOut);
+                }
+            },
+        );
     } else if m.signing_in {
-        ui.allocate_ui_with_layout(vec2(ui.available_width(), 40.0), Layout::left_to_right(Align::Center), |ui| {
-            ui.add_space(10.0);
-            spinner(ui, 16.0);
-            ui.label(RichText::new("Entrando…").size(13.5).color(p.muted));
-        });
-    } else if theme::button(ui, Kind::Secondary, Some(Icon::User), "Entrar", true, Some(ui.available_width())).clicked() {
+        ui.allocate_ui_with_layout(
+            vec2(ui.available_width(), 40.0),
+            Layout::left_to_right(Align::Center),
+            |ui| {
+                ui.add_space(10.0);
+                spinner(ui, 16.0);
+                ui.label(RichText::new("Entrando…").size(13.5).color(p.muted));
+            },
+        );
+    } else if theme::button(
+        ui,
+        Kind::Secondary,
+        Some(Icon::User),
+        "Entrar",
+        true,
+        Some(ui.available_width()),
+    )
+    .clicked()
+    {
         *action = Some(SidebarAction::SignIn);
     }
 }
@@ -426,10 +525,25 @@ fn update_card(ui: &mut Ui, version: &str, can_restart: bool, action: &mut Optio
                     icons::paint(ui.painter(), r, Icon::Download, p.accent_text);
                     ui.label(theme::title("Atualização pronta", 13.0));
                 });
-                ui.label(RichText::new(format!("A versão {version} instala em segundos.")).size(theme::SIZE_SMALL).color(p.muted));
+                ui.label(
+                    RichText::new(format!("A versão {version} instala em segundos."))
+                        .size(theme::SIZE_SMALL)
+                        .color(p.muted),
+                );
                 ui.add_space(8.0);
-                let r = theme::button(ui, Kind::Primary, None, "Reiniciar e atualizar", can_restart, Some(ui.available_width()));
-                let r = if can_restart { r } else { r.on_disabled_hover_text("Disponível quando não houver sessão em andamento.") };
+                let r = theme::button(
+                    ui,
+                    Kind::Primary,
+                    None,
+                    "Reiniciar e atualizar",
+                    can_restart,
+                    Some(ui.available_width()),
+                );
+                let r = if can_restart {
+                    r
+                } else {
+                    r.on_disabled_hover_text("Disponível quando não houver sessão em andamento.")
+                };
                 if r.clicked() {
                     *action = Some(SidebarAction::RestartToUpdate);
                 }
@@ -451,16 +565,19 @@ fn download_line(ui: &mut Ui, version: &str, fraction: f32) {
         });
         let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 4.0), Sense::hover());
         let rect = rect.shrink2(vec2(6.0, 0.0));
-        ui.painter().rect_filled(rect, CornerRadius::same(2), p.hairline);
+        ui.painter()
+            .rect_filled(rect, CornerRadius::same(2), p.hairline);
         let target = fraction.clamp(0.0, 1.0);
         let shown = if theme::reduced_motion() {
             target
         } else {
-            ui.ctx().animate_value_with_time(Id::new("update-progress"), target, 0.3)
+            ui.ctx()
+                .animate_value_with_time(Id::new("update-progress"), target, 0.3)
         };
         let mut done = rect;
         done.set_width(rect.width() * shown);
-        ui.painter().rect_filled(done, CornerRadius::same(2), p.accent);
+        ui.painter()
+            .rect_filled(done, CornerRadius::same(2), p.accent);
     });
 }
 
@@ -522,8 +639,17 @@ pub fn inbound_banner(ui: &mut Ui, m: &HostModel) -> Option<HostAction> {
                     icons::paint(ui.painter(), r, Icon::Lock, p.accent_text);
                     ui.vertical(|ui| {
                         ui.spacing_mut().item_spacing.y = 1.0;
-                        ui.label(theme::title(format!("{name} pediu para acessar este computador"), 14.0));
-                        ui.label(RichText::new("Responda na janela de confirmação: Permitir ou Recusar.").size(13.0).color(p.muted));
+                        ui.label(theme::title(
+                            format!("{name} pediu para acessar este computador"),
+                            14.0,
+                        ));
+                        ui.label(
+                            RichText::new(
+                                "Responda na janela de confirmação: Permitir ou Recusar.",
+                            )
+                            .size(13.0)
+                            .color(p.muted),
+                        );
                     });
                 });
             });
@@ -533,7 +659,12 @@ pub fn inbound_banner(ui: &mut Ui, m: &HostModel) -> Option<HostAction> {
         let t = appear(ui, &format!("inbound-{}", s.name));
         ui.scope(|ui| {
             ui.multiply_opacity(t);
-            banner_frame(ui, p.success.gamma_multiply(0.10), p.success.gamma_multiply(0.35)).show(ui, |ui| {
+            banner_frame(
+                ui,
+                p.success.gamma_multiply(0.10),
+                p.success.gamma_multiply(0.35),
+            )
+            .show(ui, |ui| {
                 ui.set_width(ui.available_width());
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 12.0;
@@ -545,7 +676,10 @@ pub fn inbound_banner(ui: &mut Ui, m: &HostModel) -> Option<HostAction> {
                     theme::status_dot(ui, dot, pulse);
                     ui.vertical(|ui| {
                         ui.spacing_mut().item_spacing.y = 1.0;
-                        let who = ui.label(theme::title(format!("{} está acessando este computador", s.name), 14.0));
+                        let who = ui.label(theme::title(
+                            format!("{} está acessando este computador", s.name),
+                            14.0,
+                        ));
                         if let Some(e) = &s.email {
                             who.on_hover_text(e);
                         }
@@ -559,7 +693,9 @@ pub fn inbound_banner(ui: &mut Ui, m: &HostModel) -> Option<HostAction> {
                         ui.label(RichText::new(line).size(13.0).color(p.muted));
                     });
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if theme::button(ui, Kind::Danger, None, "Encerrar acesso", s.can_end, None).clicked() {
+                        if theme::button(ui, Kind::Danger, None, "Encerrar acesso", s.can_end, None)
+                            .clicked()
+                        {
                             action = Some(HostAction::EndInbound);
                         }
                     });
@@ -590,20 +726,32 @@ pub fn this_computer(ui: &mut Ui, m: &HostModel) -> Option<HostAction> {
         match &m.id {
             Some((display, compact)) => {
                 id_digits(ui, display);
-                ui.allocate_ui_with_layout(vec2(140.0, 54.0), Layout::left_to_right(Align::Center), |ui| {
-                    let (icon, text) = if m.copied { (Icon::Check, "Copiado") } else { (Icon::Copy, "Copiar") };
-                    if theme::button(ui, Kind::Secondary, Some(icon), text, true, Some(112.0))
-                        .on_hover_text("Copiar o ID para enviar por mensagem")
-                        .clicked()
-                    {
-                        action = Some(HostAction::Copy(compact.clone()));
-                    }
-                });
+                ui.allocate_ui_with_layout(
+                    vec2(140.0, 54.0),
+                    Layout::left_to_right(Align::Center),
+                    |ui| {
+                        let (icon, text) = if m.copied {
+                            (Icon::Check, "Copiado")
+                        } else {
+                            (Icon::Copy, "Copiar")
+                        };
+                        if theme::button(ui, Kind::Secondary, Some(icon), text, true, Some(112.0))
+                            .on_hover_text("Copiar o ID para enviar por mensagem")
+                            .clicked()
+                        {
+                            action = Some(HostAction::Copy(compact.clone()));
+                        }
+                    },
+                );
             }
             None => {
-                ui.allocate_ui_with_layout(vec2(330.0, 54.0), Layout::left_to_right(Align::Center), |ui| {
-                    theme::skeleton(ui, vec2(300.0, 36.0));
-                });
+                ui.allocate_ui_with_layout(
+                    vec2(330.0, 54.0),
+                    Layout::left_to_right(Align::Center),
+                    |ui| {
+                        theme::skeleton(ui, vec2(300.0, 36.0));
+                    },
+                );
             }
         }
     });
@@ -721,10 +869,18 @@ pub enum ConnectAction {
 }
 
 /// "Acessar outro computador": the ID field and, signed in, the computers online now.
-pub fn connect_section(ui: &mut Ui, m: &ConnectModel<'_>, typed: &mut String) -> Option<ConnectAction> {
+pub fn connect_section(
+    ui: &mut Ui,
+    m: &ConnectModel<'_>,
+    typed: &mut String,
+) -> Option<ConnectAction> {
     let p = theme::palette(ui);
     let mut action = None;
-    section_heading(ui, "Acessar outro computador", "Digite o ID que aparece no Aionix Connect da outra pessoa.");
+    section_heading(
+        ui,
+        "Acessar outro computador",
+        "Digite o ID que aparece no Aionix Connect da outra pessoa.",
+    );
     ui.add_space(10.0);
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 10.0;
@@ -742,14 +898,17 @@ pub fn connect_section(ui: &mut Ui, m: &ConnectModel<'_>, typed: &mut String) ->
             if formatted != *typed {
                 *typed = formatted;
                 let end = egui::text::CCursor::new(typed.chars().count());
-                out.state.cursor.set_char_range(Some(egui::text::CCursorRange::one(end)));
+                out.state
+                    .cursor
+                    .set_char_range(Some(egui::text::CCursorRange::one(end)));
                 out.state.store(ui.ctx(), out.response.id);
             }
         }
         let digits: String = typed.chars().filter(char::is_ascii_digit).collect();
         let ready = digits.len() == 9 && !digits.starts_with('0');
         let enter = out.response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
-        if (theme::button(ui, Kind::Primary, None, "Conectar", ready, Some(112.0)).clicked() || (enter && ready))
+        if (theme::button(ui, Kind::Primary, None, "Conectar", ready, Some(112.0)).clicked()
+            || (enter && ready))
             && ready
         {
             action = Some(ConnectAction::Connect(digits));
@@ -765,7 +924,11 @@ pub fn connect_section(ui: &mut Ui, m: &ConnectModel<'_>, typed: &mut String) ->
             ui.spacing_mut().item_spacing.x = 6.0;
             let (r, _) = ui.allocate_exact_size(Vec2::splat(14.0), Sense::hover());
             icons::paint(ui.painter(), r, Icon::Lock, p.faint);
-            ui.label(RichText::new("Para acessar outro computador, entre com a sua conta.").size(13.0).color(p.muted));
+            ui.label(
+                RichText::new("Para acessar outro computador, entre com a sua conta.")
+                    .size(13.0)
+                    .color(p.muted),
+            );
             if m.signing_in {
                 ui.label(RichText::new("Entrando…").size(13.0).color(p.faint));
             } else if theme::link(ui, "Entrar").clicked() {
@@ -775,7 +938,11 @@ pub fn connect_section(ui: &mut Ui, m: &ConnectModel<'_>, typed: &mut String) ->
     } else if !m.quick.is_empty() {
         ui.add_space(26.0);
         ui.horizontal(|ui| {
-            let title = if m.stale { "Última lista conhecida" } else { "Disponíveis agora" };
+            let title = if m.stale {
+                "Última lista conhecida"
+            } else {
+                "Disponíveis agora"
+            };
             ui.label(theme::title(title, 13.5));
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if theme::link(ui, &format!("Ver todos ({})", m.total)).clicked() {
@@ -817,7 +984,11 @@ pub fn computers_page(ui: &mut Ui, m: &ComputersModel<'_>, filter: &mut String) 
                 format!(
                     "{} {} · {} online",
                     m.total,
-                    if m.total == 1 { "computador" } else { "computadores" },
+                    if m.total == 1 {
+                        "computador"
+                    } else {
+                        "computadores"
+                    },
                     m.online
                 )
             } else {
@@ -831,7 +1002,11 @@ pub fn computers_page(ui: &mut Ui, m: &ComputersModel<'_>, filter: &mut String) 
     });
     ui.add_space(18.0);
     if let Some(e) = m.error {
-        ui.label(RichText::new(format!("Não foi possível atualizar a lista: {e}")).size(13.0).color(p.danger));
+        ui.label(
+            RichText::new(format!("Não foi possível atualizar a lista: {e}"))
+                .size(13.0)
+                .color(p.danger),
+        );
         ui.add_space(8.0);
     }
     if !m.loaded {
@@ -849,15 +1024,27 @@ pub fn computers_page(ui: &mut Ui, m: &ComputersModel<'_>, filter: &mut String) 
         return None;
     }
     if !m.has_org {
-        empty_state(ui, "Sua conta ainda não pertence a uma organização.", "Você pode conectar pelo ID em Início.");
+        empty_state(
+            ui,
+            "Sua conta ainda não pertence a uma organização.",
+            "Você pode conectar pelo ID em Início.",
+        );
         return None;
     }
     if m.total == 0 {
-        empty_state(ui, "Nenhum computador cadastrado ainda.", "Os computadores aparecem aqui quando instalam o Aionix Connect com a sua organização.");
+        empty_state(
+            ui,
+            "Nenhum computador cadastrado ainda.",
+            "Os computadores aparecem aqui quando instalam o Aionix Connect com a sua organização.",
+        );
         return None;
     }
     if m.devices.is_empty() {
-        empty_state(ui, "Nenhum computador encontrado.", "Procure pelo nome, pelo cliente ou pelo ID.");
+        empty_state(
+            ui,
+            "Nenhum computador encontrado.",
+            "Procure pelo nome, pelo cliente ou pelo ID.",
+        );
         return None;
     }
     column_header(ui);
@@ -882,9 +1069,17 @@ fn search_field(ui: &mut Ui, filter: &mut String) {
             .desired_width(200.0)
             .min_size(vec2(236.0, 34.0))
             .vertical_align(Align::Center)
-            .margin(Margin { left: 34, right: 10, top: 7, bottom: 7 }),
+            .margin(Margin {
+                left: 34,
+                right: 10,
+                top: 7,
+                bottom: 7,
+            }),
     );
-    let icon = Rect::from_center_size(pos2(r.rect.min.x + 18.0, r.rect.center().y), Vec2::splat(14.0));
+    let icon = Rect::from_center_size(
+        pos2(r.rect.min.x + 18.0, r.rect.center().y),
+        Vec2::splat(14.0),
+    );
     icons::paint(ui.painter(), icon, Icon::Search, p.faint);
 }
 
@@ -915,7 +1110,8 @@ fn device_row(ui: &mut Ui, d: &DeviceModel, columns: bool, stale: bool) -> bool 
     let p = theme::palette(ui);
     let online = d.presence == Presence::Online && !stale;
     let height = if columns { 52.0 } else { 46.0 };
-    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::click());
+    let (rect, response) =
+        ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::click());
     let h = theme::toggle(ui, response.id.with("h"), response.hovered(), 0.12);
     if h > 0.0 {
         ui.painter().rect_filled(
@@ -924,7 +1120,11 @@ fn device_row(ui: &mut Ui, d: &DeviceModel, columns: bool, stale: bool) -> bool 
             p.surface_alt.gamma_multiply(h),
         );
     }
-    ui.painter().hline(rect.x_range(), rect.max.y - 0.5, Stroke::new(1.0, p.hairline));
+    ui.painter().hline(
+        rect.x_range(),
+        rect.max.y - 0.5,
+        Stroke::new(1.0, p.hairline),
+    );
     let cy = rect.center().y;
     let dot = match d.presence {
         _ if stale => p.faint,
@@ -935,26 +1135,58 @@ fn device_row(ui: &mut Ui, d: &DeviceModel, columns: bool, stale: bool) -> bool 
     let center = pos2(rect.min.x + 12.0, cy);
     if d.presence == Presence::Connecting && !stale && !theme::reduced_motion() {
         let t = (ui.input(|i| i.time) * 0.9).fract() as f32;
-        ui.painter().circle_filled(center, 4.0 + 5.0 * theme::ease_out(t), dot.gamma_multiply(0.35 * (1.0 - t)));
+        ui.painter().circle_filled(
+            center,
+            4.0 + 5.0 * theme::ease_out(t),
+            dot.gamma_multiply(0.35 * (1.0 - t)),
+        );
         ui.ctx().request_repaint();
     }
     ui.painter().circle_filled(center, 4.0, dot);
     let text_color = if online { p.text } else { p.muted };
     let name_x = rect.min.x + 26.0;
-    let name = ui.painter().layout_no_wrap(d.name.clone(), theme::semibold(14.0), text_color);
+    let name = ui
+        .painter()
+        .layout_no_wrap(d.name.clone(), theme::semibold(14.0), text_color);
     let name_w = name.size().x;
     if columns {
-        ui.painter().galley(pos2(name_x, cy - name.size().y / 2.0 - if d.customer.is_some() { 8.0 } else { 0.0 }), name, text_color);
+        ui.painter().galley(
+            pos2(
+                name_x,
+                cy - name.size().y / 2.0 - if d.customer.is_some() { 8.0 } else { 0.0 },
+            ),
+            name,
+            text_color,
+        );
         if let Some(c) = &d.customer {
-            ui.painter().text(pos2(name_x, cy + 9.0), Align2::LEFT_CENTER, c, FontId::proportional(12.0), p.faint);
+            ui.painter().text(
+                pos2(name_x, cy + 9.0),
+                Align2::LEFT_CENTER,
+                c,
+                FontId::proportional(12.0),
+                p.faint,
+            );
         }
         let w = rect.width();
         let id_x = rect.min.x + 26.0 + w * COLS[0];
-        ui.painter().text(pos2(id_x, cy), Align2::LEFT_CENTER, &d.id, FontId::proportional(13.5), p.muted);
+        ui.painter().text(
+            pos2(id_x, cy),
+            Align2::LEFT_CENTER,
+            &d.id,
+            FontId::proportional(13.5),
+            p.muted,
+        );
         let sys_x = id_x + w * COLS[1];
-        ui.painter().text(pos2(sys_x, cy), Align2::LEFT_CENTER, &d.system, FontId::proportional(13.0), p.muted);
+        ui.painter().text(
+            pos2(sys_x, cy),
+            Align2::LEFT_CENTER,
+            &d.system,
+            FontId::proportional(13.0),
+            p.muted,
+        );
     } else {
-        ui.painter().galley(pos2(name_x, cy - name.size().y / 2.0), name, text_color);
+        ui.painter()
+            .galley(pos2(name_x, cy - name.size().y / 2.0), name, text_color);
         ui.painter().text(
             pos2(name_x + name_w + 12.0, cy),
             Align2::LEFT_CENTER,
@@ -965,7 +1197,10 @@ fn device_row(ui: &mut Ui, d: &DeviceModel, columns: bool, stale: bool) -> bool 
     }
     if d.this_computer {
         let (x, y) = if columns {
-            (name_x + name_w + 10.0, if d.customer.is_some() { cy - 8.0 } else { cy })
+            (
+                name_x + name_w + 10.0,
+                if d.customer.is_some() { cy - 8.0 } else { cy },
+            )
         } else {
             let id_w = ui
                 .painter()
@@ -974,22 +1209,43 @@ fn device_row(ui: &mut Ui, d: &DeviceModel, columns: bool, stale: bool) -> bool 
                 .x;
             (name_x + name_w + 12.0 + id_w + 12.0, cy)
         };
-        ui.painter().text(pos2(x, y), Align2::LEFT_CENTER, "este computador", FontId::proportional(12.0), p.accent_text);
+        ui.painter().text(
+            pos2(x, y),
+            Align2::LEFT_CENTER,
+            "este computador",
+            FontId::proportional(12.0),
+            p.accent_text,
+        );
     }
     // Trailing, on one right edge: Conectar for online computers, the last-seen time
     // for the rest. The button's label ends where the text does (16 px padding).
     let mut clicked = false;
     let right = Rect::from_min_max(pos2(rect.max.x - 140.0, rect.min.y), rect.max);
     if d.presence == Presence::Online {
-        let mut child = ui.new_child(UiBuilder::new().max_rect(right).layout(Layout::right_to_left(Align::Center)));
+        let mut child = ui.new_child(
+            UiBuilder::new()
+                .max_rect(right)
+                .layout(Layout::right_to_left(Align::Center)),
+        );
         let r = theme::button(&mut child, Kind::Quiet, None, "Conectar", !stale, None);
-        clicked |= r.on_disabled_hover_text("Sem conexão com o servidor. A lista volta quando a conexão voltar.").clicked() && !stale;
+        clicked |= r
+            .on_disabled_hover_text(
+                "Sem conexão com o servidor. A lista volta quando a conexão voltar.",
+            )
+            .clicked()
+            && !stale;
     } else {
         let text = match d.presence {
             Presence::Connecting => "conectando…".to_owned(),
             _ => d.seen.clone().unwrap_or_else(|| "offline".into()),
         };
-        ui.painter().text(pos2(rect.max.x - 16.0, cy), Align2::RIGHT_CENTER, text, FontId::proportional(12.5), p.faint);
+        ui.painter().text(
+            pos2(rect.max.x - 16.0, cy),
+            Align2::RIGHT_CENTER,
+            text,
+            FontId::proportional(12.5),
+            p.faint,
+        );
     }
     if online && response.double_clicked() {
         clicked = true;
@@ -1050,7 +1306,8 @@ pub fn login_sheet(
     let dark = ctx.global_style().visuals.dark_mode;
     let p = if dark { theme::DARK } else { theme::LIGHT };
     let backdrop = Color32::from_black_alpha((if dark { 140.0 } else { 80.0 } * t) as u8);
-    let area = egui::Modal::default_area(id.with("area")).anchor(Align2::CENTER_CENTER, vec2(0.0, (1.0 - t) * 14.0));
+    let area = egui::Modal::default_area(id.with("area"))
+        .anchor(Align2::CENTER_CENTER, vec2(0.0, (1.0 - t) * 14.0));
     let response = egui::Modal::new(id.with("modal"))
         .area(area)
         .backdrop_color(backdrop)
@@ -1067,14 +1324,23 @@ pub fn login_sheet(
             };
             ui.label(RichText::new(detail).size(13.5).color(p.muted));
             ui.add_space(14.0);
-            ui.label(RichText::new("E-mail").size(theme::SIZE_SMALL).color(p.muted));
+            ui.label(
+                RichText::new("E-mail")
+                    .size(theme::SIZE_SMALL)
+                    .color(p.muted),
+            );
             let (e, e_enter) = field(ui, email, "voce@empresa.com.br", 340.0, false, !working);
             ui.add_space(6.0);
-            ui.label(RichText::new("Senha").size(theme::SIZE_SMALL).color(p.muted));
+            ui.label(
+                RichText::new("Senha")
+                    .size(theme::SIZE_SMALL)
+                    .color(p.muted),
+            );
             let (pw, pw_enter) = field(ui, password, "", 340.0, true, !working);
             if email.is_empty() && !e.has_focus() && !pw.has_focus() {
                 e.request_focus();
-            } else if !email.is_empty() && password.is_empty() && !e.has_focus() && !pw.has_focus() {
+            } else if !email.is_empty() && password.is_empty() && !e.has_focus() && !pw.has_focus()
+            {
                 pw.request_focus();
             }
             if let Some(err) = m.error {
@@ -1150,13 +1416,30 @@ pub fn session_toolbar(
     let mut action = None;
     let full = ui.max_rect();
     ui.painter().rect_filled(full, 0.0, p.sidebar);
-    ui.painter().hline(full.x_range(), full.max.y - 0.5, Stroke::new(1.0, p.hairline));
+    ui.painter().hline(
+        full.x_range(),
+        full.max.y - 0.5,
+        Stroke::new(1.0, p.hairline),
+    );
     let inner = full.shrink2(vec2(12.0, 0.0));
-    let mut ui = ui.new_child(UiBuilder::new().max_rect(inner).layout(Layout::left_to_right(Align::Center)));
+    let mut ui = ui.new_child(
+        UiBuilder::new()
+            .max_rect(inner)
+            .layout(Layout::left_to_right(Align::Center)),
+    );
     let ui = &mut ui;
     ui.spacing_mut().item_spacing.x = 10.0;
     if m.terminal {
-        if theme::button(ui, Kind::Ghost, Some(Icon::ChevronLeft), "Início", true, None).clicked() {
+        if theme::button(
+            ui,
+            Kind::Ghost,
+            Some(Icon::ChevronLeft),
+            "Início",
+            true,
+            None,
+        )
+        .clicked()
+        {
             action = Some(ToolbarAction::Leave);
         }
     } else {
@@ -1166,7 +1449,11 @@ pub fn session_toolbar(
         ui.spacing_mut().item_spacing.y = 0.0;
         ui.add_space(3.0);
         ui.add(egui::Label::new(theme::title(m.title, 14.0)).truncate());
-        ui.label(RichText::new(format!("ID {}", m.id)).size(theme::SIZE_CAPTION).color(p.faint));
+        ui.label(
+            RichText::new(format!("ID {}", m.id))
+                .size(theme::SIZE_CAPTION)
+                .color(p.faint),
+        );
     });
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 6.0;
@@ -1194,15 +1481,29 @@ pub fn session_toolbar(
         if theme::icon_button(ui, fs_icon, fs_tip, false, true).clicked() {
             action = Some(ToolbarAction::Fullscreen);
         }
-        if theme::icon_button(ui, Icon::Pulse, "Diagnóstico da sessão", *diagnostics, true).clicked() {
+        if theme::icon_button(ui, Icon::Pulse, "Diagnóstico da sessão", *diagnostics, true)
+            .clicked()
+        {
             *diagnostics = !*diagnostics;
         }
         let tip = if m.can_control {
-            if *control { "Controle ligado: mouse e teclado vão para o computador remoto" } else { "Ligar controle (mouse e teclado)" }
+            if *control {
+                "Controle ligado: mouse e teclado vão para o computador remoto"
+            } else {
+                "Ligar controle (mouse e teclado)"
+            }
         } else {
             "Sem permissão de controle"
         };
-        if theme::icon_button(ui, Icon::Pointer, tip, *control && m.can_control, m.can_control && !m.terminal).clicked() {
+        if theme::icon_button(
+            ui,
+            Icon::Pointer,
+            tip,
+            *control && m.can_control,
+            m.can_control && !m.terminal,
+        )
+        .clicked()
+        {
             *control = !*control;
             if !*control {
                 action = Some(ToolbarAction::ControlOff);
@@ -1226,26 +1527,33 @@ pub fn session_overlay(ui: &mut Ui, area: Rect, m: &OverlayModel<'_>) {
     let t = theme::entrance(ui, Id::new(("overlay", m.headline)), 0.0, 0.3);
     let size = vec2(400.0, 176.0);
     let rect = Rect::from_center_size(area.center() + vec2(0.0, (1.0 - t) * 8.0), size);
-    let mut child = ui.new_child(UiBuilder::new().max_rect(rect).layout(Layout::top_down(Align::Center)));
+    let mut child = ui.new_child(
+        UiBuilder::new()
+            .max_rect(rect)
+            .layout(Layout::top_down(Align::Center)),
+    );
     child.multiply_opacity(t);
-    theme::sheet(&p).inner_margin(Margin::same(28)).show(&mut child, |ui| {
-        ui.set_width(size.x - 56.0);
-        ui.vertical_centered(|ui| {
-            if m.busy {
-                spinner(ui, 26.0);
-            } else {
-                let (r, _) = ui.allocate_exact_size(Vec2::splat(26.0), Sense::hover());
-                let c = m.tone.color(&p);
-                ui.painter().circle_filled(r.center(), 13.0, c.gamma_multiply(0.15));
-                ui.painter().circle_filled(r.center(), 4.5, c);
-            }
-            ui.add_space(8.0);
-            ui.label(theme::title(m.headline, 17.0));
-            if !m.detail.is_empty() {
-                ui.label(RichText::new(m.detail).size(13.5).color(p.muted));
-            }
+    theme::sheet(&p)
+        .inner_margin(Margin::same(28))
+        .show(&mut child, |ui| {
+            ui.set_width(size.x - 56.0);
+            ui.vertical_centered(|ui| {
+                if m.busy {
+                    spinner(ui, 26.0);
+                } else {
+                    let (r, _) = ui.allocate_exact_size(Vec2::splat(26.0), Sense::hover());
+                    let c = m.tone.color(&p);
+                    ui.painter()
+                        .circle_filled(r.center(), 13.0, c.gamma_multiply(0.15));
+                    ui.painter().circle_filled(r.center(), 4.5, c);
+                }
+                ui.add_space(8.0);
+                ui.label(theme::title(m.headline, 17.0));
+                if !m.detail.is_empty() {
+                    ui.label(RichText::new(m.detail).size(13.5).color(p.muted));
+                }
+            });
         });
-    });
 }
 
 /// Thin notice under the toolbar (local self-test).
@@ -1274,12 +1582,16 @@ pub fn shell(
     ui.painter().rect_filled(full, 0.0, p.bg);
     let side_rect = Rect::from_min_size(full.min, vec2(SIDEBAR_WIDTH, full.height()));
     let content = Rect::from_min_max(pos2(full.min.x + SIDEBAR_WIDTH, full.min.y), full.max);
-    let action = sidebar(&mut ui.new_child(UiBuilder::new().max_rect(side_rect)), side);
+    let action = sidebar(
+        &mut ui.new_child(UiBuilder::new().max_rect(side_rect)),
+        side,
+    );
 
     let key = Id::new("page-transition");
     let shown: Option<Page> = ui.ctx().data(|d| d.get_temp(key.with("page")));
     if shown != Some(side.page) {
-        ui.ctx().data_mut(|d| d.insert_temp(key.with("page"), side.page));
+        ui.ctx()
+            .data_mut(|d| d.insert_temp(key.with("page"), side.page));
         theme::restart(ui, key);
     }
     let t = theme::entrance(ui, key, 0.0, 0.32);
@@ -1327,7 +1639,6 @@ pub fn home_page(
         });
     out
 }
-
 
 // ------------------------------------------------------------------ sheets
 

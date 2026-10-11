@@ -22,10 +22,10 @@ mod app {
     use std::{path::PathBuf, time::Duration, time::Instant};
 
     use aionix_desktop::{
+        admin_side::AdminSide,
         common,
         host_side::{HostOptions, HostSide},
         icon,
-        admin_side::AdminSide,
         tech_side::{TechOptions, TechSide},
         theme, updater, views,
     };

@@ -58,9 +58,8 @@ fn parse_refresh(token: &str) -> Option<(Uuid, String)> {
 }
 
 pub async fn load_profile(db: &PgPool, user_id: Uuid) -> Result<UserProfile, sqlx::Error> {
-    let (email, display_name, must_change_password): (String, String, bool) = sqlx::query_as(
-        "SELECT email, display_name, must_change_password FROM users WHERE id = $1",
-    )
+    let (email, display_name, must_change_password): (String, String, bool) =
+        sqlx::query_as("SELECT email, display_name, must_change_password FROM users WHERE id = $1")
             .bind(user_id)
             .fetch_one(db)
             .await?;

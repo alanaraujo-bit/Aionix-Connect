@@ -103,7 +103,11 @@ async fn member(db: &PgPool, org: Uuid, user: Uuid) -> Result<Option<MemberRow>,
     .await
 }
 
-pub(crate) async fn role_in(db: &PgPool, org: Uuid, user: Uuid) -> Result<Option<OrgRole>, sqlx::Error> {
+pub(crate) async fn role_in(
+    db: &PgPool,
+    org: Uuid,
+    user: Uuid,
+) -> Result<Option<OrgRole>, sqlx::Error> {
     let role: Option<String> =
         sqlx::query_scalar("SELECT role FROM memberships WHERE org_id = $1 AND user_id = $2")
             .bind(org)
@@ -114,7 +118,11 @@ pub(crate) async fn role_in(db: &PgPool, org: Uuid, user: Uuid) -> Result<Option
 }
 
 /// Enabled owners of `org` other than `except`.
-pub(crate) async fn other_enabled_owners(db: &PgPool, org: Uuid, except: Uuid) -> Result<i64, sqlx::Error> {
+pub(crate) async fn other_enabled_owners(
+    db: &PgPool,
+    org: Uuid,
+    except: Uuid,
+) -> Result<i64, sqlx::Error> {
     sqlx::query_scalar(
         "SELECT count(*) FROM memberships m JOIN users u ON u.id = m.user_id
          WHERE m.org_id = $1 AND m.role = 'owner' AND m.user_id <> $2 AND u.disabled_at IS NULL",
@@ -133,7 +141,13 @@ async fn manageable(
     org: Uuid,
     target: Uuid,
 ) -> ApiResult<MemberRow> {
-    limit(state, "admin-user", &caller.user_id.to_string(), limits::ADMIN_PER_USER).await?;
+    limit(
+        state,
+        "admin-user",
+        &caller.user_id.to_string(),
+        limits::ADMIN_PER_USER,
+    )
+    .await?;
     require(state, ctx, caller, org, Permission::MemberManage).await?;
     if target == caller.user_id {
         return Err(ApiFailure::forbidden(
@@ -223,7 +237,13 @@ pub async fn create_account(
     Path(org): Path<Uuid>,
     Json(req): Json<CreateAccountRequest>,
 ) -> ApiResult<Json<CreatedAccount>> {
-    limit(&state, "admin-user", &user.user_id.to_string(), limits::ADMIN_PER_USER).await?;
+    limit(
+        &state,
+        "admin-user",
+        &user.user_id.to_string(),
+        limits::ADMIN_PER_USER,
+    )
+    .await?;
     require(&state, &ctx, &user, org, Permission::MemberManage).await?;
     let caller_role = role_in(&state.db, org, user.user_id)
         .await?
@@ -349,7 +369,13 @@ pub async fn sign_out(
 ) -> ApiResult<Json<SignOutResult>> {
     let row = manageable(&state, &ctx, &user, org, target).await?;
     let revoked = revoke_logins(&state.db, row.id, "signed_out_by_admin").await?;
-    let ended = end_sessions(&state, "technician_user_id = $1", row.id, "signed_out_by_admin").await?;
+    let ended = end_sessions(
+        &state,
+        "technician_user_id = $1",
+        row.id,
+        "signed_out_by_admin",
+    )
+    .await?;
     AuditRecord::new(action::USER_SIGNED_OUT, Outcome::Success)
         .user(user.user_id)
         .org(Some(org))
@@ -382,13 +408,21 @@ pub async fn disable(
     .execute(&state.db)
     .await?;
     let revoked = revoke_logins(&state.db, row.id, "account_disabled").await?;
-    let ended = end_sessions(&state, "technician_user_id = $1", row.id, "account_disabled").await?;
+    let ended = end_sessions(
+        &state,
+        "technician_user_id = $1",
+        row.id,
+        "account_disabled",
+    )
+    .await?;
     AuditRecord::new(action::USER_DISABLED, Outcome::Success)
         .user(user.user_id)
         .org(Some(org))
         .target_user(row.id)
         .client(ctx.ip(), ctx.rid())
-        .details(json!({"revoked_logins": revoked, "ended_sessions": ended.len(), "via": "admin_panel"}))
+        .details(
+            json!({"revoked_logins": revoked, "ended_sessions": ended.len(), "via": "admin_panel"}),
+        )
         .write(&state.db)
         .await?;
     Ok(Json(SignOutResult {
@@ -484,7 +518,10 @@ pub async fn sessions(
                     technician_name: r.technician_name,
                     mode: AccessMode::parse(&r.mode).unwrap_or(AccessMode::Assisted),
                     status: r.status,
-                    transport: r.transport.as_deref().and_then(super::sessions::parse_transport),
+                    transport: r
+                        .transport
+                        .as_deref()
+                        .and_then(super::sessions::parse_transport),
                     requested_at: r.requested_at,
                     connected_at: r.connected_at,
                     ended_at: r.ended_at,
@@ -502,12 +539,19 @@ pub async fn terminate(
     user: AuthUser,
     Path((org, session)): Path<(Uuid, Uuid)>,
 ) -> ApiResult<StatusCode> {
-    limit(&state, "admin-user", &user.user_id.to_string(), limits::ADMIN_PER_USER).await?;
+    limit(
+        &state,
+        "admin-user",
+        &user.user_id.to_string(),
+        limits::ADMIN_PER_USER,
+    )
+    .await?;
     require(&state, &ctx, &user, org, Permission::SessionTerminate).await?;
-    let owner: Option<Option<Uuid>> = sqlx::query_scalar("SELECT org_id FROM sessions WHERE id = $1")
-        .bind(session)
-        .fetch_optional(&state.db)
-        .await?;
+    let owner: Option<Option<Uuid>> =
+        sqlx::query_scalar("SELECT org_id FROM sessions WHERE id = $1")
+            .bind(session)
+            .fetch_optional(&state.db)
+            .await?;
     if owner.flatten() != Some(org) {
         return Err(ApiFailure::not_found("no such session"));
     }

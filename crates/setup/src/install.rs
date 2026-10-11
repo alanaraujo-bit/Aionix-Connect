@@ -279,8 +279,7 @@ pub fn launch(exe: &Path, minimized: bool) -> Result<(), String> {
     if minimized {
         cmd.arg("--minimized");
     }
-    cmd
-        .current_dir(exe.parent().unwrap_or(Path::new(".")))
+    cmd.current_dir(exe.parent().unwrap_or(Path::new(".")))
         .spawn()
         .map(|_| ())
         .map_err(|e| format!("Não foi possível abrir o aplicativo: {e}"))

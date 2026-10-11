@@ -11,6 +11,9 @@
 //! Nothing here authorizes anything by itself: tickets come from the Control Plane
 //! (`ControlPlaneAuthority`) and the host user's visible approval is always required.
 
+#[cfg(windows)]
+pub mod admin_side;
+pub mod admin_views;
 pub mod common;
 #[cfg(windows)]
 pub mod host_side;
@@ -23,6 +26,3 @@ pub mod theme;
 pub mod updater;
 pub mod video;
 pub mod views;
-pub mod admin_views;
-#[cfg(windows)]
-pub mod admin_side;
