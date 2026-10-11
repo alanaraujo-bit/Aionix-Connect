@@ -225,17 +225,11 @@ mod app {
         /// (how the app starts with Windows; eframe then skips `ui`): work that must not
         /// wait for the window to be shown.
         fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-            self.tech.set_own_id(self.host.friendly());
-            self.tech.poll(ctx);
-            self.apply_update_when_idle(ctx);
-            ctx.request_repaint_after(Duration::from_millis(500));
-        }
-
-        fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-            let ctx = ui.ctx().clone();
             // Started with Windows: show on the first frame, then ask to minimize until the
             // window reports it is minimized (Windows ignores minimizing a window that is
-            // not shown yet, and how soon it is shown varies). Gives up after ~3 s.
+            // not shown yet, and how soon it is shown varies). Gives up after ~3 s. Here
+            // and not in `ui`, which never sees the minimized window: the attempts would
+            // stay pending and minimize the window again when the user opens it.
             if self.start_minimized > 0 {
                 let minimized = ctx.input(|i| i.viewport().minimized) == Some(true);
                 if minimized {
@@ -250,6 +244,14 @@ mod app {
                     ctx.request_repaint_after(Duration::from_millis(50));
                 }
             }
+            self.tech.set_own_id(self.host.friendly());
+            self.tech.poll(ctx);
+            self.apply_update_when_idle(ctx);
+            ctx.request_repaint_after(Duration::from_millis(500));
+        }
+
+        fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+            let ctx = ui.ctx().clone();
             if ctx.input(|i| !i.events.is_empty() || i.pointer.is_moving()) {
                 self.last_input = Instant::now();
             }
