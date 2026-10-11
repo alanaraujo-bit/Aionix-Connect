@@ -221,6 +221,16 @@ mod app {
     const IDLE_BEFORE_UPDATE: Duration = Duration::from_secs(120);
 
     impl eframe::App for App {
+        /// Runs before every frame and, unlike `ui`, also while the window is minimized
+        /// (how the app starts with Windows; eframe then skips `ui`): work that must not
+        /// wait for the window to be shown.
+        fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+            self.tech.set_own_id(self.host.friendly());
+            self.tech.poll(ctx);
+            self.apply_update_when_idle(ctx);
+            ctx.request_repaint_after(Duration::from_millis(500));
+        }
+
         fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
             let ctx = ui.ctx().clone();
             // Started with Windows: show on the first frame, then ask to minimize until the
@@ -243,15 +253,11 @@ mod app {
             if ctx.input(|i| !i.events.is_empty() || i.pointer.is_moving()) {
                 self.last_input = Instant::now();
             }
-            self.tech.set_own_id(self.host.friendly());
-            self.tech.poll(&ctx);
             if self.tech.in_session() {
                 self.tech.session_view(ui);
             } else {
                 self.home(ui);
             }
-            self.apply_update_when_idle(&ctx);
-            ctx.request_repaint_after(Duration::from_millis(500));
         }
 
         fn on_exit(&mut self) {
@@ -272,7 +278,8 @@ mod app {
                 return;
             }
             self.applying_update = true;
-            match self.updater.apply() {
+            let minimized = ctx.input(|i| i.viewport().minimized) == Some(true);
+            match self.updater.apply(minimized) {
                 Ok(()) => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
                 Err(e) => warn!(error = %e, "update not applied"),
             }
@@ -356,7 +363,7 @@ mod app {
                 }
                 Some(views::SidebarAction::ChangePassword) => self.tech.open_password_change(),
                 Some(views::SidebarAction::CheckUpdates) => self.updater.check_now(),
-                Some(views::SidebarAction::RestartToUpdate) => match self.updater.apply() {
+                Some(views::SidebarAction::RestartToUpdate) => match self.updater.apply(false) {
                     Ok(()) => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
                     Err(e) => warn!(error = %e, "update not applied"),
                 },

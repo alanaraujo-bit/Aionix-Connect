@@ -274,8 +274,12 @@ pub fn wait_for_pid(pid: u32, timeout: Duration) {
 }
 
 /// Starts the installed app detached from the setup.
-pub fn launch(exe: &Path) -> Result<(), String> {
-    std::process::Command::new(exe)
+pub fn launch(exe: &Path, minimized: bool) -> Result<(), String> {
+    let mut cmd = std::process::Command::new(exe);
+    if minimized {
+        cmd.arg("--minimized");
+    }
+    cmd
         .current_dir(exe.parent().unwrap_or(Path::new(".")))
         .spawn()
         .map(|_| ())

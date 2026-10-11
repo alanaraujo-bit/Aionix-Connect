@@ -3,7 +3,8 @@
 //!   aionix-setup.exe                         themed installer
 //!   aionix-setup.exe --silent                install without UI
 //!   aionix-setup.exe --update --wait-pid N   started by the app's updater: waits for the
-//!                                            app to exit, installs, starts the new version
+//!                    [--minimized]           app to exit, installs, starts the new version
+//!                                            (minimized again if it was, without focus)
 //!   Desinstalar.exe --uninstall [--quiet]    uninstaller (Apps & features)
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
@@ -58,6 +59,8 @@ struct SetupApp {
     shown_fraction: f32,
     started: Instant,
     app_exe: Option<PathBuf>,
+    /// Update of an app that sat minimized: reopen it minimized.
+    relaunch_minimized: bool,
 }
 
 fn main() {
@@ -104,9 +107,11 @@ fn main() {
         Mode::Update => format!("Atualizando {}", product.display),
         Mode::Uninstall => format!("Desinstalar {}", product.display),
     };
+    let relaunch_minimized = mode == Mode::Update && has("--minimized");
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title(&title)
+            .with_active(!relaunch_minimized)
             .with_inner_size(size)
             .with_resizable(false)
             .with_maximize_button(false)
@@ -134,6 +139,7 @@ fn main() {
                 shown_fraction: 0.0,
                 started: Instant::now(),
                 app_exe: None,
+                relaunch_minimized,
             };
             if mode == Mode::Update {
                 app.start(cc.egui_ctx.clone());
@@ -238,7 +244,7 @@ impl SetupApp {
                 self.page = Page::Done;
                 if self.mode == Mode::Update {
                     if let Some(exe) = &self.app_exe {
-                        let _ = install::launch(exe);
+                        let _ = install::launch(exe, self.relaunch_minimized);
                     }
                     ctx.send_viewport_cmd(ViewportCommand::Close);
                 }
@@ -608,7 +614,7 @@ impl SetupApp {
             };
             if theme::primary_button(ui, &label, true, None).clicked() {
                 if open && let Some(exe) = &self.app_exe {
-                    let _ = install::launch(exe);
+                    let _ = install::launch(exe, false);
                 }
                 ui.ctx().send_viewport_cmd(ViewportCommand::Close);
             }

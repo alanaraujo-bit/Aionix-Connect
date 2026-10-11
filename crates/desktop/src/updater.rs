@@ -130,8 +130,9 @@ impl Updater {
     }
 
     /// Starts the verified setup in update mode. On success the caller must close the
-    /// app right away (the setup waits for this process to exit).
-    pub fn apply(&self) -> Result<(), String> {
+    /// app right away (the setup waits for this process to exit). `minimized`: the
+    /// window was minimized, so the new version starts minimized too.
+    pub fn apply(&self, minimized: bool) -> Result<(), String> {
         let Phase::Ready {
             manifest,
             installer,
@@ -150,11 +151,14 @@ impl Updater {
             }
         }
         info!(version = %manifest.version, "applying update");
-        std::process::Command::new(&installer)
-            .arg("--update")
+        let mut cmd = std::process::Command::new(&installer);
+        cmd.arg("--update")
             .arg("--wait-pid")
-            .arg(std::process::id().to_string())
-            .spawn()
+            .arg(std::process::id().to_string());
+        if minimized {
+            cmd.arg("--minimized");
+        }
+        cmd.spawn()
             .map(|_| ())
             .map_err(|e| format!("não foi possível iniciar o instalador: {e}"))
     }
