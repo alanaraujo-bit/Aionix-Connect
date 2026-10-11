@@ -196,7 +196,7 @@ dependencies = [
 
 [[package]]
 name = "aionix-brand"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "serde",
  "serde_json",
@@ -204,7 +204,7 @@ dependencies = [
 
 [[package]]
 name = "aionix-capture"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "thiserror 2.0.21",
  "tracing",
@@ -214,7 +214,7 @@ dependencies = [
 
 [[package]]
 name = "aionix-client"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "aionix-control-api",
  "aionix-control-plane",
@@ -246,7 +246,7 @@ dependencies = [
 
 [[package]]
 name = "aionix-codec"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "aionix-capture",
  "thiserror 2.0.21",
@@ -257,7 +257,7 @@ dependencies = [
 
 [[package]]
 name = "aionix-control-api"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "aionix-crypto",
  "aionix-shared",
@@ -269,7 +269,7 @@ dependencies = [
 
 [[package]]
 name = "aionix-control-plane"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "aionix-control-api",
  "aionix-control-plane",
@@ -299,7 +299,7 @@ dependencies = [
 
 [[package]]
 name = "aionix-crypto"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "base64 0.22.1",
  "ed25519-dalek",
@@ -316,7 +316,7 @@ dependencies = [
 
 [[package]]
 name = "aionix-desktop"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "aionix-brand",
  "aionix-capture",
@@ -352,7 +352,7 @@ dependencies = [
 
 [[package]]
 name = "aionix-input"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "thiserror 2.0.21",
  "tracing",
@@ -361,7 +361,7 @@ dependencies = [
 
 [[package]]
 name = "aionix-platform"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "aionix-brand",
  "thiserror 2.0.21",
@@ -371,7 +371,7 @@ dependencies = [
 
 [[package]]
 name = "aionix-protocol"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "bytes",
  "prost",
@@ -383,7 +383,7 @@ dependencies = [
 
 [[package]]
 name = "aionix-relay"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "aionix-control-api",
  "aionix-control-plane",
@@ -407,7 +407,7 @@ dependencies = [
 
 [[package]]
 name = "aionix-remote-core"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "aionix-brand",
  "aionix-capture",
@@ -436,7 +436,7 @@ dependencies = [
 
 [[package]]
 name = "aionix-server-common"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "aionix-crypto",
  "axum",
@@ -456,7 +456,7 @@ dependencies = [
 
 [[package]]
 name = "aionix-setup"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "aionix-brand",
  "aionix-desktop",
@@ -472,7 +472,7 @@ dependencies = [
 
 [[package]]
 name = "aionix-shared"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "rand 0.10.3",
  "serde",
@@ -482,7 +482,7 @@ dependencies = [
 
 [[package]]
 name = "aionix-signaling"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "aionix-control-api",
  "aionix-control-plane",
@@ -507,7 +507,7 @@ dependencies = [
 
 [[package]]
 name = "aionix-transport"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "aionix-control-api",
  "aionix-crypto",
@@ -524,7 +524,7 @@ dependencies = [
 
 [[package]]
 name = "aionix-update"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "aionix-crypto",
  "anyhow",
