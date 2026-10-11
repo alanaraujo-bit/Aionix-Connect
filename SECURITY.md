@@ -70,7 +70,9 @@ local approval. Account disabling revokes all logins.
 API (Redis fixed windows shared by instances, local fallback if Redis fails): global
 600/min per IP; login 20/min per IP and 10/min per account; refresh 60/min per IP;
 challenges and device logins 60/min per IP; registrations 30/h per IP (quick support
-10/h); session requests 30/min per user; lookups 60/min per user. Signaling: 30
+10/h); session requests 30/min per user; lookups 60/min per user; administration (create,
+reset, sign-out, disable, enable, terminate) 30/min per user; own password changes
+5/min per user. Signaling: 30
 connection attempts/min per IP, 20 messages/s per link, 16 KiB per message. Relay:
 connection attempts per IP (default 120/min), connection cap, optional bandwidth cap.
 Client IPs come from `X-Forwarded-For` only when the peer is a trusted proxy.
@@ -82,10 +84,12 @@ Client IPs come from `X-Forwarded-For` only when the peer is a trusted proxy.
 | Action | When |
 | --- | --- |
 | `auth.login` (success/failure/denied), `auth.logout`, `auth.logout_all` | user authentication |
+| `auth.password_changed` (success/failure) | own password change (other logins signed out) |
 | `auth.account_locked`, `auth.refresh_reuse` (security) | defensive events |
 | `device.enrolled`, `device.enroll_refused` (security), `device.login_refused` (security) | enrollment / device login |
 | `device.revoked` | revocation |
 | `enrollment.token_created`, `member.upserted`, `org.created`, `user.created`, `user.disabled` | administration |
+| `user.enabled`, `user.signed_out`, `user.password_reset`, `user.email_changed`, `session.terminated` | administration panel and `aionix-admin` |
 | `permission.denied` | any refused permission, workstation mismatch, non-peer session report |
 | `session.requested` (success/denied), `session.ticket_issued`, `session.offer_answered` | ticket flow |
 | `session.approved`, `session.rejected` | host user's consent decision (reported by the host) |
@@ -93,8 +97,30 @@ Client IPs come from `X-Forwarded-For` only when the peer is a trusted proxy.
 | `signaling.refused` (security) | revoked device trying to connect |
 
 Records hold ids, outcome, client IP, request id and small metadata — never passwords,
-tokens, keys, clipboard text or screen content (a test checks that a password typed at
-login does not appear in audit details).
+tokens, keys, clipboard text or screen content (tests check that a password typed at
+login, a temporary password and a new password never appear in audit details).
+
+## Administration panel (owners and admins)
+
+Accounts are created from the app by an organization's owners and admins; there is
+still no public sign-up. The server enforces (tests in
+`crates/control-plane/tests/admin.rs`):
+
+- every route checks one permission in the organization of the path (`member.manage`,
+  `audit.view`, and `session.view_all` / `session.terminate`, held by admins and owners);
+- account-wide actions (reset password, sign out everywhere, disable, enable) only reach
+  members of that organization who belong to no other organization, never the caller,
+  and never someone of equal or higher role unless the caller is an owner; a new
+  account's role cannot exceed the caller's; only owners grant `owner`; the last enabled
+  owner can be neither disabled nor demoted;
+- new and reset accounts get a server-generated temporary password (16 symbols without
+  look-alikes, ~82 bits), returned once and never logged or audited; until the account
+  chooses its own (`POST /v1/auth/password`, current password required, 12+ characters,
+  every other login signed out) the server refuses its session requests and technician
+  workstation registration, whatever client it uses;
+- disabling or signing out an account revokes its logins and ends its live sessions;
+  ending a session tells both computers (`SessionRevoked`), and app versions from 0.2.6
+  stop it at once.
 
 ## Logging
 

@@ -366,6 +366,17 @@ Buttons are calm and sit firmly in place.
 ### Icons
 - 19 line icons are drawn as vectors on a 16-unit grid: Home, Computers, Copy, Check, Search, User, SignOut, Pointer, Pulse, Fullscreen, ExitFullscreen, Chevron Left/Right/Down, Refresh, Download, Lock, Close and Phone. All use one stroke of 1.5 units (at least 1.25 px) with round caps, and none are filled. They are drawn at 12–16 px in controls, 20 px in banners and 28 px in empty states. Their ink follows the text ladder (Muted at rest, Link Blue when active or selected, Faint for tertiary hints). No emoji and no glyphs from icon fonts.
 
+### Administration panel
+Shown in the sidebar as "Administração" (Shield icon) only to owners and admins.
+- **Tabs:** Contas, Sessões, Histórico as underlined text tabs on a hairline; the 2 px Action Blue underline slides to the selected tab (0.22 s, off under reduced motion).
+- **Tables:** the device-row grammar: 58 px rows (42 px in Histórico), hairline between, hover fill, column labels in 12 px Faint. Accounts show name over e-mail, role, a state dot (Earned Green active, amber "Senha temporária", Faint "Desativada") and the last access; your own row carries "você" in Link Blue and no menu.
+- **Row menu:** a More icon button opens a popup (232 px) of 32 px entries with a 14 px icon; groups separated by hairlines; the destructive entry ("Desativar conta") is red.
+- **Destructive row action:** `Kind::QuietDanger` (red text, soft red fill on hover), used for "Encerrar" on live sessions.
+- **Role choice:** 44 px radio rows (name in 13.5 semibold, what the role allows in 12 px Muted); the selected one takes the Selection Wash.
+- **Temporary password sheet:** shown once after creating or resetting an account; e-mail and password on a Control Fill panel (password at 20 px semibold), "Copiar e-mail e senha" then "Concluir".
+- **Confirmation sheet:** title as a question, one sentence of consequence, Ghost "Cancelar" and the action (Danger when it locks someone out or ends a session).
+- **Password sheets:** "Alterar senha" (current, new, repeat) from the Key icon in the account row; "Crie sua senha" (new, repeat; "Sair" is the only way out) right after signing in with a temporary password. Inline hints: 12+ characters, both equal.
+
 ### Consent prompt (Win32)
 The same visual language, painted with GDI+ and ClearType in a native top-most window that follows the Windows light/dark setting. The caption, caption text and border take the prompt's colors, and the window has Windows 11 rounded corners.
 - **Layout:** 460 px wide with 28 px padding. The 40 px mark sits beside the heading (Segoe UI 600, 18 px). Next comes an identity block: a panel-colored rounded box holding a 36 px Selection Wash circle with Link Blue initials, the requester's name (600, 15 px) and a Small Muted line with e-mail and organization. Then the body (14 px, Muted) and the caution line, emphasized (600, 14 px, Ink, "Permita somente se você reconhece esta solicitação."). Then the countdown text (Small, Faint) above a 3 px bar that empties toward the left. Buttons are 36 px tall and at least 108 px wide, with Recusar to the left of Permitir.
