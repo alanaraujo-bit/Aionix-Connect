@@ -52,7 +52,7 @@
   "redirects": [
     {
       "source": "/download",
-      "destination": "/releases/0.2.3/Aionix-Connect-Setup-0.2.3.exe",
+      "destination": "/releases/0.2.4/Aionix-Connect-Setup-0.2.4.exe",
       "permanent": false
     }
   ]
