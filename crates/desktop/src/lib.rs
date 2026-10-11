@@ -23,3 +23,6 @@ pub mod theme;
 pub mod updater;
 pub mod video;
 pub mod views;
+pub mod admin_views;
+#[cfg(windows)]
+pub mod admin_side;

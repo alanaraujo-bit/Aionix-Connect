@@ -25,6 +25,7 @@ mod app {
         common,
         host_side::{HostOptions, HostSide},
         icon,
+        admin_side::AdminSide,
         tech_side::{TechOptions, TechSide},
         theme, updater, views,
     };
@@ -187,6 +188,7 @@ mod app {
                     page: views::Page::Home,
                     computers_after_login: false,
                     start_minimized: if args.minimized { MINIMIZE_ATTEMPTS } else { 0 },
+                    admin: AdminSide::new(&handle),
                 }))
             }),
         );
@@ -208,6 +210,7 @@ mod app {
         computers_after_login: bool,
         /// Attempts left in the minimized start (0: done).
         start_minimized: u8,
+        admin: AdminSide,
     }
 
     /// Frames (~50 ms apart) spent getting a `--minimized` start minimized.
@@ -263,6 +266,7 @@ mod app {
                 || self.updater.ready().is_none()
                 || self.host.busy()
                 || self.tech.busy()
+                || self.admin.busy()
                 || self.last_input.elapsed() < IDLE_BEFORE_UPDATE
             {
                 return;
@@ -277,7 +281,8 @@ mod app {
         fn home(&mut self, ui: &mut egui::Ui) {
             let ctx = ui.ctx().clone();
             let account = self.tech.account();
-            if account.is_none() {
+            let admin = self.tech.admin_handle();
+            if account.is_none() || (self.page == views::Page::Admin && admin.is_none()) {
                 self.page = views::Page::Home;
             } else if std::mem::take(&mut self.computers_after_login) {
                 self.page = views::Page::Computers;
@@ -314,12 +319,13 @@ mod app {
                 env_label: self.label.as_deref(),
                 version: common::VERSION,
                 update,
+                admin: admin.is_some(),
             };
             let host_model = self.host.model();
             let mut host_action = None;
             let mut go = None;
             let page = self.page;
-            let (tech, host) = (&mut self.tech, &self.host);
+            let (tech, host, admin_side) = (&mut self.tech, &self.host, &mut self.admin);
             let action = views::shell(ui, &side, |ui| match page {
                 views::Page::Home => {
                     host_action = views::home_page(
@@ -330,6 +336,11 @@ mod app {
                     );
                 }
                 views::Page::Computers => tech.computers_page(ui),
+                views::Page::Admin => {
+                    if let Some(h) = &admin {
+                        admin_side.page(ui, h);
+                    }
+                }
             });
             match action {
                 Some(views::SidebarAction::Go(views::Page::Computers)) if account.is_none() => {
@@ -340,8 +351,10 @@ mod app {
                 Some(views::SidebarAction::SignIn) => self.tech.open_login(),
                 Some(views::SidebarAction::SignOut) => {
                     self.tech.logout();
+                    self.admin.clear();
                     self.page = views::Page::Home;
                 }
+                Some(views::SidebarAction::ChangePassword) => self.tech.open_password_change(),
                 Some(views::SidebarAction::CheckUpdates) => self.updater.check_now(),
                 Some(views::SidebarAction::RestartToUpdate) => match self.updater.apply() {
                     Ok(()) => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
@@ -359,6 +372,10 @@ mod app {
                 self.computers_after_login = false;
             }
             self.tech.login_sheet(&ctx);
+            self.tech.password_sheet(&ctx);
+            if let Some(h) = &admin {
+                self.admin.sheets(&ctx, h);
+            }
         }
     }
 

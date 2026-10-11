@@ -40,6 +40,7 @@ pub enum Page {
     #[default]
     Home,
     Computers,
+    Admin,
 }
 
 /// Rotating arc in the accent color.
@@ -76,7 +77,7 @@ pub fn format_id_input(raw: &str) -> String {
 }
 
 /// Single-line field; returns the response and whether Enter was pressed in it.
-fn field(
+pub(crate) fn field(
     ui: &mut Ui,
     text: &mut String,
     hint: &str,
@@ -175,6 +176,8 @@ pub struct SidebarModel<'a> {
     pub env_label: Option<&'a str>,
     pub version: &'a str,
     pub update: UpdateModel<'a>,
+    /// Show "Administração" (the account manages its organization).
+    pub admin: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -182,6 +185,7 @@ pub enum SidebarAction {
     Go(Page),
     SignIn,
     SignOut,
+    ChangePassword,
     CheckUpdates,
     RestartToUpdate,
 }
@@ -246,6 +250,12 @@ pub fn sidebar(ui: &mut Ui, m: &SidebarModel<'_>) -> Option<SidebarAction> {
     .clicked()
     {
         action = Some(SidebarAction::Go(Page::Computers));
+    }
+    if m.admin
+        && nav_item(ui, Icon::Shield, "Administração", m.page == Page::Admin, Trailing::None)
+            .clicked()
+    {
+        action = Some(SidebarAction::Go(Page::Admin));
     }
 
     action
@@ -374,12 +384,16 @@ fn account_row(ui: &mut Ui, m: &SidebarModel<'_>, action: &mut Option<SidebarAct
             ui.add_space(4.0);
             ui.spacing_mut().item_spacing.x = 10.0;
             theme::avatar(ui, a.name, 32.0);
-            let w = ui.available_width() - 40.0;
+            let w = ui.available_width() - 76.0;
             ui.allocate_ui_with_layout(vec2(w, 36.0), Layout::top_down(Align::Min), |ui| {
                 ui.spacing_mut().item_spacing.y = 0.0;
                 ui.add(egui::Label::new(theme::title(a.name, 13.5)).truncate());
                 ui.add(egui::Label::new(RichText::new(a.org).size(theme::SIZE_CAPTION).color(p.muted)).truncate());
             });
+            ui.spacing_mut().item_spacing.x = 2.0;
+            if theme::icon_button(ui, Icon::Key, "Alterar senha", false, true).clicked() {
+                *action = Some(SidebarAction::ChangePassword);
+            }
             if theme::icon_button(ui, Icon::SignOut, "Sair da conta neste computador", false, true).clicked() {
                 *action = Some(SidebarAction::SignOut);
             }
@@ -1312,4 +1326,52 @@ pub fn home_page(
             ui.add_space(24.0);
         });
     out
+}
+
+
+// ------------------------------------------------------------------ sheets
+
+/// A centered sheet over a dimmed window that fades and rises into place, as the
+/// sign-in sheet does. Returns what `add` returned and whether the user dismissed it
+/// (Esc or a click outside).
+pub fn modal_sheet<R>(
+    ctx: &egui::Context,
+    key: &str,
+    width: f32,
+    add: impl FnOnce(&mut Ui, &Palette) -> R,
+) -> (R, bool) {
+    let id = Id::new(("sheet", key));
+    let t = if theme::reduced_motion() {
+        1.0
+    } else {
+        let now = ctx.input(|i| i.time);
+        let start = ctx.data_mut(|d| *d.get_temp_mut_or_insert_with(id, || now));
+        let t = ((now - start) as f32 / 0.28).clamp(0.0, 1.0);
+        if t < 1.0 {
+            ctx.request_repaint();
+        }
+        theme::ease_out(t)
+    };
+    let dark = ctx.global_style().visuals.dark_mode;
+    let p = if dark { theme::DARK } else { theme::LIGHT };
+    let backdrop = Color32::from_black_alpha((if dark { 140.0 } else { 80.0 } * t) as u8);
+    let area = egui::Modal::default_area(id.with("area"))
+        .anchor(Align2::CENTER_CENTER, vec2(0.0, (1.0 - t) * 14.0));
+    let response = egui::Modal::new(id.with("modal"))
+        .area(area)
+        .backdrop_color(backdrop)
+        .frame(theme::sheet(&p).inner_margin(Margin::same(28)))
+        .show(ctx, |ui| {
+            ui.multiply_opacity(t);
+            ui.set_width(width);
+            ui.spacing_mut().item_spacing.y = 6.0;
+            add(ui, &p)
+        });
+    let dismissed = response.should_close();
+    (response.inner, dismissed)
+}
+
+/// Forget a sheet's entrance, so it animates in again next time it opens.
+pub fn reset_sheet(ctx: &egui::Context, key: &str) {
+    ctx.data_mut(|d| d.remove::<f64>(Id::new(("sheet", key))));
 }

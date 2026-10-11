@@ -9,18 +9,23 @@
 use std::{
     collections::HashMap,
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
     time::{Duration, Instant},
 };
 
 use crate::{
+    admin_side::AdminHandle,
+    admin_views::{self, PasswordForm, SheetAction},
     common, keymap,
     theme,
     views,
     video::{FrameSlot, VideoSink},
 };
 use aionix_client::{
-    ApiClient,
+    ApiClient, ClientError,
     authority::{ControlPlaneAuthority, UserSession},
     enroll::{DeviceSession, Enrollment, ensure_enrolled},
     identity::{FileIdentityStore, Protection},
@@ -155,6 +160,31 @@ pub struct TechSide {
     local_host: String,
     /// This computer's own ID (from the receiving side), to recognise self-connections.
     own_id: Option<FriendlyId>,
+    /// Signed in with a temporary password: the login waits here until a new password
+    /// is chosen (the server refuses the workstation until then).
+    pending_change: Arc<Mutex<Option<UserSession>>>,
+    /// The temporary password just typed, used as the current one for the change.
+    change_current: String,
+    password_sheet: Option<PasswordSheet>,
+    password_form: PasswordForm,
+    password_task: Arc<Mutex<PasswordTask>>,
+    /// Stops the background retries of the stored login (manual sign-in, sign-out).
+    resume_cancel: Arc<AtomicBool>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PasswordSheet {
+    /// After signing in with a temporary password.
+    Mandatory,
+    /// "Alterar senha" from the account row.
+    Voluntary,
+}
+
+enum PasswordTask {
+    Idle,
+    Working,
+    Failed(String),
+    Done,
 }
 
 impl TechSide {
@@ -176,6 +206,12 @@ impl TechSide {
             filter: String::new(),
             local_host: aionix_platform::windows::sysinfo::hostname(),
             own_id: None,
+            pending_change: Arc::default(),
+            change_current: String::new(),
+            password_sheet: None,
+            password_form: PasswordForm::default(),
+            password_task: Arc::new(Mutex::new(PasswordTask::Idle)),
+            resume_cancel: Arc::new(AtomicBool::new(false)),
         };
         if me.opts.auto_login && !me.email.is_empty() && !me.password.is_empty() {
             me.begin_login(ctx);
@@ -498,11 +534,20 @@ impl TechSide {
         self.in_session()
             || matches!(*self.login.lock().unwrap(), LoginState::Working(_))
             || self.show_login
+            || self.password_sheet.is_some()
             || !self.connect_id.trim().is_empty()
     }
 
     /// Per-frame bookkeeping; call once per frame before drawing.
     pub fn poll(&mut self, ctx: &egui::Context) {
+        if self.password_sheet.is_none() && self.pending_change.lock().unwrap().is_some() {
+            // Signed in with a temporary password: choose a new one first.
+            self.change_current = std::mem::take(&mut self.password);
+            self.password_form = PasswordForm::default();
+            *self.password_task.lock().unwrap() = PasswordTask::Idle;
+            self.password_sheet = Some(PasswordSheet::Mandatory);
+            self.show_login = false;
+        }
         let signed_in = self.pending_ws.lock().unwrap().take();
         if let Some(ws) = signed_in {
             let ws = Arc::new(ws);
@@ -510,6 +555,10 @@ impl TechSide {
             self.ws = Some(ws);
             *self.login.lock().unwrap() = LoginState::Idle;
             self.password.clear();
+            self.change_current.clear();
+            if self.password_sheet == Some(PasswordSheet::Mandatory) {
+                self.password_sheet = None;
+            }
             self.show_login = false;
             if let Some(id) = self
                 .opts
@@ -587,6 +636,9 @@ impl TechSide {
 
     /// Signs out on this computer (the stored login is deleted).
     pub fn logout(&mut self) {
+        self.resume_cancel.store(true, Ordering::SeqCst);
+        self.pending_change.lock().unwrap().take();
+        self.password_sheet = None;
         if let Some(ws) = self.ws.take() {
             let user = ws.user.clone();
             self.rt.spawn(async move {
@@ -751,8 +803,16 @@ impl TechSide {
         );
         let (status, pending, ctx) = (self.login.clone(), self.pending_ws.clone(), ctx.clone());
         *status.lock().unwrap() = LoginState::Working("Entrando…");
+        self.resume_cancel.store(true, Ordering::SeqCst);
+        let change = self.pending_change.clone();
         self.rt.spawn(async move {
             let result = match login_with_password(&server, &email, &password).await {
+                Ok(user) if user.profile().await.must_change_password => {
+                    *change.lock().unwrap() = Some(user);
+                    *status.lock().unwrap() = LoginState::Idle;
+                    ctx.request_repaint();
+                    return;
+                }
                 Ok(user) => open_workspace(server, dir, user, status.clone(), ctx.clone()).await,
                 Err(e) => Err(e),
             };
@@ -767,7 +827,9 @@ impl TechSide {
         });
     }
 
-    /// Signs in silently with the stored login, if any.
+    /// Signs in silently with the stored login, if any. While the server cannot be
+    /// reached (the app often starts with Windows before the network is up) it keeps
+    /// trying in the background; the "Entrar" button stays available meanwhile.
     fn resume_saved(&mut self, ctx: &egui::Context) {
         let file = login_file(&self.opts.dir);
         let Some(token) = load_refresh(&file) else {
@@ -775,6 +837,8 @@ impl TechSide {
         };
         let (server, dir) = (self.opts.server.clone(), self.opts.dir.clone());
         let (status, pending, ctx) = (self.login.clone(), self.pending_ws.clone(), ctx.clone());
+        let cancel = self.resume_cancel.clone();
+        cancel.store(false, Ordering::SeqCst);
         *status.lock().unwrap() = LoginState::Working("Entrando…");
         self.rt.spawn(async move {
             let api = match ApiClient::new(&server) {
@@ -784,22 +848,45 @@ impl TechSide {
                     return;
                 }
             };
-            let result = match UserSession::resume(api, &token).await {
-                Ok(user) => open_workspace(server, dir, user, status.clone(), ctx.clone()).await,
-                Err(e) => {
-                    // A revoked or expired login is gone for good; network trouble keeps it.
-                    if matches!(
-                        e.code(),
-                        Some(aionix_control_api::ErrorCode::Unauthorized)
-                            | Some(aionix_control_api::ErrorCode::Forbidden)
-                    ) {
-                        forget_login(&file);
+            let mut wait = Duration::from_secs(3);
+            let user = loop {
+                match UserSession::resume(api.clone(), &token).await {
+                    Ok(user) => break user,
+                    Err(ClientError::Network(e)) => {
+                        info!(error = %e, "stored login: server unreachable, retrying");
+                        if cancel.load(Ordering::SeqCst) {
+                            return;
+                        }
+                        if matches!(*status.lock().unwrap(), LoginState::Working(_)) {
+                            *status.lock().unwrap() = LoginState::Idle;
+                            ctx.request_repaint();
+                        }
+                        tokio::time::sleep(wait).await;
+                        wait = (wait * 2).min(Duration::from_secs(60));
+                        if cancel.load(Ordering::SeqCst) {
+                            return;
+                        }
                     }
-                    Err(common::client_error_text(&e))
+                    Err(e) => {
+                        // A revoked or expired login is gone for good.
+                        if matches!(
+                            e.code(),
+                            Some(aionix_control_api::ErrorCode::Unauthorized)
+                                | Some(aionix_control_api::ErrorCode::Forbidden)
+                        ) {
+                            forget_login(&file);
+                        }
+                        info!(error = %common::client_error_text(&e), "stored login not resumed");
+                        *status.lock().unwrap() = LoginState::Idle;
+                        ctx.request_repaint();
+                        return;
+                    }
                 }
             };
-            match result {
-                Ok(ws) => *pending.lock().unwrap() = Some(ws),
+            *status.lock().unwrap() = LoginState::Working("Entrando…");
+            match open_workspace(server, dir, user, status.clone(), ctx.clone()).await {
+                Ok(ws) if !cancel.load(Ordering::SeqCst) => *pending.lock().unwrap() = Some(ws),
+                Ok(_) => {}
                 Err(e) => {
                     info!(error = %e, "stored login not resumed");
                     *status.lock().unwrap() = LoginState::Idle;
@@ -807,6 +894,120 @@ impl TechSide {
             }
             ctx.request_repaint();
         });
+    }
+
+    /// The administration panel's handle, when this account manages its organization.
+    pub fn admin_handle(&self) -> Option<AdminHandle> {
+        let ws = self.ws.as_ref()?;
+        let m = ws
+            .profile
+            .memberships
+            .iter()
+            .filter(|m| m.role.can_manage())
+            .max_by_key(|m| m.role)?;
+        Some(AdminHandle {
+            api: ws.api.clone(),
+            user: ws.user.clone(),
+            me: ws.profile.id,
+            org: m.org_id,
+            org_name: m.org_name.clone(),
+            role: m.role,
+        })
+    }
+
+    /// "Alterar senha" from the account row.
+    pub fn open_password_change(&mut self) {
+        if self.ws.is_some() {
+            self.password_form = PasswordForm::default();
+            *self.password_task.lock().unwrap() = PasswordTask::Idle;
+            self.password_sheet = Some(PasswordSheet::Voluntary);
+        }
+    }
+
+    /// The password sheet, while open (mandatory after a temporary password, or
+    /// "Alterar senha"). Call every frame.
+    pub fn password_sheet(&mut self, ctx: &egui::Context) {
+        let Some(mode) = self.password_sheet else {
+            views::reset_sheet(ctx, "password");
+            return;
+        };
+        let (working, error, done) = match &*self.password_task.lock().unwrap() {
+            PasswordTask::Working => (true, None, false),
+            PasswordTask::Failed(e) => (false, Some(e.clone()), false),
+            PasswordTask::Done => (false, None, true),
+            PasswordTask::Idle => (false, None, false),
+        };
+        if done && mode == PasswordSheet::Voluntary {
+            self.password_sheet = None;
+            self.password_form = PasswordForm::default();
+            return;
+        }
+        let mandatory = mode == PasswordSheet::Mandatory;
+        match admin_views::password_sheet(ctx, &mut self.password_form, mandatory, working, error.as_deref()) {
+            Some(SheetAction::Submit) => {
+                *self.password_task.lock().unwrap() = PasswordTask::Working;
+                let new = self.password_form.new.clone();
+                let task = self.password_task.clone();
+                let ctx2 = ctx.clone();
+                if mandatory {
+                    let Some(user) = self.pending_change.lock().unwrap().take() else {
+                        return;
+                    };
+                    let current = self.change_current.clone();
+                    let (server, dir) = (self.opts.server.clone(), self.opts.dir.clone());
+                    let (status, pending, change) =
+                        (self.login.clone(), self.pending_ws.clone(), self.pending_change.clone());
+                    self.rt.spawn(async move {
+                        let changed = match user.access_token().await {
+                            Ok(access) => user.api().change_password(&access, &current, &new).await,
+                            Err(e) => Err(e),
+                        };
+                        match changed {
+                            Ok(()) => {
+                                *task.lock().unwrap() = PasswordTask::Done;
+                                *status.lock().unwrap() = LoginState::Working("Entrando…");
+                                match open_workspace(server, dir, user, status.clone(), ctx2.clone()).await {
+                                    Ok(ws) => *pending.lock().unwrap() = Some(ws),
+                                    Err(e) => *status.lock().unwrap() = LoginState::Failed(e),
+                                }
+                            }
+                            Err(e) => {
+                                *task.lock().unwrap() = PasswordTask::Failed(password_error(&e));
+                                *change.lock().unwrap() = Some(user);
+                            }
+                        }
+                        ctx2.request_repaint();
+                    });
+                } else if let Some(ws) = self.ws.clone() {
+                    let current = self.password_form.current.clone();
+                    self.rt.spawn(async move {
+                        let result = match ws.user.access_token().await {
+                            Ok(access) => ws.api.change_password(&access, &current, &new).await,
+                            Err(e) => Err(e),
+                        };
+                        *task.lock().unwrap() = match result {
+                            Ok(()) => PasswordTask::Done,
+                            Err(e) => PasswordTask::Failed(password_error(&e)),
+                        };
+                        ctx2.request_repaint();
+                    });
+                }
+            }
+            Some(SheetAction::Cancel) => {
+                self.password_sheet = None;
+                self.password_form = PasswordForm::default();
+                if mandatory {
+                    // "Sair": the login with the temporary password is dropped.
+                    if let Some(user) = self.pending_change.lock().unwrap().take() {
+                        self.rt.spawn(async move {
+                            let _ = user.logout().await;
+                        });
+                    }
+                    self.change_current.clear();
+                }
+            }
+            None => {}
+        }
     }
 
 }
@@ -1394,6 +1595,16 @@ fn diagnostics_panel(
         .clicked()
     {
         s.handle.inject_transport_failure();
+    }
+}
+
+fn password_error(e: &ClientError) -> String {
+    match e.code() {
+        Some(aionix_control_api::ErrorCode::InvalidCredentials) => "A senha atual está incorreta.".into(),
+        Some(aionix_control_api::ErrorCode::BadRequest) => {
+            "A nova senha precisa ter pelo menos 12 caracteres.".into()
+        }
+        _ => common::client_error_text(e),
     }
 }
 

@@ -24,6 +24,10 @@ pub enum Icon {
     Lock,
     Close,
     Phone,
+    Shield,
+    Key,
+    More,
+    Plus,
 }
 
 /// Draws `icon` centered in `rect` (square or not) in `color`.
@@ -114,6 +118,25 @@ pub fn paint(painter: &Painter, rect: Rect, icon: Icon, color: Color32) {
         Icon::Close => {
             line(vec![p(4.0, 4.0), p(12.0, 12.0)]);
             line(vec![p(12.0, 4.0), p(4.0, 12.0)]);
+        }
+        Icon::Shield => {
+            line(vec![p(8.0, 2.0), p(13.0, 4.0), p(13.0, 8.0), p(12.2, 10.7), p(10.4, 12.7), p(8.0, 14.0), p(5.6, 12.7), p(3.8, 10.7), p(3.0, 8.0), p(3.0, 4.0), p(8.0, 2.0)]);
+            line(vec![p(5.75, 8.0), p(7.4, 9.6), p(10.4, 6.4)]);
+        }
+        Icon::Key => {
+            painter.circle_stroke(p(5.25, 10.75), 2.75 * s, stroke);
+            line(vec![p(7.2, 8.8), p(13.25, 2.75)]);
+            line(vec![p(11.0, 5.0), p(12.75, 6.75)]);
+            line(vec![p(9.25, 6.75), p(10.75, 8.25)]);
+        }
+        Icon::More => {
+            for x in [3.5, 8.0, 12.5] {
+                painter.circle_filled(p(x, 8.0), 1.25 * s, color);
+            }
+        }
+        Icon::Plus => {
+            line(vec![p(8.0, 3.0), p(8.0, 13.0)]);
+            line(vec![p(3.0, 8.0), p(13.0, 8.0)]);
         }
         Icon::Phone => {
             // Handset (end call), drawn as a rounded bar with two ear pieces.

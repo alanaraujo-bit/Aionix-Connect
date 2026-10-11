@@ -13,12 +13,17 @@ use aionix_shared::AccessMode;
 use async_trait::async_trait;
 use tokio::sync::watch;
 use tracing::info;
+use uuid::Uuid;
 
 use crate::signaling::{OfferDecision, PresenceInfo, SessionOffer, SignalHandler};
+
+/// Called with the id of a session the server ended (admin, disabled account...).
+pub type RevocationHook = Arc<dyn Fn(Uuid) + Send + Sync>;
 
 pub struct HostOfferHandler {
     validator: Arc<TicketValidator>,
     presence: watch::Receiver<PresenceInfo>,
+    on_revoked: Option<RevocationHook>,
 }
 
 impl HostOfferHandler {
@@ -26,7 +31,14 @@ impl HostOfferHandler {
         Self {
             validator,
             presence,
+            on_revoked: None,
         }
+    }
+
+    /// `hook` ends the local session with that id, if it is the one running.
+    pub fn with_revocation(mut self, hook: RevocationHook) -> Self {
+        self.on_revoked = Some(hook);
+        self
     }
 }
 
@@ -54,6 +66,13 @@ impl SignalHandler for HostOfferHandler {
             accept: true,
             reason: None,
             addr: p.addr,
+        }
+    }
+
+    async fn on_session_revoked(&self, session_id: Uuid) {
+        info!(%session_id, "server ended the session");
+        if let Some(hook) = &self.on_revoked {
+            hook(session_id);
         }
     }
 }

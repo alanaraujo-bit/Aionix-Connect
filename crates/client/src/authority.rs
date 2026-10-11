@@ -72,6 +72,11 @@ impl UserSession {
         }
     }
 
+    /// The API client this login talks to.
+    pub fn api(&self) -> &ApiClient {
+        &self.api
+    }
+
     pub async fn profile(&self) -> UserProfile {
         self.inner.lock().await.tokens.user.clone()
     }

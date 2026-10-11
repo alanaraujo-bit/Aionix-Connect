@@ -10,6 +10,10 @@ use aionix_desktop::{
     theme,
     views::{self, *},
 };
+use aionix_control_api::rest::OrgRole;
+use aionix_desktop::admin_views::{
+    self, AccountRow, AdminModel, AdminTab, HistoryRow, NewAccountForm, PasswordForm, SessionRow,
+};
 use egui::{Theme, Vec2};
 use egui_kittest::Harness;
 
@@ -95,9 +99,64 @@ fn side<'a>(page: Page, signed_in: bool, update: UpdateModel<'a>) -> SidebarMode
         signing_in: false,
         online: signed_in.then_some(3),
         env_label: None,
-        version: "0.2.3",
+        version: "0.2.6",
         update,
+        admin: signed_in,
     }
+}
+
+fn accounts() -> Vec<AccountRow> {
+    let a = |name: &str, email: &str, role, disabled, temporary, last: &str, you| AccountRow {
+        name: name.into(),
+        email: email.into(),
+        role,
+        disabled,
+        temporary,
+        last_login: last.into(),
+        is_you: you,
+        manageable: !you,
+    };
+    vec![
+        a("Alan Araujo", "alanvitoraraujo1a@outlook.com", OrgRole::Owner, false, false, "hoje às 09:12", true),
+        a("Bruno Lima", "bruno.lima@example.com", OrgRole::Technician, false, false, "ontem às 18:40", false),
+        a("Carla Souza", "carla@example.com", OrgRole::Technician, false, true, "nunca", false),
+        a("Diego Rocha", "diego.rocha@example.com", OrgRole::Admin, true, false, "03/10 14:05", false),
+    ]
+}
+
+fn admin_shot(name: &str, mode: Theme, tab: AdminTab, extra: fn(&egui::Context)) {
+    let rows = accounts();
+    let sessions = vec![
+        SessionRow { host: "Recepção".into(), host_id: "312 604 958".into(), technician: "Bruno Lima".into(), state: "Conectado".into(), tone: Tone::Success, live: true, when: "hoje às 10:02 · 14 min".into() },
+        SessionRow { host: "Financeiro".into(), host_id: "590 221 734".into(), technician: "Alan Araujo".into(), state: "Aguardando autorização".into(), tone: Tone::Warning, live: true, when: "hoje às 10:15".into() },
+        SessionRow { host: "Caixa 2".into(), host_id: "468 930 115".into(), technician: "Bruno Lima".into(), state: "Encerrada".into(), tone: Tone::Neutral, live: false, when: "ontem às 16:20 · 32 min".into() },
+        SessionRow { host: "Notebook Marina".into(), host_id: "703 118 462".into(), technician: "Carla Souza".into(), state: "Recusada".into(), tone: Tone::Danger, live: false, when: "ontem às 11:03".into() },
+    ];
+    let history = vec![
+        HistoryRow { when: "11/10 10:15".into(), text: "Alan Araujo pediu acesso a Financeiro".into(), tone: Tone::Success },
+        HistoryRow { when: "11/10 10:02".into(), text: "Acesso a Recepção permitido".into(), tone: Tone::Success },
+        HistoryRow { when: "11/10 09:58".into(), text: "Senha errada ao entrar na conta de Carla Souza".into(), tone: Tone::Danger },
+        HistoryRow { when: "11/10 09:40".into(), text: "Alan Araujo criou a conta de Carla Souza".into(), tone: Tone::Neutral },
+        HistoryRow { when: "11/10 09:12".into(), text: "Alan Araujo entrou".into(), tone: Tone::Neutral },
+        HistoryRow { when: "10/10 18:40".into(), text: "Alan Araujo desativou a conta de Diego Rocha".into(), tone: Tone::Neutral },
+    ];
+    shot(name, mode, WINDOW, move |ui| {
+        let roles = [OrgRole::Technician, OrgRole::Admin, OrgRole::Viewer, OrgRole::Owner];
+        let m = AdminModel {
+            tab,
+            org_name: "Aionix",
+            accounts: Some(&rows),
+            sessions: Some(&sessions),
+            history: Some(&history),
+            error: None,
+            loading: false,
+            assignable: &roles,
+        };
+        views::shell(ui, &side(Page::Admin, true, UpdateModel::Idle), |ui| {
+            admin_views::admin_page(ui, &m);
+        });
+        extra(ui.ctx());
+    });
 }
 
 fn home(name: &str, mode: Theme, h: HostModel, signed_in: bool, update: fn() -> UpdateModel<'static>) {
@@ -120,6 +179,41 @@ fn home(name: &str, mode: Theme, h: HostModel, signed_in: bool, update: fn() -> 
             });
         });
     });
+}
+
+#[test]
+#[ignore = "renders with the GPU; run explicitly for design review"]
+fn preview_admin() {
+    for mode in [Theme::Light, Theme::Dark] {
+        admin_shot("admin-accounts", mode, AdminTab::Accounts, |_| {});
+        admin_shot("admin-sessions", mode, AdminTab::Sessions, |_| {});
+        admin_shot("admin-history", mode, AdminTab::History, |_| {});
+        admin_shot("admin-new-account", mode, AdminTab::Accounts, |ctx| {
+            let mut form = NewAccountForm {
+                name: "Carla Souza".into(),
+                email: "carla@example.com".into(),
+                role: OrgRole::Technician,
+            };
+            admin_views::new_account_sheet(ctx, &mut form, &[OrgRole::Technician, OrgRole::Admin, OrgRole::Viewer], false, None);
+        });
+        admin_shot("admin-secret", mode, AdminTab::Accounts, |ctx| {
+            admin_views::secret_sheet(ctx, "Conta criada", "Carla Souza", "carla@example.com", "Kd7m-Qx2p-Hn4w-Za9r", false);
+        });
+        admin_shot("admin-confirm", mode, AdminTab::Accounts, |ctx| {
+            admin_views::confirm_sheet(
+                ctx,
+                "Desativar a conta de Diego Rocha?",
+                "A pessoa é desconectada, as sessões dela são encerradas e ela não consegue mais entrar. Você pode reativar depois.",
+                "Desativar conta",
+                true,
+                false,
+            );
+        });
+        admin_shot("password-mandatory", mode, AdminTab::Accounts, |ctx| {
+            let mut form = PasswordForm::default();
+            admin_views::password_sheet(ctx, &mut form, true, false, None);
+        });
+    }
 }
 
 #[test]

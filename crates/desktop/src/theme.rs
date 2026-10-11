@@ -377,6 +377,8 @@ pub enum Kind {
     Danger,
     /// Accent text, soft accent fill on hover (row actions in lists).
     Quiet,
+    /// Red text, soft red fill on hover (destructive row actions).
+    QuietDanger,
 }
 
 /// The button: label with an optional leading icon; hover and press are animated
@@ -397,6 +399,7 @@ pub fn button(
         Kind::Ghost => (p.surface_alt.gamma_multiply(0.0), p.surface_alt, press_of(&p, p.surface_alt), p.text),
         Kind::Danger => (p.danger_fill, p.danger_fill.gamma_multiply(0.9), p.danger_fill.gamma_multiply(0.8), Color32::WHITE),
         Kind::Quiet => (p.accent_soft.gamma_multiply(0.0), p.accent_soft, lerp_color(p.accent_soft, p.accent, 0.15), p.accent_text),
+        Kind::QuietDanger => (p.danger.gamma_multiply(0.0), p.danger.gamma_multiply(0.12), p.danger.gamma_multiply(0.2), p.danger),
     };
     let ink = match (enabled, kind) {
         (true, _) => fg,
@@ -418,7 +421,7 @@ pub fn button(
         let mut color = lerp_color(lerp_color(fill, hover, h), press, d);
         if !enabled && kind == Kind::Primary {
             color = p.accent_soft;
-        } else if !enabled && !matches!(kind, Kind::Ghost | Kind::Quiet) {
+        } else if !enabled && !matches!(kind, Kind::Ghost | Kind::Quiet | Kind::QuietDanger) {
             color = p.surface_alt;
         }
         let r = rect.translate(Vec2::new(0.0, d));

@@ -240,7 +240,20 @@ async fn run(args: HostOptions, ui: Shared, runtime: Arc<Mutex<Runtime>>, ctx: e
         SignalingOptions::new(signal_url),
         session.clone(),
         presence_rx.clone(),
-        Arc::new(HostOfferHandler::new(validator, presence_rx)),
+        Arc::new(HostOfferHandler::new(validator, presence_rx).with_revocation({
+            // The server ended this session (admin, disabled account…): stop it here too.
+            let (ui, ctx) = (ui.clone(), ctx.clone());
+            Arc::new(move |sid: uuid::Uuid| {
+                let running = ui.lock().unwrap().session.as_ref().map(|(h, _)| h.clone());
+                if let Some(h) = running
+                    && h.diagnostics().session_id.value().copied() == Some(sid)
+                {
+                    info!(session_id = %sid, "session ended by the server");
+                    h.end();
+                    ctx.request_repaint();
+                }
+            })
+        })),
     );
     runtime.lock().unwrap().signaling = Some(signaling.clone());
     {

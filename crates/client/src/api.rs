@@ -5,9 +5,12 @@ use std::time::Duration;
 use aionix_control_api::{
     ApiError, DEVICE_TOKEN_HEADER, ErrorCode,
     rest::{
-        AuthTokens, Challenge, CreateSessionRequest, CreateSessionResponse, DeviceList,
-        DeviceLoginRequest, DeviceLoginResponse, DeviceLookup, LoginRequest, RefreshRequest,
-        RegisterDeviceRequest, RegisterDeviceResponse, ServerInfo, SessionEventReport, UserProfile,
+        AuditList, AuthTokens, Challenge, ChangePasswordRequest, CreateAccountRequest,
+        CreateSessionRequest, CreateSessionResponse, CreatedAccount, DeviceList,
+        DeviceLoginRequest, DeviceLoginResponse, DeviceLookup, LoginRequest, Member, MemberList,
+        OrgRole, RefreshRequest, RegisterDeviceRequest, RegisterDeviceResponse, ServerInfo,
+        SessionEventReport, SessionList, SignOutResult, TemporaryPassword, UpsertMemberRequest,
+        UserProfile,
     },
 };
 use aionix_shared::FriendlyId;
@@ -127,6 +130,14 @@ impl ApiClient {
         self.call(r).await
     }
 
+    async fn get_auth<T: DeserializeOwned>(&self, path: &str, access: &str) -> Result<T, ClientError> {
+        self.call(self.req(Method::GET, path).bearer_auth(access)).await
+    }
+
+    async fn post_empty<T: DeserializeOwned>(&self, path: &str, access: &str) -> Result<T, ClientError> {
+        self.post(path, &serde_json::json!({}), Some(access)).await
+    }
+
     pub async fn server_info(&self) -> Result<ServerInfo, ClientError> {
         self.call(self.req(Method::GET, "/v1/server/info")).await
     }
@@ -207,6 +218,112 @@ impl ApiClient {
                 .bearer_auth(access),
         )
         .await
+    }
+
+    /// `POST /v1/auth/password`: the caller's new password (other logins signed out).
+    pub async fn change_password(
+        &self,
+        access: &str,
+        current: &str,
+        new: &str,
+    ) -> Result<(), ClientError> {
+        let _: serde_json::Value = self
+            .post(
+                "/v1/auth/password",
+                &ChangePasswordRequest {
+                    current_password: current.to_owned(),
+                    new_password: new.to_owned(),
+                },
+                Some(access),
+            )
+            .await?;
+        Ok(())
+    }
+
+    // ---- organization administration (admin panel)
+
+    pub async fn org_members(&self, access: &str, org: Uuid) -> Result<MemberList, ClientError> {
+        self.get_auth(&format!("/v1/orgs/{org}/members"), access).await
+    }
+
+    pub async fn create_account(
+        &self,
+        access: &str,
+        org: Uuid,
+        req: &CreateAccountRequest,
+    ) -> Result<CreatedAccount, ClientError> {
+        self.post(&format!("/v1/orgs/{org}/accounts"), req, Some(access))
+            .await
+    }
+
+    pub async fn set_member_role(
+        &self,
+        access: &str,
+        org: Uuid,
+        email: &str,
+        role: OrgRole,
+    ) -> Result<Member, ClientError> {
+        self.call(
+            self.req(Method::PUT, &format!("/v1/orgs/{org}/members"))
+                .bearer_auth(access)
+                .json(&UpsertMemberRequest {
+                    email: email.to_owned(),
+                    role,
+                }),
+        )
+        .await
+    }
+
+    pub async fn reset_member_password(
+        &self,
+        access: &str,
+        org: Uuid,
+        user: Uuid,
+    ) -> Result<TemporaryPassword, ClientError> {
+        self.post_empty(&format!("/v1/orgs/{org}/members/{user}/reset-password"), access)
+            .await
+    }
+
+    pub async fn sign_out_member(
+        &self,
+        access: &str,
+        org: Uuid,
+        user: Uuid,
+    ) -> Result<SignOutResult, ClientError> {
+        self.post_empty(&format!("/v1/orgs/{org}/members/{user}/sign-out"), access)
+            .await
+    }
+
+    pub async fn disable_member(
+        &self,
+        access: &str,
+        org: Uuid,
+        user: Uuid,
+    ) -> Result<SignOutResult, ClientError> {
+        self.post_empty(&format!("/v1/orgs/{org}/members/{user}/disable"), access)
+            .await
+    }
+
+    pub async fn enable_member(&self, access: &str, org: Uuid, user: Uuid) -> Result<Member, ClientError> {
+        self.post_empty(&format!("/v1/orgs/{org}/members/{user}/enable"), access)
+            .await
+    }
+
+    pub async fn org_sessions(&self, access: &str, org: Uuid) -> Result<SessionList, ClientError> {
+        self.get_auth(&format!("/v1/orgs/{org}/sessions?limit=100"), access)
+            .await
+    }
+
+    pub async fn terminate_session(&self, access: &str, org: Uuid, session: Uuid) -> Result<(), ClientError> {
+        let _: serde_json::Value = self
+            .post_empty(&format!("/v1/orgs/{org}/sessions/{session}/terminate"), access)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn org_audit(&self, access: &str, org: Uuid, limit: u32) -> Result<AuditList, ClientError> {
+        self.get_auth(&format!("/v1/orgs/{org}/audit?limit={limit}"), access)
+            .await
     }
 
     pub async fn create_session(
