@@ -417,6 +417,10 @@ A disabled Permitir follows the app rule: Selection Wash fill with dimmed Link B
 - **Don't** let chrome overlap the remote picture. The session toolbar sits above it, never on top of it.
 - **Don't** give the focused Recusar in the consent prompt a blue ring.
 
-## Not yet in this language: installer, website
+## Installer and website
 
-The installer (`crates/setup`) and the website (`site/`) have not been redesigned and still carry the retired look. Nothing in this file describes them. Bring them into this language before documenting them here. The `theme::card` frame and `theme::toggle_chip` switch serve the installer and the development launcher, and they are not part of the system above.
+**Installer** (`crates/setup`, egui, borderless 780 × 520): follows the Windows light/dark setting with the app palette. A 280 px Rail-colored brand panel (64 px mark, name at 24 px, tagline in Muted, a drawn Lock with "Criptografia de ponta a ponta" and the version in Faint) sits beside the content: a 24 px title, a Muted subtitle, the install location, switches (`theme::toggle_chip`: Atalho na Área de Trabalho, Iniciar com o Windows, Abrir ao concluir), and the actions at the bottom right (Ghost Cancelar, Primary Instalar/Atualizar/Reinstalar, Danger Desinstalar) with the consent note in Faint on its own line above them. Pages fade in while rising 6 px. Progress is a 6 px Action Blue bar on a Hairline track; finished steps show a drawn Check in Earned Green, the running step the app's spinner. The compact update window (460 × 184), the only setup screen existing users see, shows the 44 px mark, "Atualizando o Aionix Connect", the bar and the current step.
+
+**Website** (`site/public/index.html`, Persuade surface): the same tokens as CSS custom properties, light by default and dark under `prefers-color-scheme: dark`; the system face (Segoe UI Variable Display/Text, SF on Apple) for display and body. Intentional site-only additions: JetBrains Mono only for measurements (latency, frame rate, SHA-256), fluid `clamp()` display sizes, the synthetic remote desktop in the replica (#2b4a6f → #1f3550, labeled "TELA DE DEMONSTRAÇÃO"), and a drawing of the real Windows SmartScreen dialog in its own colors. The replica shows the app's real toolbar, connect field and consent prompt (Permitir is the blue primary). Icons come from the same generator (`infra/branding/make-icons.py` writes `site/public/assets`).
+
+`theme::card` serves the development launcher only and is not part of the system above.

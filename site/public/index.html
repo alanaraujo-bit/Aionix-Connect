@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Aionix Connect — suporte remoto que o cliente autoriza</title>
 <meta name="description" content="Um aplicativo para receber e dar suporte remoto no Windows. O cliente autoriza com um clique, a sessão é criptografada de ponta a ponta e o aplicativo se atualiza sozinho.">
-<meta name="theme-color" content="#0d1015">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1e1e21" media="(prefers-color-scheme: dark)">
 <meta property="og:title" content="Aionix Connect">
 <meta property="og:description" content="Suporte remoto para Windows. O cliente autoriza com um clique; vídeo fluido e criptografado de ponta a ponta.">
 <meta property="og:image" content="/assets/setup-512.png">
@@ -13,32 +14,59 @@
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #0d1015;
-  --bg-2: #0a0c10;
-  --surface: #151921;
-  --surface-2: #1c212b;
-  --border: #2a303c;
-  --border-soft: #20252f;
-  --text: #e8ebf1;
-  --muted: #8d96a7;
-  --faint: #5d6574;
-  --accent: #4f7cff;
-  --accent-hover: #6b91ff;
-  --client-a: #6a97ff;
-  --client-b: #2d55e6;
-  --tech-a: #a37bff;
-  --tech-b: #5538db;
-  --ok: #34c77b;
-  --warn: #f2ab3c;
-  --danger: #ef555a;
-  --display: "Bricolage Grotesque", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
-  --ui: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  /* DESIGN.md tokens. Light follows the app's light palette; dark below. */
+  --bg: #ffffff;
+  --bg-2: #f4f4f6;
+  --surface: #f7f7f9;
+  --surface-2: #f0f1f3;
+  --border: #d8dadf;
+  --border-soft: #e6e7ea;
+  --field: #8c8f96;
+  --text: #18191c;
+  --muted: #55585f;
+  --faint: #686b72;
+  --accent: #0b63e5;
+  --accent-hover: #0a58cc;
+  --accent-press: #094db3;
+  --accent-soft: #e8f0fd;
+  --accent-text: #0b5cd6;
+  --ok: #1a8f4c;
+  --warn: #9a6008;
+  --danger: #d1343a;
+  --brand: #1b6aeb;
+  --screen: #0b0b0c;
+  --shadow: 0 30px 60px -30px rgba(17, 24, 39, .28), 0 2px 6px rgba(17, 24, 39, .06);
+  --ui: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+  --display: "Segoe UI Variable Display", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
-  --radius: 14px;
-  color-scheme: dark;
+  --radius: 12px;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1e1e21;
+    --bg-2: #17171a;
+    --surface: #28282c;
+    --surface-2: #2d2d32;
+    --border: #3d3d44;
+    --border-soft: #303035;
+    --field: #72747b;
+    --text: #ededef;
+    --muted: #a6a8af;
+    --faint: #95979e;
+    --accent: #226ce8;
+    --accent-hover: #2670ec;
+    --accent-press: #1f62d4;
+    --accent-soft: #222e45;
+    --accent-text: #6ca6ff;
+    --ok: #3cc373;
+    --warn: #e6a23c;
+    --danger: #d1343a;
+    --shadow: 0 30px 60px -30px rgba(0, 0, 0, .75), 0 2px 6px rgba(0, 0, 0, .3);
+  }
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
@@ -50,137 +78,137 @@ body {
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
-::selection { background: rgba(79,124,255,.35); color: #fff; }
+::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); }
 a { color: inherit; text-underline-offset: 3px; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
 html { scrollbar-color: var(--border) var(--bg); }
 ::-webkit-scrollbar { width: 10px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; border: 2px solid var(--bg); }
-.wrap { width: min(1180px, 100% - 48px); margin-inline: auto; }
+.wrap { width: min(1160px, 100% - 48px); margin-inline: auto; }
 @media (max-width: 640px) { .wrap { width: calc(100% - 32px); } }
-h1, h2, h3 { font-family: var(--display); font-weight: 650; letter-spacing: -0.025em; line-height: 1.08; margin: 0; text-wrap: balance; }
+h1, h2, h3 { font-family: var(--display); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; margin: 0; text-wrap: balance; }
 p { margin: 0; }
 .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.num { font-variant-numeric: tabular-nums; }
 
 /* ---------- nav ---------- */
-.nav { position: sticky; top: 0; z-index: 20; background: rgba(13,16,21,.82); backdrop-filter: blur(14px) saturate(140%); border-bottom: 1px solid transparent; transition: border-color .3s; }
+.nav { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 84%, transparent); backdrop-filter: blur(14px) saturate(140%); border-bottom: 1px solid transparent; transition: border-color .3s; }
 .nav.scrolled { border-bottom-color: var(--border-soft); }
 .nav .wrap { display: flex; align-items: center; gap: 28px; height: 64px; }
-.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font-family: var(--display); font-weight: 650; font-size: 17px; letter-spacing: -0.01em; }
-.brand img { width: 28px; height: 28px; border-radius: 8px; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font-family: var(--display); font-weight: 600; font-size: 16.5px; letter-spacing: -0.01em; }
+.brand img { width: 28px; height: 28px; }
 .nav-links { display: flex; gap: 24px; margin-left: auto; font-size: 14.5px; }
 .nav-links a { text-decoration: none; color: var(--muted); transition: color .2s; }
 .nav-links a:hover { color: var(--text); }
-.nav-cta { font-size: 14px; padding: 8px 16px; }
+.nav-cta { font-size: 14px; padding: 9px 16px; }
 @media (max-width: 760px) { .nav-links { display: none; } .nav-cta { margin-left: auto; } }
 
 /* ---------- buttons ---------- */
-.btn { display: inline-flex; align-items: center; gap: 10px; border-radius: 10px; padding: 13px 20px; font: 600 15px/1 var(--ui); text-decoration: none; border: 1px solid transparent; cursor: pointer; transition: background .2s, border-color .2s, transform .2s, box-shadow .2s; white-space: nowrap; }
+.btn { display: inline-flex; align-items: center; gap: 10px; border-radius: 8px; padding: 12px 20px; font: 600 15px/1 var(--ui); text-decoration: none; border: 1px solid transparent; cursor: pointer; transition: background .16s cubic-bezier(.16,1,.3,1), border-color .16s, transform .08s; white-space: nowrap; }
+.btn:active { transform: translateY(1px); }
 .btn svg { width: 18px; height: 18px; flex: none; }
-.btn-app { background: linear-gradient(135deg, #5e8cff, #7a45f0); color: #fff; box-shadow: 0 6px 16px -8px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.18); }
-.btn-app:hover { transform: translateY(-1px); box-shadow: 0 10px 22px -10px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.22); filter: brightness(1.06); }
-.btn-tech { background: linear-gradient(135deg, var(--tech-a), var(--tech-b)); color: #fff; box-shadow: 0 6px 16px -8px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.18); }
-.btn-client { background: linear-gradient(135deg, var(--client-a), var(--client-b)); color: #fff; box-shadow: 0 6px 16px -8px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.18); }
-.btn-tech:hover, .btn-client:hover { transform: translateY(-1px); box-shadow: 0 10px 22px -10px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.22); filter: brightness(1.06); }
-.btn-ghost { background: var(--surface-2); border-color: var(--border); color: var(--text); }
-.btn-ghost:hover { border-color: #3a4252; }
-.btn[aria-disabled="true"] { opacity: .5; pointer-events: none; }
+.btn-app { background: var(--accent); color: #fff; }
+.btn-app:hover { background: var(--accent-hover); }
+.btn-app:active { background: var(--accent-press); }
+.btn-ghost { background: var(--surface-2); border-color: var(--border-soft); color: var(--text); }
+.btn-ghost:hover { background: color-mix(in srgb, var(--surface-2) 92%, var(--text)); }
+.btn[aria-disabled="true"] { background: var(--accent-soft); color: color-mix(in srgb, var(--accent-text) 60%, transparent); pointer-events: none; }
 
 /* ---------- hero ---------- */
-.hero { position: relative; padding: 76px 0 0; isolation: isolate; }
-.hero::before { content: ""; position: absolute; inset: -120px 0 auto; height: 720px; z-index: -1;
-  background:
-    radial-gradient(520px 320px at 22% 18%, rgba(106,151,255,.16), transparent 70%),
-    radial-gradient(520px 340px at 80% 8%, rgba(163,123,255,.14), transparent 70%); }
+.hero { position: relative; padding: 84px 0 0; }
 .hero-copy { max-width: 820px; margin-inline: auto; text-align: center; }
-.hero h1 { font-size: clamp(2.5rem, 6.2vw, 4.6rem); }
-.hero h1 em { font-style: normal; color: var(--client-a); }
+.hero h1 { font-size: clamp(2.4rem, 5.8vw, 4.3rem); }
+.hero h1 em { font-style: normal; color: var(--accent-text); }
 .hero .lede { margin: 22px auto 0; max-width: 620px; color: var(--muted); font-size: clamp(1.02rem, 1.6vw, 1.15rem); }
-.hero-actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 34px; }
+.hero-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 34px; }
 .hero-meta { margin-top: 16px; color: var(--faint); font-size: 13.5px; }
 .hero-meta span + span::before { content: "·"; margin: 0 8px; }
 
-/* ---------- product replica ---------- */
+/* ---------- product replica (the app's real look) ---------- */
 .stage { position: relative; margin: 64px auto 0; max-width: 1100px; perspective: 1800px; }
-.stage::after { content: ""; position: absolute; inset: auto 6% -40px; height: 120px; background: radial-gradient(closest-side, rgba(79,124,255,.28), transparent); filter: blur(10px); z-index: -1; }
-.win { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 40px 80px -30px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.02) inset; }
+.win { background: var(--bg); border: 1px solid var(--border-soft); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); }
 .tech-win { transform: rotateX(4deg); transform-origin: 50% 0; transition: transform 1.2s cubic-bezier(.16,1,.3,1); }
 .stage.in .tech-win { transform: rotateX(0); }
-.titlebar { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; background: #11141a; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--border-soft); }
-.titlebar img { width: 14px; height: 14px; border-radius: 4px; }
+.titlebar { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; background: var(--bg-2); font-size: 12px; color: var(--muted); }
+.titlebar img { width: 14px; height: 14px; }
 .titlebar .ctl { margin-left: auto; display: flex; gap: 18px; color: var(--faint); }
-.sessbar { display: flex; align-items: center; gap: 14px; padding: 10px 14px; border-bottom: 1px solid var(--border-soft); flex-wrap: wrap; }
-.sess-dev b { display: block; font-size: 14px; font-weight: 650; }
-.sess-dev small { color: var(--muted); font-size: 11.5px; }
-.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; padding: 5px 11px; border-radius: 999px; border: 1px solid; transition: all .4s; }
-.pill i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-.pill.wait { color: var(--warn); border-color: rgba(242,171,60,.35); background: rgba(242,171,60,.08); }
-.pill.ok { color: var(--ok); border-color: rgba(52,199,123,.35); background: rgba(52,199,123,.08); }
-.stats { color: var(--muted); font-size: 12px; }
-.stats b { color: var(--text); font-weight: 500; }
-.sess-actions { margin-left: auto; display: flex; gap: 8px; }
-.chip { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; padding: 6px 11px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); }
-.chip .sw { width: 22px; height: 12px; border-radius: 99px; background: var(--accent); position: relative; }
-.chip .sw::after { content: ""; position: absolute; right: 2px; top: 2px; width: 8px; height: 8px; border-radius: 50%; background: #fff; }
-.chip.end { background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 600; }
-@media (max-width: 760px) { .sess-actions .chip:not(.end), .stats .opt { display: none; } }
+.sessbar { display: flex; align-items: center; gap: 14px; padding: 9px 14px; background: var(--bg-2); border-bottom: 1px solid var(--border-soft); flex-wrap: wrap; }
+.sess-dev b { display: block; font-size: 14px; font-weight: 600; }
+.sess-dev small { color: var(--faint); font-size: 11.5px; }
+.state { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); }
+.state i { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); position: relative; transition: background .4s; }
+.state.wait i::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; background: var(--warn); opacity: .35; animation: pulse 1.1s cubic-bezier(.16,1,.3,1) infinite; }
+.state.ok i { background: var(--ok); }
+@keyframes pulse { from { transform: scale(.4); opacity: .45; } to { transform: scale(1.4); opacity: 0; } }
+.stats { color: var(--faint); font-size: 12.5px; }
+.stats b { color: var(--muted); font-weight: 500; }
+.sess-actions { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+.ib { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; color: var(--muted); }
+.ib svg { width: 16px; height: 16px; }
+.ib.on { background: var(--accent-soft); color: var(--accent-text); }
+.end { margin-left: 6px; background: var(--danger); color: #fff; font-size: 12.5px; font-weight: 600; padding: 7px 14px; border-radius: 8px; }
+@media (max-width: 760px) { .sess-actions .ib, .stats .opt { display: none; } }
 
-.screen { position: relative; aspect-ratio: 16 / 9; background: #08090c; overflow: hidden; }
+.screen { position: relative; aspect-ratio: 16 / 9; background: var(--screen); overflow: hidden; }
 /* Synthetic remote desktop (demonstration). */
 .desk { position: absolute; inset: 0; opacity: 0; transition: opacity .9s ease;
-  background:
-    radial-gradient(60% 80% at 75% 30%, rgba(106,151,255,.35), transparent 60%),
-    radial-gradient(50% 60% at 20% 80%, rgba(163,123,255,.30), transparent 60%),
-    linear-gradient(160deg, #1b2440, #121626 55%, #0d1018); }
+  background: linear-gradient(180deg, #2b4a6f, #1f3550); }
 .desk.on { opacity: 1; }
 .desk .icons { position: absolute; left: 2.2%; top: 4%; display: grid; gap: 4.5%; width: 7%; height: 70%; }
 .desk .icons span { aspect-ratio: 1; border-radius: 18%; background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.12); }
-.desk .appwin { position: absolute; left: 26%; top: 14%; width: 50%; height: 58%; border-radius: 8px; background: rgba(240,243,250,.95); box-shadow: 0 20px 40px -20px rgba(0,0,0,.6); overflow: hidden; }
-.desk .appwin::before { content: ""; display: block; height: 8%; background: #e3e7ef; }
+.desk .appwin { position: absolute; left: 26%; top: 14%; width: 50%; height: 58%; border-radius: 8px; background: rgba(245,246,248,.97); box-shadow: 0 20px 40px -20px rgba(0,0,0,.6); overflow: hidden; }
+.desk .appwin::before { content: ""; display: block; height: 8%; background: #e6e7ea; }
 .desk .appwin .lines { padding: 5% 6%; display: grid; gap: 6%; }
-.desk .appwin .lines i { display: block; height: 7%; min-height: 6px; border-radius: 4px; background: #cfd6e4; }
-.desk .appwin .lines i:nth-child(1) { width: 55%; background: #9fb1d6; }
+.desk .appwin .lines i { display: block; height: 7%; min-height: 6px; border-radius: 4px; background: #d8dadf; }
+.desk .appwin .lines i:nth-child(1) { width: 55%; background: #a9c3ee; }
 .desk .appwin .lines i:nth-child(3) { width: 80%; }
 .desk .appwin .lines i:nth-child(4) { width: 40%; }
-.desk .taskbar { position: absolute; left: 0; right: 0; bottom: 0; height: 6.5%; background: rgba(12,14,20,.85); display: flex; gap: 1%; align-items: center; justify-content: center; }
+.desk .taskbar { position: absolute; left: 0; right: 0; bottom: 0; height: 6.5%; background: rgba(20,22,26,.88); display: flex; gap: 1%; align-items: center; justify-content: center; }
 .desk .taskbar i { width: 2.4%; aspect-ratio: 1; border-radius: 22%; background: rgba(255,255,255,.18); }
-.desk .demo { position: absolute; right: 1.6%; top: 2.4%; font: 500 10px/1 var(--mono); color: rgba(255,255,255,.55); letter-spacing: .04em; }
+.desk .demo { position: absolute; right: 1.6%; top: 2.4%; font: 500 10px/1 var(--ui); color: rgba(255,255,255,.6); letter-spacing: .06em; }
 .cursor { position: absolute; width: 18px; height: 18px; left: 60%; top: 58%; transition: left 1.1s cubic-bezier(.45,0,.2,1), top 1.1s cubic-bezier(.45,0,.2,1); pointer-events: none; z-index: 3; filter: drop-shadow(0 2px 3px rgba(0,0,0,.5)); }
 
-/* Connect-by-ID overlay inside the technician window. */
+/* Connect by ID, as on the app's Início. */
 .connect { position: absolute; inset: 0; display: grid; place-items: center; background: var(--bg); transition: opacity .6s ease, visibility .6s; }
 .connect.hide { opacity: 0; visibility: hidden; }
-.connect-card { width: min(440px, 86%); background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px; }
-.connect-card h4 { margin: 0 0 4px; font: 650 16px var(--display); }
+.connect-card { width: min(440px, 86%); }
+.connect-card h4 { margin: 0 0 2px; font: 600 15px var(--ui); }
 .connect-card p { color: var(--muted); font-size: 13px; }
-.connect-row { display: flex; gap: 10px; margin-top: 16px; }
-.idbox { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font: 600 18px var(--mono); letter-spacing: .04em; min-height: 46px; display: flex; align-items: center; }
-.idbox .caret { width: 2px; height: 20px; background: var(--accent); margin-left: 2px; animation: blink 1s steps(1) infinite; }
+.connect-row { display: flex; gap: 10px; margin-top: 14px; }
+.idbox { flex: 1; background: var(--bg); border: 1px solid var(--field); border-radius: 8px; padding: 8px 12px; font: 600 17px var(--ui); font-variant-numeric: tabular-nums; min-height: 40px; display: flex; align-items: center; }
+.idbox.focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.idbox .caret { width: 1.5px; height: 18px; background: var(--accent); margin-left: 2px; animation: blink 1s steps(1) infinite; }
 @keyframes blink { 50% { opacity: 0; } }
-.connect-row .go { background: var(--accent); color: #fff; border-radius: 10px; padding: 0 18px; display: grid; place-items: center; font-weight: 600; font-size: 14px; transition: background .2s, transform .15s; }
-.connect-row .go.press { transform: scale(.96); background: var(--accent-hover); }
+.connect-row .go { background: var(--accent); color: #fff; border-radius: 8px; padding: 0 18px; display: grid; place-items: center; font-weight: 600; font-size: 13.5px; transition: background .16s, transform .08s; }
+.connect-row .go.press { transform: translateY(1px); background: var(--accent-press); }
 .connect-status { margin-top: 12px; font-size: 12.5px; color: var(--muted); min-height: 18px; display: flex; align-items: center; gap: 8px; }
-.spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--border); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+.spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--border-soft); border-top-color: var(--accent); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* The client's consent prompt (other computer), floating beside. */
-.client-win { position: absolute; right: -2.5%; bottom: -8%; width: min(330px, 46%); z-index: 4; opacity: 0; transform: translateY(18px) scale(.97); transition: opacity .55s ease, transform .7s cubic-bezier(.16,1,.3,1); }
+/* The consent prompt on the other computer, floating beside. */
+.client-win { position: absolute; right: -2.5%; bottom: -8%; width: min(340px, 46%); z-index: 4; opacity: 0; transform: translateY(14px); transition: opacity .5s ease, transform .7s cubic-bezier(.16,1,.3,1); background: var(--surface); }
 .client-win.show { opacity: 1; transform: none; }
-.client-win .titlebar img { width: 14px; }
-.consent { padding: 16px; }
-.consent .who { display: flex; gap: 10px; align-items: center; margin: 10px 0 14px; padding: 10px; background: var(--bg); border: 1px solid var(--border-soft); border-radius: 10px; }
-.consent .avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--tech-a), var(--tech-b)); display: grid; place-items: center; font: 650 13px var(--display); }
-.consent b { font-size: 13px; }
+.client-win .titlebar { background: var(--surface); }
+.consent { padding: 4px 16px 16px; }
+.consent .top { display: flex; align-items: center; gap: 10px; }
+.consent .top img { width: 28px; height: 28px; }
+.consent h5 { margin: 0; font: 600 14px/1.3 var(--ui); }
+.consent .who { display: flex; gap: 10px; align-items: center; margin: 12px 0 10px; padding: 10px; background: var(--bg-2); border-radius: 9px; }
+.consent .avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); display: grid; place-items: center; font: 600 12px var(--ui); flex: none; }
+.consent b { font-size: 13px; font-weight: 600; }
 .consent small { display: block; color: var(--muted); font-size: 11.5px; }
-.consent h5 { margin: 0; font: 650 14px/1.35 var(--display); }
-.consent .row { display: flex; gap: 8px; }
-.consent .row span { flex: 1; text-align: center; padding: 9px; border-radius: 9px; font-size: 13px; font-weight: 600; transition: transform .15s, background .2s; }
-.consent .deny { background: var(--surface-2); border: 1px solid var(--border); }
-.consent .allow { background: var(--ok); color: #06210f; }
-.consent .allow.press { transform: scale(.95); background: #4bd88d; }
-.client-label { position: absolute; right: 0; top: -26px; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
-.client-label::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--client-a); }
+.consent .caution { font-size: 12px; font-weight: 600; }
+.consent .bar { height: 3px; border-radius: 2px; background: var(--border-soft); margin: 10px 0 12px; overflow: hidden; }
+.consent .bar i { display: block; height: 100%; width: 100%; background: var(--accent); border-radius: 2px; transform-origin: left; }
+.client-win.show .bar i { animation: deplete 2.4s linear forwards; }
+@keyframes deplete { to { transform: scaleX(.86); } }
+.consent .row { display: flex; gap: 8px; justify-content: flex-end; }
+.consent .row span { text-align: center; padding: 8px 14px; min-width: 88px; border-radius: 8px; font-size: 12.5px; font-weight: 600; transition: transform .08s, background .16s; }
+.consent .deny { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border-soft); }
+.consent .allow { background: var(--accent); color: #fff; }
+.consent .allow.press { transform: translateY(1px); background: var(--accent-press); }
+.client-label { position: absolute; right: 0; top: -26px; font-size: 12px; color: var(--muted); }
 @media (max-width: 760px) {
   .client-win { position: relative; right: auto; bottom: auto; width: 100%; margin-top: 34px; }
   .client-win:not(.show) { display: none; }
@@ -192,27 +220,36 @@ p { margin: 0; }
 /* ---------- sections ---------- */
 section { padding: 120px 0 0; }
 .sec-head { max-width: 680px; }
-.sec-head h2 { font-size: clamp(2rem, 4.2vw, 3rem); }
+.sec-head h2 { font-size: clamp(1.9rem, 4vw, 2.8rem); }
 .sec-head p { margin-top: 16px; color: var(--muted); font-size: 1.06rem; }
 
-/* How it works: a real sequence, so it is numbered by its moments. */
+/* How it works: a real sequence. */
 .flow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 56px; position: relative; }
-.flow::before { content: ""; position: absolute; left: 6%; right: 6%; top: 27px; height: 1px; background: linear-gradient(90deg, var(--client-a), var(--tech-a), var(--ok)); opacity: .35; }
-.step .dot { width: 54px; height: 54px; border-radius: 16px; display: grid; place-items: center; background: var(--surface); border: 1px solid var(--border); position: relative; }
-.step .dot svg { width: 24px; height: 24px; }
-.step h3 { font-size: 1.3rem; margin-top: 22px; }
+.flow::before { content: ""; position: absolute; left: 6%; right: 6%; top: 25px; height: 1px; background: var(--border-soft); }
+.step .dot { width: 50px; height: 50px; border-radius: 12px; display: grid; place-items: center; background: var(--bg); border: 1px solid var(--border-soft); position: relative; color: var(--accent-text); }
+.step .dot svg { width: 22px; height: 22px; }
+.step h3 { font-size: 1.25rem; margin-top: 22px; }
 .step p { color: var(--muted); margin-top: 8px; max-width: 34ch; }
-.step .frag { margin-top: 18px; background: var(--surface); border: 1px solid var(--border-soft); border-radius: 12px; padding: 14px 16px; font-size: 13px; }
-.frag .label { color: var(--muted); font-size: 11.5px; }
-.frag .bigid { font: 600 24px/1.2 var(--mono); letter-spacing: .06em; margin-top: 2px; }
+.step .frag { margin-top: 18px; background: var(--surface); border-radius: 10px; padding: 14px 16px; font-size: 13px; }
+.frag .label { color: var(--muted); font-size: 12px; }
+.frag .bigid { font: 600 24px/1.2 var(--ui); font-variant-numeric: tabular-nums; margin-top: 2px; }
 .frag .mini-row { display: flex; gap: 8px; margin-top: 8px; }
 .frag .mini-row span { flex: 1; text-align: center; border-radius: 8px; padding: 7px; font-weight: 600; }
+.frag .field { background: var(--bg); border: 1px solid var(--field); text-align: left !important; font-weight: 600; font-variant-numeric: tabular-nums; }
+.frag .primary { background: var(--accent); color: #fff; flex: 0 0 auto !important; padding: 7px 14px !important; }
+.frag .secondary { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border-soft); }
 @media (max-width: 860px) { .flow { grid-template-columns: 1fr; gap: 44px; } .flow::before { display: none; } }
 
 /* Connection path. */
 .path { margin-top: 56px; display: grid; grid-template-columns: 1.15fr .85fr; gap: 40px; align-items: center; }
-.diagram { background: var(--surface); border: 1px solid var(--border-soft); border-radius: 18px; padding: 28px; }
+.diagram { background: var(--surface); border-radius: 14px; padding: 28px; }
 .diagram svg { width: 100%; height: auto; display: block; }
+.diagram .t-strong { fill: var(--text); }
+.diagram .t-muted { fill: var(--muted); }
+.diagram .direct { stroke: var(--accent); }
+.diagram .relay { stroke: var(--faint); }
+.diagram .node { fill: var(--bg); stroke: var(--border); }
+.diagram .ok { stroke: var(--ok); }
 .legend { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 14px; font-size: 12.5px; color: var(--muted); }
 .legend span { display: inline-flex; align-items: center; gap: 8px; }
 .legend i { width: 18px; height: 0; border-top: 2px solid var(--accent); }
@@ -221,7 +258,7 @@ section { padding: 120px 0 0; }
 .measure { padding: 18px 0; border-top: 1px solid var(--border-soft); display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; align-items: baseline; }
 .measure:last-child { border-bottom: 1px solid var(--border-soft); }
 .measure b { font-family: var(--display); font-weight: 600; font-size: 1.05rem; }
-.measure .v { font: 500 1.05rem var(--mono); color: var(--text); white-space: nowrap; }
+.measure .v { font: 500 1rem var(--mono); color: var(--text); white-space: nowrap; }
 .measure small { grid-column: 1 / -1; color: var(--muted); font-size: 13.5px; }
 .measure-note { margin-top: 14px; color: var(--faint); font-size: 12.5px; }
 @media (max-width: 920px) { .path { grid-template-columns: 1fr; } }
@@ -231,68 +268,60 @@ section { padding: 120px 0 0; }
 .ledger > div { padding: 30px 32px 30px 0; border-bottom: 1px solid var(--border-soft); display: grid; grid-template-columns: 40px 1fr; gap: 0 16px; align-content: start; }
 .ledger > div:nth-child(odd) { border-right: 1px solid var(--border-soft); }
 .ledger > div:nth-child(even) { padding-left: 32px; padding-right: 0; }
-.ledger svg { width: 26px; height: 26px; margin-top: 3px; }
-.ledger h3 { font-size: 1.18rem; }
+.ledger svg { width: 24px; height: 24px; margin-top: 3px; color: var(--accent-text); }
+.ledger h3 { font-size: 1.15rem; }
 .ledger p { color: var(--muted); margin-top: 6px; grid-column: 2; }
 @media (max-width: 820px) { .ledger { grid-template-columns: 1fr; } .ledger > div, .ledger > div:nth-child(even) { padding: 26px 0; border-right: 0; } }
 
 /* Downloads. */
+.dl { position: relative; border-radius: 16px; padding: 32px; background: var(--surface); }
 .dl.app { margin-top: 56px; display: grid; grid-template-columns: .9fr 1.1fr; gap: 40px; align-items: center; }
-.dl.app::before { background: radial-gradient(520px 300px at 0% 0%, rgba(94,140,255,.18), transparent 70%), radial-gradient(520px 300px at 100% 100%, rgba(122,69,240,.16), transparent 70%); }
 .dl-sides { display: grid; gap: 22px; }
-.dl-sides b { font-family: var(--display); font-weight: 600; font-size: 1.1rem; }
+.dl-sides b { font-family: var(--display); font-weight: 600; font-size: 1.08rem; }
 .dl-sides p { color: var(--muted); margin-top: 4px; }
-.side-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 10px; vertical-align: 1px; }
-@media (max-width: 820px) { .dl.app { grid-template-columns: 1fr; gap: 28px; } }
-.dl-grid { margin-top: 56px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-.dl { position: relative; border-radius: 20px; padding: 32px; overflow: hidden; border: 1px solid var(--border); background: var(--surface); isolation: isolate; }
-.dl::before { content: ""; position: absolute; inset: 0; z-index: -1; opacity: .9; }
-.dl.tech::before { background: radial-gradient(420px 260px at 100% 0%, rgba(163,123,255,.22), transparent 70%); }
-.dl.client::before { background: radial-gradient(420px 260px at 100% 0%, rgba(106,151,255,.22), transparent 70%); }
+@media (max-width: 820px) { .dl.app { grid-template-columns: 1fr; gap: 28px; padding: 26px; } }
 .dl-top { display: flex; align-items: center; gap: 16px; }
-.dl-top img { width: 64px; height: 64px; border-radius: 18px; box-shadow: 0 12px 28px -14px rgba(0,0,0,.8); }
+.dl-top img { width: 64px; height: 64px; }
 .dl-top .who { font-size: 13px; color: var(--muted); }
-.dl h3 { font-size: 1.55rem; }
-.dl > p { margin-top: 16px; color: var(--muted); max-width: 46ch; }
+.dl h3 { font-size: 1.5rem; }
 .dl .btn { margin-top: 26px; }
 .dl-meta { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: var(--faint); }
 .dl-meta .sha { font-family: var(--mono); font-size: 11.5px; }
-@media (max-width: 820px) { .dl-grid { grid-template-columns: 1fr; } .dl { padding: 26px; } }
 
-/* SmartScreen helper. */
+/* SmartScreen helper (a drawing of the real Windows dialog). */
 .ss { margin-top: 56px; display: grid; grid-template-columns: .9fr 1.1fr; gap: 48px; align-items: center; }
-.ss-win { background: #1f2a44; border-radius: 6px; padding: 26px 26px 20px; color: #fff; font-family: "Segoe UI", system-ui, sans-serif; box-shadow: 0 30px 60px -30px rgba(0,0,0,.8); max-width: 460px; }
+.ss-win { background: #1f2a44; border-radius: 6px; padding: 26px 26px 20px; color: #fff; font-family: "Segoe UI", system-ui, sans-serif; box-shadow: var(--shadow); max-width: 460px; }
 .ss-win h4 { margin: 0 0 12px; font-size: 22px; font-weight: 400; }
 .ss-win p { font-size: 13px; color: #d7deec; }
 .ss-win .more { color: #9ec3ff; text-decoration: underline; display: inline-block; margin-top: 10px; font-size: 13px; position: relative; }
 .ss-win .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 26px; }
 .ss-win .btns span { border: 1px solid #c8d1e6; padding: 6px 16px; font-size: 13px; }
-.ss-win .btns .run { background: #fff; color: #1f2a44; outline: 2px solid var(--warn); outline-offset: 3px; }
-.hint { position: absolute; left: calc(100% + 10px); top: -4px; white-space: nowrap; font: 600 11px/1 var(--ui); color: #111; background: var(--warn); padding: 5px 8px; border-radius: 6px; }
+.ss-win .btns .run { background: #fff; color: #1f2a44; outline: 2px solid #e6a23c; outline-offset: 3px; }
+.hint { position: absolute; left: calc(100% + 10px); top: -4px; white-space: nowrap; font: 600 11px/1 var(--ui); color: #111; background: #e6a23c; padding: 5px 8px; border-radius: 6px; }
 .steps-list { list-style: none; padding: 0; margin: 22px 0 0; display: grid; gap: 14px; counter-reset: s; }
 .steps-list li { counter-increment: s; display: grid; grid-template-columns: 30px 1fr; gap: 12px; color: var(--muted); }
-.steps-list li::before { content: counter(s); width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--border); display: grid; place-items: center; font: 600 12px var(--mono); color: var(--text); }
+.steps-list li::before { content: counter(s); width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--border); display: grid; place-items: center; font: 600 12px var(--ui); color: var(--text); }
 .steps-list b { color: var(--text); font-weight: 600; }
 @media (max-width: 860px) { .ss { grid-template-columns: 1fr; } .hint { display: none; } }
 
 /* FAQ */
 .faq { margin-top: 48px; border-top: 1px solid var(--border-soft); max-width: 860px; }
 .faq details { border-bottom: 1px solid var(--border-soft); }
-.faq summary { list-style: none; cursor: pointer; padding: 22px 40px 22px 0; font: 600 1.08rem var(--display); position: relative; }
+.faq summary { list-style: none; cursor: pointer; padding: 22px 40px 22px 0; font: 600 1.05rem var(--display); position: relative; }
 .faq summary::-webkit-details-marker { display: none; }
-.faq summary::after { content: ""; position: absolute; right: 8px; top: 50%; width: 10px; height: 10px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: translateY(-70%) rotate(45deg); transition: transform .3s; }
+.faq summary::after { content: ""; position: absolute; right: 8px; top: 50%; width: 9px; height: 9px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: translateY(-70%) rotate(45deg); transition: transform .3s cubic-bezier(.16,1,.3,1); }
 .faq details[open] summary::after { transform: translateY(-30%) rotate(225deg); }
 .faq details p { color: var(--muted); padding: 0 0 22px; max-width: 70ch; }
 
 /* Closing + footer */
-.close { margin-top: 140px; padding: 72px 0; border-top: 1px solid var(--border-soft); text-align: center; background: radial-gradient(600px 260px at 50% 0%, rgba(79,124,255,.12), transparent 70%); }
-.close h2 { font-size: clamp(2rem, 4.6vw, 3.2rem); }
+.close { margin-top: 140px; padding: 72px 0; border-top: 1px solid var(--border-soft); text-align: center; }
+.close h2 { font-size: clamp(1.9rem, 4.4vw, 3rem); }
 .close .hero-actions { margin-top: 30px; }
 footer { border-top: 1px solid var(--border-soft); padding: 28px 0 40px; color: var(--faint); font-size: 13px; }
 footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 26px; align-items: center; }
 footer a { color: var(--muted); text-decoration: none; }
 footer a:hover { color: var(--text); }
-.status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); margin-right: 6px; box-shadow: 0 0 0 3px rgba(52,199,123,.15); }
+.status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); margin-right: 6px; }
 footer .right { margin-left: auto; }
 
 /* Reveal: content visible by default; only enhanced when JS runs. */
@@ -308,11 +337,11 @@ footer .right { margin-left: auto; }
 </head>
 <body>
 <!--
-THESIS: A primeira tela é o próprio produto trabalhando — a janela do Aionix Connect em sessão, com o cliente autorizando no outro computador. Recusa o herói genérico de título + grade de cartões com ícones.
-OWN-WORLD: O mundo do app: fundo #0d1015, superfícies #151921 com bordas #2a303c, acento #4f7cff; o app é o degradê azul→violeta (#5e8cff→#7a45f0); azul marca o lado de quem recebe ajuda, violeta o de quem ajuda; pílulas de status, chips e botões de 10px dos apps; display Bricolage Grotesque, números em JetBrains Mono só para medidas.
+THESIS: A primeira tela é o próprio produto trabalhando: a janela do Aionix Connect em sessão, com o cliente autorizando no outro computador. Recusa o herói genérico de título + grade de cartões com ícones.
+OWN-WORLD: O mundo do app (DESIGN.md): neutros que seguem o tema claro/escuro do sistema, um só azul (#0b63e5 / #226ce8) para a ação principal, verde só para conectado, linhas finas no lugar de caixas, cantos de 8 px, a marca das duas telas, tipografia do sistema (Segoe UI no Windows). Sem degradês, brilhos ou violeta.
 STORY: O visitante entende em segundos o que é, vê o fluxo ID → Permitir → Conectado, confia pelos mecanismos (consentimento, ponta a ponta, assinatura) e baixa o único instalador.
-FIRST VIEWPORT: Título centralizado e um download (degradê azul→violeta) com "Como funciona" ao lado; a réplica da janela do Aionix Connect em sessão ocupa a largura, animando o fluxo; o pedido de "Permitir" do cliente flutua no canto inferior direito.
-FORM: "Sessão ao vivo", 1º da lista ordenada (escolha delegada pelo usuário); seed f48a6264.
+FIRST VIEWPORT: Título centralizado e o download azul com "Como funciona" ao lado; a réplica da janela do Aionix Connect em sessão ocupa a largura, animando o fluxo; o pedido de "Permitir" do cliente aparece no canto inferior direito.
+FORM: "Sessão ao vivo" (seed f48a6264), realinhado ao mundo do app redesenhado (seed 2c2b5fae, canon).
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 -->
 <script>document.documentElement.classList.add('js');</script>
@@ -347,10 +376,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         <div class="win tech-win">
           <div class="titlebar"><img src="/assets/app-96.png" alt="">Aionix Connect<span class="ctl" aria-hidden="true"><span>—</span><span>▢</span><span>✕</span></span></div>
           <div class="sessbar">
-            <div class="sess-dev"><b>OTTO</b><small class="mono">ID 325 344 335</small></div>
-            <span class="pill wait" id="pill"><i></i><span id="pill-text">Aguardando</span></span>
-            <span class="stats mono" id="stats"><span class="opt">Direto · </span><b id="lat">—</b> · <b id="fps">—</b><span class="opt"> · 1920×1080</span></span>
-            <span class="sess-actions" aria-hidden="true"><span class="chip"><span class="sw"></span>Controle</span><span class="chip">Diagnóstico</span><span class="chip end">Encerrar</span></span>
+            <div class="sess-dev"><b>OTTO</b><small class="num">ID 325 344 335</small></div>
+            <span class="state wait" id="pill"><i></i><span id="pill-text">Aguardando</span></span>
+            <span class="stats num" id="stats"><span class="opt">Direto · </span><b id="lat">—</b> · <b id="fps">—</b><span class="opt"> · 1920×1080</span></span>
+            <span class="sess-actions" aria-hidden="true">
+              <span class="ib on" title="Controle"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 2.5v10.25l2.6-2.35 1.8 3.6 1.6-.75-1.75-3.5 3.5-.25z"/></svg></span>
+              <span class="ib" title="Diagnóstico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.75 8.5H4.5L6.25 4l3 8.5L11 8.5h3.25"/></svg></span>
+              <span class="ib" title="Tela cheia"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.75 6V2.75H6M10 2.75h3.25V6M13.25 10v3.25H10M6 13.25H2.75V10"/></svg></span>
+              <span class="end">Encerrar</span>
+            </span>
           </div>
           <div class="screen">
             <div class="desk" id="desk" aria-hidden="true">
@@ -359,12 +393,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               <div class="taskbar"><i></i><i></i><i></i><i></i><i></i></div>
               <span class="demo">TELA DE DEMONSTRAÇÃO</span>
             </div>
-            <svg class="cursor" id="cursor" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2.5 19 13l-6.6 1.2L16 21l-2.6 1.1-3.6-6.8L4 19.6z" fill="#fff" stroke="#0d1015" stroke-width="1.2" stroke-linejoin="round"/></svg>
+            <svg class="cursor" id="cursor" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2.5 19 13l-6.6 1.2L16 21l-2.6 1.1-3.6-6.8L4 19.6z" fill="#fff" stroke="#18191c" stroke-width="1.2" stroke-linejoin="round"/></svg>
             <div class="connect" id="connect">
               <div class="connect-card">
                 <h4>Acessar outro computador</h4>
                 <p>Digite o ID que aparece no Aionix Connect da outra pessoa.</p>
-                <div class="connect-row"><div class="idbox"><span id="typed"></span><span class="caret"></span></div><span class="go" id="go">Conectar</span></div>
+                <div class="connect-row"><div class="idbox focus"><span id="typed"></span><span class="caret"></span></div><span class="go" id="go">Conectar</span></div>
                 <div class="connect-status" id="cstatus"></div>
               </div>
             </div>
@@ -374,8 +408,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           <span class="client-label">No computador do cliente</span>
           <div class="titlebar"><img src="/assets/app-96.png" alt="">Aionix Connect</div>
           <div class="consent">
-            <h5>Um técnico está solicitando acesso a este computador.</h5>
-            <div class="who"><span class="avatar">A</span><div><b>Alan Araujo</b><small>Técnico · Aionix</small></div></div>
+            <div class="top"><img src="/assets/app-96.png" alt=""><h5>Um técnico quer acessar este computador</h5></div>
+            <div class="who"><span class="avatar">AA</span><div><b>Alan Araujo</b><small>Aionix</small></div></div>
+            <p class="caution">Permita somente se você reconhece esta solicitação.</p>
+            <div class="bar"><i></i></div>
             <div class="row"><span class="deny">Recusar</span><span class="allow" id="allow">Permitir</span></div>
           </div>
         </div>
@@ -392,22 +428,22 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       </div>
       <div class="flow">
         <div class="step reveal">
-          <div class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="var(--client-a)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></div>
+          <div class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></div>
           <h3>O cliente abre o Aionix Connect</h3>
           <p>O aplicativo mostra o ID de 9 dígitos daquele computador, que nunca muda. Não precisa de conta.</p>
           <div class="frag"><div class="label">Seu ID</div><div class="bigid">325 344 335</div></div>
         </div>
         <div class="step reveal">
-          <div class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="var(--tech-a)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></div>
+          <div class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></div>
           <h3>Você conecta pelo ID</h3>
           <p>No seu Aionix Connect, em Acessar outro computador, digite o número. O pedido chega na hora, onde quer que ele esteja.</p>
-          <div class="frag"><div class="label">Acessar outro computador</div><div class="mini-row"><span style="background:var(--bg);border:1px solid var(--border);text-align:left;font-family:var(--mono);font-weight:500">325 344 335</span><span style="background:var(--accent);flex:0 0 auto;padding:7px 14px">Conectar</span></div></div>
+          <div class="frag"><div class="label">Acessar outro computador</div><div class="mini-row"><span class="field">325 344 335</span><span class="primary">Conectar</span></div></div>
         </div>
         <div class="step reveal">
-          <div class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg></div>
+          <div class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg></div>
           <h3>O cliente autoriza</h3>
           <p>Ele vê o seu nome e decide. Ao clicar em Permitir, a tela aparece para você; ele pode encerrar quando quiser.</p>
-          <div class="frag"><div class="label">Um técnico está solicitando acesso</div><div class="mini-row"><span style="background:var(--surface-2);border:1px solid var(--border)">Recusar</span><span style="background:var(--ok);color:#06210f">Permitir</span></div></div>
+          <div class="frag"><div class="label">Um técnico quer acessar este computador</div><div class="mini-row"><span class="secondary">Recusar</span><span class="primary" style="flex:1 1 0 !important">Permitir</span></div></div>
         </div>
       </div>
     </div>
@@ -422,29 +458,23 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       <div class="path">
         <div class="diagram reveal">
           <svg viewBox="0 0 560 300" role="img" aria-label="Diagrama: técnico e cliente ligados diretamente, com o relay como caminho de reserva">
-            <defs>
-              <linearGradient id="gT" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a37bff"/><stop offset="1" stop-color="#5538db"/></linearGradient>
-              <linearGradient id="gC" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6a97ff"/><stop offset="1" stop-color="#2d55e6"/></linearGradient>
-            </defs>
-            <path d="M120 150 C 220 150, 340 150, 440 150" stroke="#4f7cff" stroke-width="2.5" fill="none" stroke-dasharray="6 10" id="direct">
+            <path class="direct" d="M120 150 C 220 150, 340 150, 440 150" stroke-width="2.5" fill="none" stroke-dasharray="6 10">
               <animate attributeName="stroke-dashoffset" from="64" to="0" dur="1.2s" repeatCount="indefinite"/>
             </path>
-            <path d="M120 150 C 170 60, 230 48, 280 48 C 330 48, 390 60, 440 150" stroke="#5d6574" stroke-width="1.5" fill="none" stroke-dasharray="4 6"/>
-            <rect x="236" y="26" width="88" height="40" rx="10" fill="#151921" stroke="#2a303c"/>
-            <text x="280" y="44" text-anchor="middle" fill="#e8ebf1" font-size="12" font-family="Segoe UI, system-ui" font-weight="600">Relay</text>
-            <text x="280" y="58" text-anchor="middle" fill="#8d96a7" font-size="10" font-family="Segoe UI, system-ui">reserva</text>
-            <rect x="40" y="110" width="80" height="80" rx="20" fill="url(#gT)"/>
-            <path d="M64 168 80 128 96 168M70 154h20" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-            <text x="80" y="218" text-anchor="middle" fill="#e8ebf1" font-size="13" font-family="Segoe UI, system-ui" font-weight="600">Você</text>
-            <text x="80" y="236" text-anchor="middle" fill="#8d96a7" font-size="11" font-family="Segoe UI, system-ui">Técnico</text>
-            <rect x="440" y="110" width="80" height="80" rx="20" fill="url(#gC)"/>
-            <path d="M464 168 480 128 496 168M470 154h20" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-            <text x="480" y="218" text-anchor="middle" fill="#e8ebf1" font-size="13" font-family="Segoe UI, system-ui" font-weight="600">Cliente</text>
-            <text x="480" y="236" text-anchor="middle" fill="#8d96a7" font-size="11" font-family="Segoe UI, system-ui">Aionix Connect</text>
-            <rect x="222" y="168" width="116" height="30" rx="15" fill="#0d1015" stroke="#2a303c"/>
-            <text x="280" y="188" text-anchor="middle" fill="#e8ebf1" font-size="12" font-family="JetBrains Mono, monospace">87 ms · 34 fps</text>
-            <path d="M262 262h36" stroke="#34c77b" stroke-width="2"/>
-            <text x="280" y="284" text-anchor="middle" fill="#8d96a7" font-size="11" font-family="Segoe UI, system-ui">criptografado de ponta a ponta nos dois caminhos</text>
+            <path class="relay" d="M120 150 C 170 60, 230 48, 280 48 C 330 48, 390 60, 440 150" stroke-width="1.5" fill="none" stroke-dasharray="4 6"/>
+            <rect class="node" x="236" y="26" width="88" height="40" rx="8"/>
+            <text class="t-strong" x="280" y="44" text-anchor="middle" font-size="12" font-family="Segoe UI, system-ui" font-weight="600">Relay</text>
+            <text class="t-muted" x="280" y="58" text-anchor="middle" font-size="10" font-family="Segoe UI, system-ui">reserva</text>
+            <g transform="translate(40 110) scale(3.3333)"><rect width="24" height="24" rx="5.4" fill="#1b6aeb"/><rect x="3.85" y="4.45" width="10.9" height="6.5" rx="1" fill="none" stroke="#fff" stroke-width="1.7"/><rect x="9.25" y="9.65" width="10.9" height="6.5" rx="1" fill="none" stroke="#fff" stroke-width="1.7"/><rect x="8.4" y="8.8" width="7.2" height="3" rx=".5" fill="#fff"/><rect x="13.85" y="17" width="1.7" height="2.4" rx=".4" fill="#fff"/><rect x="11.6" y="19" width="6.2" height="1.6" rx=".6" fill="#fff"/></g>
+            <text class="t-strong" x="80" y="218" text-anchor="middle" font-size="13" font-family="Segoe UI, system-ui" font-weight="600">Você</text>
+            <text class="t-muted" x="80" y="236" text-anchor="middle" font-size="11" font-family="Segoe UI, system-ui">Técnico</text>
+            <g transform="translate(440 110) scale(3.3333)"><rect width="24" height="24" rx="5.4" fill="#1b6aeb"/><rect x="3.85" y="4.45" width="10.9" height="6.5" rx="1" fill="none" stroke="#fff" stroke-width="1.7"/><rect x="9.25" y="9.65" width="10.9" height="6.5" rx="1" fill="none" stroke="#fff" stroke-width="1.7"/><rect x="8.4" y="8.8" width="7.2" height="3" rx=".5" fill="#fff"/><rect x="13.85" y="17" width="1.7" height="2.4" rx=".4" fill="#fff"/><rect x="11.6" y="19" width="6.2" height="1.6" rx=".6" fill="#fff"/></g>
+            <text class="t-strong" x="480" y="218" text-anchor="middle" font-size="13" font-family="Segoe UI, system-ui" font-weight="600">Cliente</text>
+            <text class="t-muted" x="480" y="236" text-anchor="middle" font-size="11" font-family="Segoe UI, system-ui">Aionix Connect</text>
+            <rect class="node" x="222" y="168" width="116" height="30" rx="15"/>
+            <text class="t-strong" x="280" y="188" text-anchor="middle" font-size="12" font-family="JetBrains Mono, monospace">87 ms · 34 fps</text>
+            <path class="ok" d="M262 262h36" stroke-width="2"/>
+            <text class="t-muted" x="280" y="284" text-anchor="middle" font-size="11" font-family="Segoe UI, system-ui">criptografado de ponta a ponta nos dois caminhos</text>
           </svg>
           <div class="legend"><span><i></i>Conexão direta</span><span><i class="dash"></i>Relay (quando a rede bloqueia a direta)</span></div>
         </div>
@@ -469,22 +499,22 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       </div>
       <div class="ledger reveal">
         <div>
-          <svg viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>
           <h3>Consentimento em cada sessão</h3>
           <p>O cliente vê quem está pedindo acesso e só a partir do Permitir algo é transmitido. Ele encerra quando quiser.</p>
         </div>
         <div>
-          <svg viewBox="0 0 24 24" fill="none" stroke="var(--client-a)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>
           <h3>Criptografia de ponta a ponta</h3>
           <p>Tela, teclado, mouse e área de transferência viajam cifrados entre os dois computadores, inclusive quando passam pelo relay.</p>
         </div>
         <div>
-          <svg viewBox="0 0 24 24" fill="none" stroke="var(--tech-a)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4" width="17" height="6.5" rx="1.5"/><rect x="3.5" y="13.5" width="17" height="6.5" rx="1.5"/><path d="M7 7.25h.01M7 16.75h.01"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4" width="17" height="6.5" rx="1.5"/><rect x="3.5" y="13.5" width="17" height="6.5" rx="1.5"/><path d="M7 7.25h.01M7 16.75h.01"/></svg>
           <h3>Infraestrutura própria</h3>
           <p>Contas, sinalização e relay rodam no servidor do Aionix. Nenhum serviço de terceiros participa das suas sessões.</p>
         </div>
         <div>
-          <svg viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/><path d="m9 12 2 2 4-4"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/><path d="m9 12 2 2 4-4"/></svg>
           <h3>Atualizações assinadas</h3>
           <p>O aplicativo se atualiza sozinho e só aceita uma versão nova assinada com a chave do Aionix. O arquivo também precisa bater com o hash publicado.</p>
         </div>
@@ -505,8 +535,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           <div class="dl-meta" data-meta="app"><span>Carregando versão…</span></div>
         </div>
         <div class="dl-sides">
-          <div><span class="side-dot" style="background:var(--client-a)"></span><b>Para receber ajuda</b><p>Abra o aplicativo e passe o ID que aparece em Este computador. Ninguém entra sem você clicar em Permitir. Não precisa de conta.</p></div>
-          <div><span class="side-dot" style="background:var(--tech-a)"></span><b>Para ajudar alguém</b><p>Em Acessar outro computador, digite o ID da pessoa. Na primeira vez, entre com a sua conta Aionix; ela fica salva.</p></div>
+          <div><b>Para receber ajuda</b><p>Abra o aplicativo e passe o ID que aparece em Este computador. Ninguém entra sem você clicar em Permitir. Não precisa de conta.</p></div>
+          <div><b>Para ajudar alguém</b><p>Em Acessar outro computador, digite o ID da pessoa. Na primeira vez, entre com a sua conta Aionix; ela fica salva.</p></div>
         </div>
       </article>
 
@@ -555,7 +585,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 <footer>
   <div class="wrap">
-    <a class="brand" href="#topo" style="font-size:15px"><img src="/assets/setup-512.png" alt="" width="22" height="22" style="width:22px;height:22px;border-radius:6px">Aionix Connect</a>
+    <a class="brand" href="#topo" style="font-size:15px"><img src="/assets/setup-512.png" alt="" width="22" height="22" style="width:22px;height:22px">Aionix Connect</a>
     <a href="https://aionix-status.vercel.app" target="_blank" rel="noopener"><span class="status-dot"></span>Status do servidor</a>
     <a href="#download">Download</a>
     <a href="#seguranca">Segurança</a>
@@ -622,7 +652,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
   function connected() {
     connect.classList.add('hide'); client.classList.remove('show'); desk.classList.add('on');
-    pill.className = 'pill ok'; pillText.textContent = 'Conectado';
+    pill.className = 'state ok'; pillText.textContent = 'Conectado';
     clearInterval(ticker);
     ticker = setInterval(() => {
       lat.textContent = (85 + Math.round(Math.random() * 10)) + ' ms';
@@ -633,7 +663,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   function reset() {
     clearInterval(ticker);
     connect.classList.remove('hide'); desk.classList.remove('on'); client.classList.remove('show');
-    pill.className = 'pill wait'; pillText.textContent = 'Aguardando';
+    pill.className = 'state wait'; pillText.textContent = 'Aguardando';
     lat.textContent = '—'; fps.textContent = '—'; typed.textContent = ''; cstatus.innerHTML = '';
     cursor.style.left = '60%'; cursor.style.top = '58%';
   }

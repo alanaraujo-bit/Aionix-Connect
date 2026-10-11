@@ -70,6 +70,9 @@ mod app {
         /// Allow a second instance (development launcher running two data folders).
         #[arg(long, hide = true)]
         multi_instance: bool,
+        /// Start minimized to the taskbar (the Windows startup entry uses this).
+        #[arg(long)]
+        minimized: bool,
     }
 
     /// Settings shipped next to the executable (a package made for one server).
@@ -133,6 +136,8 @@ mod app {
             viewport: egui::ViewportBuilder::default()
                 .with_title(WINDOW_TITLE)
                 .with_inner_size([1040.0, 680.0])
+                // Started with Windows: hidden until the first frame minimizes it.
+                .with_visible(!args.minimized)
                 .with_min_inner_size([760.0, 560.0])
                 .with_icon(icon::app_icon()),
             ..Default::default()
@@ -181,6 +186,7 @@ mod app {
                     applying_update: false,
                     page: views::Page::Home,
                     computers_after_login: false,
+                    start_minimized: if args.minimized { 2 } else { 0 },
                 }))
             }),
         );
@@ -200,6 +206,8 @@ mod app {
         page: views::Page,
         /// "Computadores" was clicked while signed out: open it after signing in.
         computers_after_login: bool,
+        /// Frames left in the minimized start (2: show, 1: minimize, 0: done).
+        start_minimized: u8,
     }
 
     /// A verified update installs itself only after this long without the user touching
@@ -209,6 +217,20 @@ mod app {
     impl eframe::App for App {
         fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
             let ctx = ui.ctx().clone();
+            // Started with Windows: show on the first frame, minimize on the next
+            // (Windows ignores minimizing a window that is not shown yet).
+            match self.start_minimized {
+                2 => {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                    self.start_minimized = 1;
+                    ctx.request_repaint();
+                }
+                1 => {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
+                    self.start_minimized = 0;
+                }
+                _ => {}
+            }
             if ctx.input(|i| !i.events.is_empty() || i.pointer.is_moving()) {
                 self.last_input = Instant::now();
             }

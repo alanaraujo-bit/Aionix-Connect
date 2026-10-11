@@ -2,8 +2,8 @@
 
     python -I infra/branding/make-icons.py
 
-Writes branding/icons/setup.ico (app, installer, shortcuts), branding/icons/setup-512.png
-and branding/icons/app-256.png (window icon). The mark: two landscape screens that
+Writes branding/icons/setup.ico (app, installer, shortcuts), branding/icons/setup-512.png,
+branding/icons/app-256.png (window icon) and the website's site/public/assets/*.png. The mark: two landscape screens that
 overlap (the front one on a stand), the region they share filled solid; it is what both
 people see during a session. It sits on a flat blue rounded square. The same geometry
 (24-unit grid) is drawn at runtime by `theme::paint_mark` (crates/desktop/src/theme.rs)
@@ -81,6 +81,16 @@ def main():
     frames = [(heavy if n <= 32 else regular).resize((n, n), Image.LANCZOS) for n in SIZES]
     frames[-1].save(OUT / "setup.ico", format="ICO", sizes=[(n, n) for n in SIZES],
                     append_images=frames[:-1])
+    # Website (site/public/assets): page icon, favicon, Apple touch icon, replica icon.
+    site = ROOT / "site" / "public" / "assets"
+    site.mkdir(parents=True, exist_ok=True)
+    regular.resize((512, 512), Image.LANCZOS).save(site / "setup-512.png")
+    regular.resize((96, 96), Image.LANCZOS).save(site / "app-96.png")
+    heavy.resize((32, 32), Image.LANCZOS).save(site / "favicon-32.png")
+    touch = Image.new("RGBA", (180, 180), TILE + (255,))
+    mark_only = icon(1.7).resize((180, 180), Image.LANCZOS)
+    touch.alpha_composite(mark_only)
+    touch.convert("RGB").save(site / "apple-touch-icon.png")
     # Contact sheet for checking the small sizes by eye (not shipped).
     sheet = Image.new("RGBA", (40 + 64 * len(SIZES[:6]), 2 * 80), (0xF3, 0xF3, 0xF5, 255))
     ImageDraw.Draw(sheet).rectangle([0, 80, sheet.width, 160], fill=(0x1C, 0x1C, 0x1F, 255))

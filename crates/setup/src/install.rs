@@ -71,6 +71,10 @@ pub struct Installed {
 pub struct Options {
     pub dir: PathBuf,
     pub desktop_shortcut: bool,
+    /// Start the app (minimized) when the user signs in to Windows, so this computer
+    /// is reachable by its ID after a restart. Turning it off in Task Manager
+    /// (Inicializar) is respected: that lives in StartupApproved, which is not touched.
+    pub start_with_windows: bool,
 }
 
 /// Progress callback: (fraction 0..1, step description).
@@ -116,7 +120,14 @@ pub fn install(p: &ProductInfo, opts: &Options, progress: Progress<'_>) -> Resul
 
     progress(0.85, "Registrando no Windows");
     #[cfg(windows)]
-    win::register(p, &opts.dir, &exe, &uninstaller, dir_size(&opts.dir))?;
+    {
+        win::register(p, &opts.dir, &exe, &uninstaller, dir_size(&opts.dir))?;
+        if opts.start_with_windows {
+            win::set_autostart(p, &exe)?;
+        } else {
+            win::remove_autostart(p);
+        }
+    }
 
     progress(1.0, "Concluído");
     Ok(exe)
@@ -161,7 +172,10 @@ pub fn uninstall(p: &ProductInfo, remove_data: bool, progress: Progress<'_>) -> 
 
     progress(0.6, "Removendo o registro do Windows");
     #[cfg(windows)]
-    win::unregister(p);
+    {
+        win::unregister(p);
+        win::remove_autostart(p);
+    }
 
     progress(0.75, "Removendo arquivos");
     if remove_data {
@@ -351,6 +365,25 @@ mod win {
             Ok(())
         })()
         .map_err(|e| format!("registro: {e}"))
+    }
+
+    const RUN: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
+
+    /// Starts `exe --minimized` at sign-in (HKCU Run, per user, no administrator).
+    pub fn set_autostart(p: &ProductInfo, exe: &Path) -> Result<(), String> {
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        let (key, _) = hkcu
+            .create_subkey(RUN)
+            .map_err(|e| format!("inicialização: {e}"))?;
+        key.set_value(p.display, &format!("\"{}\" --minimized", exe.display()))
+            .map_err(|e| format!("inicialização: {e}"))
+    }
+
+    pub fn remove_autostart(p: &ProductInfo) {
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        if let Ok(k) = hkcu.open_subkey_with_flags(RUN, KEY_WRITE) {
+            let _ = k.delete_value(p.display);
+        }
     }
 
     pub fn unregister(p: &ProductInfo) {
