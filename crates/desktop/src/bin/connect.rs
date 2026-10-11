@@ -186,7 +186,7 @@ mod app {
                     applying_update: false,
                     page: views::Page::Home,
                     computers_after_login: false,
-                    start_minimized: if args.minimized { 2 } else { 0 },
+                    start_minimized: if args.minimized { MINIMIZE_ATTEMPTS } else { 0 },
                 }))
             }),
         );
@@ -206,9 +206,12 @@ mod app {
         page: views::Page,
         /// "Computadores" was clicked while signed out: open it after signing in.
         computers_after_login: bool,
-        /// Frames left in the minimized start (2: show, 1: minimize, 0: done).
+        /// Attempts left in the minimized start (0: done).
         start_minimized: u8,
     }
+
+    /// Frames (~50 ms apart) spent getting a `--minimized` start minimized.
+    const MINIMIZE_ATTEMPTS: u8 = 60;
 
     /// A verified update installs itself only after this long without the user touching
     /// the app, and never during a session (either direction) or a consent prompt.
@@ -217,19 +220,22 @@ mod app {
     impl eframe::App for App {
         fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
             let ctx = ui.ctx().clone();
-            // Started with Windows: show on the first frame, minimize on the next
-            // (Windows ignores minimizing a window that is not shown yet).
-            match self.start_minimized {
-                2 => {
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-                    self.start_minimized = 1;
-                    ctx.request_repaint();
-                }
-                1 => {
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
+            // Started with Windows: show on the first frame, then ask to minimize until the
+            // window reports it is minimized (Windows ignores minimizing a window that is
+            // not shown yet, and how soon it is shown varies). Gives up after ~3 s.
+            if self.start_minimized > 0 {
+                let minimized = ctx.input(|i| i.viewport().minimized) == Some(true);
+                if minimized {
                     self.start_minimized = 0;
+                } else {
+                    if self.start_minimized == MINIMIZE_ATTEMPTS {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                    } else {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
+                    }
+                    self.start_minimized -= 1;
+                    ctx.request_repaint_after(Duration::from_millis(50));
                 }
-                _ => {}
             }
             if ctx.input(|i| !i.events.is_empty() || i.pointer.is_moving()) {
                 self.last_input = Instant::now();
