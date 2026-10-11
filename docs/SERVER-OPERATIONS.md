@@ -34,10 +34,12 @@ Mode (2026-10-10): **public HTTPS at `https://connect.aionixdev.com`** — DNS A
 (Hostinger) → 138.0.54.176 (fixed IP), ONT Huawei EG8145X6 port mapping `Aionix_Connect`
 (TCP/UDP 443, TCP 80 → 192.168.18.110), Let's Encrypt certificate via Caddy (tls-alpn-01),
 HTTP→HTTPS 308. Verified from Brazil, Germany, Romania, Vietnam and Iran, and from the LAN
-(NAT loopback works). Caddy publishes 80/443 **only on
-192.168.18.110** (`AIONIX_HTTP_PORT`/`AIONIX_HTTPS_PORT` in `.env`), so nothing listens on
-the server's public IPv6 address. Docker-published ports bypass UFW; the bind address is
-what limits exposure.
+(NAT loopback works). Caddy publishes 80/443 on **`0.0.0.0` (IPv4 only)**
+(`AIONIX_HTTP_PORT=0.0.0.0:80`, `AIONIX_HTTPS_PORT=0.0.0.0:443` in `.env`), so nothing
+listens on the server's public IPv6 address. Docker-published ports bypass UFW; the bind
+address is what limits exposure. Until 2026-10-11 it was bound to `192.168.18.110`; see
+the incident below for why that broke after a reboot. Deploy with `-BindAddress 0.0.0.0`
+so a redeploy keeps this.
 
 ## Recovery — VERIFIED
 
@@ -48,8 +50,26 @@ what limits exposure.
   (Docker behaviour) — use `docker start` or `docker compose up -d` after those.
 - Backup: `scripts/backup.sh` → `backups/aionix-backup-<UTC>.tar.gz` (PostgreSQL dump,
   `.env`, token-signing key, Caddy data). Daily cron 03:15 (`/etc/cron.d/aionix-backup`).
-- **Not yet verified:** full reboot persistence (needs one controlled reboot) and a
-  restore drill (`scripts/restore.sh`) on this server.
+- **Reboot persistence: VERIFIED by two power losses (2026-10-10/11).** Docker, every
+  container (healthy), UFW and SSH came back unattended. One failure, now fixed: see the
+  incident below.
+- **Not yet verified:** a restore drill (`scripts/restore.sh`) on this server.
+
+### Incident 2026-10-11: HTTPS down after power loss
+
+- **Symptom:** `https://connect.aionixdev.com` refused connections (port 443), so every app
+  showed "Sem conexão com o servidor" and no ID. All containers were up and healthy.
+- **Cause:** Caddy's ports were bound to `192.168.18.110`, an address the server gets by
+  DHCP. After the power loss Docker started before that address existed, the port
+  publishing failed silently, and the container ran with no host ports. `docker restart`
+  does not redo it; the container has to be recreated.
+- **Fix (audited with `aionix-run`):** `.env` backed up to `config/.env.bak-20261011`,
+  bindings changed to `0.0.0.0:80` / `0.0.0.0:443`, Caddy recreated with
+  `docker compose … up -d --no-deps --force-recreate caddy`. Verified: listeners on
+  0.0.0.0:80/443 (TCP) and 443 (UDP), `/healthz` and `/v1/server/info` 200 from the
+  internet, apps reconnected on their own.
+- **Still advisable:** a DHCP reservation for this server (`192.168.18.110`) on the ONT,
+  because the ONT's port mapping points at that address.
 
 ## Security posture
 
@@ -97,8 +117,8 @@ source `dashboard/`).
 1. **SSH hardening** — the server password was shared in a chat; change it (`passwd`).
    Optional: disable `PasswordAuthentication` (key login is verified) and/or restrict
    22/tcp to `192.168.18.0/24` in UFW.
-2. **Controlled reboot** to verify the stack, `aionix-observer`, `aionix-telemetry`, UFW
-   and SSH come back unattended.
+2. ~~Controlled reboot~~: done by two power losses; see the incident above. Reserve
+   `192.168.18.110` for this server in the ONT's DHCP settings.
 3. **Off-disk backups** — use the 1 TB HDD (currently NTFS; formatting it erases its
    contents) or another destination; consider encryption via `AIONIX_BACKUP_PASSPHRASE_FILE` in `.env`.
 4. **Restore drill** of today's backup into a scratch stack.
