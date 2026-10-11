@@ -1,14 +1,13 @@
 {
   "product": "app",
-  "version": "0.2.4",
-  "published_at": "2026-10-11T10:51:26.2159434Z",
+  "version": "0.2.5",
+  "published_at": "2026-10-11T11:04:32.0347174Z",
   "notes": [
-    "Visual novo: ícone, telas, aviso de permissão, instalador e site",
-    "Inicia com o Windows (minimizado) para o computador continuar acessível depois de reiniciar"
+    "Inicia minimizado de forma confiável quando abre com o Windows"
   ],
   "installer": {
-    "url": "https://aionixconnect.aionixdev.com/releases/0.2.4/Aionix-Connect-Setup-0.2.4.exe",
-    "size": 34948608,
-    "sha256": "c6c54036efb6fb32bc8081150835723bf97013fdab8c9cc31feb57af1e644e96"
+    "url": "https://aionixconnect.aionixdev.com/releases/0.2.5/Aionix-Connect-Setup-0.2.5.exe",
+    "size": 34949120,
+    "sha256": "0b85dcecc2d6a4481a1d73f7b5e27b876a61af21ab3e58c7afc788e4e67d20f6"
   }
 }
