@@ -17,6 +17,8 @@ pub enum Permission {
     MemberView,
     MemberManage,
     AuditView,
+    SessionViewAll,
+    SessionTerminate,
 }
 
 impl Permission {
@@ -32,6 +34,8 @@ impl Permission {
             Self::MemberView => "member.view",
             Self::MemberManage => "member.manage",
             Self::AuditView => "audit.view",
+            Self::SessionViewAll => "session.view_all",
+            Self::SessionTerminate => "session.terminate",
         }
     }
 }

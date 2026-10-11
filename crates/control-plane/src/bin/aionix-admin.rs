@@ -77,6 +77,19 @@ enum Cmd {
         #[arg(long, default_value_t = 1)]
         uses: i32,
     },
+    /// Change an account's sign-in e-mail (its logins, role and history stay).
+    SetEmail {
+        #[arg(long)]
+        from: String,
+        #[arg(long)]
+        to: String,
+    },
+    /// Give an account a new temporary password (printed once) that must be replaced at
+    /// the next sign-in; every login of the account is signed out.
+    ResetPassword {
+        #[arg(long)]
+        email: String,
+    },
     /// Disable an account and revoke its logins.
     DisableUser {
         #[arg(long)]
@@ -177,6 +190,21 @@ async fn run(cmd: Cmd) -> Result<(), String> {
                 .await
                 .map_err(|e| e.to_string())?;
             println!("{id}");
+        }
+        Cmd::SetEmail { from, to } => {
+            let db = pool().await?;
+            admin::set_email(&db, &from, &to)
+                .await
+                .map_err(|e| e.to_string())?;
+            println!("{from} is now {to}");
+        }
+        Cmd::ResetPassword { email } => {
+            let db = pool().await?;
+            let temporary = admin::reset_password(&db, &email)
+                .await
+                .map_err(|e| e.to_string())?;
+            println!("{temporary}");
+            eprintln!("Temporary password for {email} (shown once; it must be replaced at the next sign-in).");
         }
         Cmd::AddMember { org, email, role } => {
             let role = OrgRole::parse(&role).ok_or("role must be viewer|technician|admin|owner")?;

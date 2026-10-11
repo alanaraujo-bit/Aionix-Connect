@@ -21,6 +21,28 @@ pub enum PasswordPolicyError {
     TooLong,
 }
 
+/// Temporary password handed to a new or reset account: 16 symbols from an alphabet
+/// without look-alikes (0/O, 1/l/I), shown as four groups (`xxxx-xxxx-xxxx-xxxx`,
+/// about 82 bits). Generated from the operating system's CSPRNG.
+pub fn temporary() -> String {
+    const ALPHABET: &[u8] = b"abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    // Rejection sampling keeps every symbol equally likely.
+    let limit = 256 - (256 % ALPHABET.len());
+    let mut symbols = Vec::with_capacity(16);
+    while symbols.len() < 16 {
+        for &b in aionix_crypto::random_bytes(32).iter() {
+            if (b as usize) < limit && symbols.len() < 16 {
+                symbols.push(ALPHABET[b as usize % ALPHABET.len()] as char);
+            }
+        }
+    }
+    symbols
+        .chunks(4)
+        .map(|c| c.iter().collect::<String>())
+        .collect::<Vec<_>>()
+        .join("-")
+}
+
 pub fn check_policy(password: &str) -> Result<(), PasswordPolicyError> {
     let n = password.chars().count();
     if n < MIN_PASSWORD_LEN {
@@ -73,6 +95,17 @@ pub async fn verify(password: String, phc: Option<String>) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn temporary_passwords_are_readable_and_pass_the_policy() {
+        let a = super::temporary();
+        let b = super::temporary();
+        assert_ne!(a, b);
+        assert_eq!(a.len(), 19);
+        assert_eq!(a.matches('-').count(), 3);
+        assert!(!a.contains(['0', 'O', '1', 'l', 'I']));
+        assert!(super::check_policy(&a).is_ok());
+    }
+
     use super::*;
 
     #[tokio::test]

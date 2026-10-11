@@ -107,6 +107,18 @@ pub struct UserProfile {
     pub email: String,
     pub display_name: String,
     pub memberships: Vec<Membership>,
+    /// Signed in with a temporary password: a new one must be chosen
+    /// (`POST /v1/auth/password`) before sessions can be requested.
+    #[serde(default)]
+    pub must_change_password: bool,
+}
+
+/// `POST /v1/auth/password` — changes the caller's password. Every other login of the
+/// account is signed out; the one making the request stays.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChangePasswordRequest {
+    pub current_password: String,
+    pub new_password: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -351,6 +363,45 @@ pub struct Member {
     pub display_name: String,
     pub role: OrgRole,
     pub disabled: bool,
+    /// Still on a temporary password.
+    #[serde(default)]
+    pub must_change_password: bool,
+    #[serde(default, with = "time::serde::rfc3339::option")]
+    pub last_login_at: Option<OffsetDateTime>,
+    #[serde(default, with = "time::serde::rfc3339::option")]
+    pub created_at: Option<OffsetDateTime>,
+}
+
+/// `POST /v1/orgs/{org}/accounts` — creates an account with a temporary password and
+/// adds it to the organization. The role cannot exceed the caller's.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateAccountRequest {
+    pub email: String,
+    pub display_name: String,
+    pub role: OrgRole,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreatedAccount {
+    pub member: Member,
+    /// Shown once; the account must replace it at the first sign-in.
+    pub temporary_password: String,
+}
+
+/// `POST /v1/orgs/{org}/members/{user}/reset-password`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TemporaryPassword {
+    /// Shown once; every login of the account was signed out.
+    pub temporary_password: String,
+}
+
+/// `POST /v1/orgs/{org}/members/{user}/sign-out` and `/disable`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SignOutResult {
+    /// Logins (refresh tokens) revoked.
+    pub revoked_logins: u64,
+    /// Live remote sessions of the account that were ended.
+    pub ended_sessions: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -395,6 +446,13 @@ pub struct AuditEvent {
     pub request_id: Option<String>,
     #[serde(default)]
     pub details: serde_json::Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_user_id: Option<Uuid>,
+    /// Display names resolved by the server (absent when unknown).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actor_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

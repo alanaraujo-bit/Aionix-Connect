@@ -137,27 +137,8 @@ pub async fn members(
     Path(org): Path<Uuid>,
 ) -> ApiResult<Json<MemberList>> {
     require(&state, &ctx, &user, org, Permission::MemberView).await?;
-    let rows: Vec<(Uuid, String, String, String, Option<OffsetDateTime>)> = sqlx::query_as(
-        "SELECT u.id, u.email, u.display_name, m.role, u.disabled_at
-         FROM memberships m JOIN users u ON u.id = m.user_id
-         WHERE m.org_id = $1 ORDER BY u.display_name, u.email",
-    )
-    .bind(org)
-    .fetch_all(&state.db)
-    .await?;
     Ok(Json(MemberList {
-        members: rows
-            .into_iter()
-            .filter_map(|(id, email, name, role, disabled)| {
-                OrgRole::parse(&role).map(|role| Member {
-                    user_id: id,
-                    email,
-                    display_name: name,
-                    role,
-                    disabled: disabled.is_some(),
-                })
-            })
-            .collect(),
+        members: super::admin::list_members(&state.db, org).await?,
     }))
 }
 
@@ -199,6 +180,18 @@ pub async fn upsert_member(
     if (req.role == OrgRole::Owner || current.as_deref() == Some("owner")) && !caller_is_owner {
         return Err(ApiFailure::forbidden("only owners manage owners"));
     }
+    let caller_rank = caller_role.as_deref().and_then(OrgRole::parse);
+    if !caller_is_owner && current.as_deref().and_then(OrgRole::parse) >= caller_rank {
+        return Err(ApiFailure::forbidden(
+            "cannot manage an account of equal or higher role",
+        ));
+    }
+    if current.as_deref() == Some("owner")
+        && req.role != OrgRole::Owner
+        && super::admin::other_enabled_owners(&state.db, org, target_id).await? == 0
+    {
+        return Err(ApiFailure::forbidden("the last owner cannot be demoted"));
+    }
     crate::admin::set_membership(&state.db, org, target_id, req.role).await?;
     AuditRecord::new(action::MEMBER_UPSERTED, Outcome::Success)
         .user(user.user_id)
@@ -208,13 +201,13 @@ pub async fn upsert_member(
         .details(json!({"role": req.role.as_str(), "previous_role": current}))
         .write(&state.db)
         .await?;
-    Ok(Json(Member {
-        user_id: target_id,
-        email: target_email,
-        display_name: target_name,
-        role: req.role,
-        disabled: disabled.is_some(),
-    }))
+    let _ = (target_email, target_name, disabled);
+    let member = super::admin::list_members(&state.db, org)
+        .await?
+        .into_iter()
+        .find(|m| m.user_id == target_id)
+        .ok_or_else(ApiFailure::internal)?;
+    Ok(Json(member))
 }
 
 #[derive(Debug, Deserialize)]
@@ -235,13 +228,18 @@ struct AuditRow {
     outcome: String,
     actor_user_id: Option<Uuid>,
     actor_device_id: Option<Uuid>,
+    target_user_id: Option<Uuid>,
     target_device_id: Option<Uuid>,
     session_id: Option<Uuid>,
     request_id: Option<String>,
     details: serde_json::Value,
+    actor_name: Option<String>,
+    target_name: Option<String>,
 }
 
-/// `GET /v1/orgs/{org}/audit?limit=&before=`
+/// `GET /v1/orgs/{org}/audit?limit=&before=` — events of the organization plus the
+/// account events (logins, password changes…) of its current members, which carry no
+/// organization of their own.
 pub async fn audit(
     State(state): State<AppState>,
     ctx: ClientCtx,
@@ -252,10 +250,22 @@ pub async fn audit(
     require(&state, &ctx, &user, org, Permission::AuditView).await?;
     let limit = q.limit.unwrap_or(100).clamp(1, 500);
     let rows: Vec<AuditRow> = sqlx::query_as(
-        "SELECT id, occurred_at, category, action, outcome, actor_user_id, actor_device_id,
-                target_device_id, session_id, request_id, details
-         FROM audit_events WHERE org_id = $1 AND ($2::bigint IS NULL OR id < $2)
-         ORDER BY id DESC LIMIT $3",
+        "SELECT a.id, a.occurred_at, a.category, a.action, a.outcome, a.actor_user_id,
+                a.actor_device_id, a.target_user_id, a.target_device_id, a.session_id,
+                a.request_id, a.details,
+                COALESCE(au.display_name, NULLIF(ad.display_name, ''), NULLIF(ad.hostname, '')) AS actor_name,
+                COALESCE(tu.display_name, NULLIF(td.display_name, ''), NULLIF(td.hostname, '')) AS target_name
+         FROM audit_events a
+         LEFT JOIN users au ON au.id = a.actor_user_id
+         LEFT JOIN devices ad ON ad.id = a.actor_device_id
+         LEFT JOIN users tu ON tu.id = a.target_user_id
+         LEFT JOIN devices td ON td.id = a.target_device_id
+         WHERE (a.org_id = $1
+                OR (a.org_id IS NULL AND (
+                    a.actor_user_id IN (SELECT user_id FROM memberships WHERE org_id = $1)
+                    OR a.target_user_id IN (SELECT user_id FROM memberships WHERE org_id = $1))))
+           AND ($2::bigint IS NULL OR a.id < $2)
+         ORDER BY a.id DESC LIMIT $3",
     )
     .bind(org)
     .bind(q.before)
@@ -277,6 +287,9 @@ pub async fn audit(
                 session_id: r.session_id,
                 request_id: r.request_id,
                 details: r.details,
+                target_user_id: r.target_user_id,
+                actor_name: r.actor_name,
+                target_name: r.target_name,
             })
             .collect(),
     }))

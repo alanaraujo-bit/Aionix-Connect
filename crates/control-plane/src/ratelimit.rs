@@ -23,6 +23,10 @@ pub mod limits {
     pub const QUICK_SUPPORT_REGISTER_PER_IP: Limit = Limit::per_hour(10);
     pub const SESSION_REQUEST_PER_USER: Limit = Limit::per_minute(30);
     pub const LOOKUP_PER_USER: Limit = Limit::per_minute(60);
+    /// Account and session administration (create, reset, disable, terminate…).
+    pub const ADMIN_PER_USER: Limit = Limit::per_minute(30);
+    /// Own password changes (each one verifies the current password).
+    pub const PASSWORD_CHANGE_PER_USER: Limit = Limit::per_minute(5);
 }
 
 const INCR: &str = r#"

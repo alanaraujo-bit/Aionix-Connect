@@ -134,6 +134,7 @@ pub async fn register(
                     return Err(e);
                 }
             };
+            super::auth::require_own_password(&state.db, user.user_id).await?;
             (None, None, Some(user.user_id), None)
         }
         DeviceKind::Agent => {

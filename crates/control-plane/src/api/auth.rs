@@ -4,7 +4,10 @@
 use aionix_control_api::{
     ErrorCode,
     claims::AccessClaims,
-    rest::{AuthTokens, LoginRequest, Membership, OrgRole, RefreshRequest, UserProfile},
+    rest::{
+        AuthTokens, ChangePasswordRequest, LoginRequest, Membership, OrgRole, RefreshRequest,
+        UserProfile,
+    },
 };
 use aionix_crypto::{ct_eq, random_token, sha256_hex};
 use axum::{Json, extract::State, http::StatusCode};
@@ -55,8 +58,9 @@ fn parse_refresh(token: &str) -> Option<(Uuid, String)> {
 }
 
 pub async fn load_profile(db: &PgPool, user_id: Uuid) -> Result<UserProfile, sqlx::Error> {
-    let (email, display_name): (String, String) =
-        sqlx::query_as("SELECT email, display_name FROM users WHERE id = $1")
+    let (email, display_name, must_change_password): (String, String, bool) = sqlx::query_as(
+        "SELECT email, display_name, must_change_password FROM users WHERE id = $1",
+    )
             .bind(user_id)
             .fetch_one(db)
             .await?;
@@ -72,6 +76,7 @@ pub async fn load_profile(db: &PgPool, user_id: Uuid) -> Result<UserProfile, sql
         id: user_id,
         email,
         display_name,
+        must_change_password,
         memberships: rows
             .into_iter()
             .filter_map(|(org_id, org_name, role)| {
@@ -383,6 +388,85 @@ pub async fn logout_all(
         .write(&state.db)
         .await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// `POST /v1/auth/password` — the caller's new password. Requires the current one;
+/// clears the temporary-password flag and signs out every other login of the account
+/// (the one making the request stays signed in).
+pub async fn change_password(
+    State(state): State<AppState>,
+    ctx: ClientCtx,
+    user: AuthUser,
+    Json(req): Json<ChangePasswordRequest>,
+) -> ApiResult<StatusCode> {
+    limit(
+        &state,
+        "password-change",
+        &user.user_id.to_string(),
+        limits::PASSWORD_CHANGE_PER_USER,
+    )
+    .await?;
+    password::check_policy(&req.new_password)
+        .map_err(|e| ApiFailure::bad_request(e.to_string()))?;
+    if req.current_password.len() > password::MAX_PASSWORD_LEN {
+        return Err(invalid_credentials());
+    }
+    let current: Option<String> =
+        sqlx::query_scalar("SELECT password_hash FROM users WHERE id = $1")
+            .bind(user.user_id)
+            .fetch_one(&state.db)
+            .await?;
+    if !password::verify(req.current_password, current).await {
+        AuditRecord::new(action::PASSWORD_CHANGED, Outcome::Failure)
+            .user(user.user_id)
+            .client(ctx.ip(), ctx.rid())
+            .details(json!({"reason": "bad_current_password"}))
+            .write(&state.db)
+            .await?;
+        return Err(invalid_credentials());
+    }
+    let hash = password::hash(req.new_password).await;
+    let mut tx = state.db.begin().await?;
+    sqlx::query(
+        "UPDATE users SET password_hash = $2, must_change_password = false, updated_at = now()
+         WHERE id = $1",
+    )
+    .bind(user.user_id)
+    .bind(hash)
+    .execute(&mut *tx)
+    .await?;
+    let others = sqlx::query(
+        "UPDATE auth_sessions SET revoked_at = now(), revoked_reason = 'password_changed'
+         WHERE user_id = $1 AND id <> $2 AND revoked_at IS NULL",
+    )
+    .bind(user.user_id)
+    .bind(user.sid)
+    .execute(&mut *tx)
+    .await?
+    .rows_affected();
+    AuditRecord::new(action::PASSWORD_CHANGED, Outcome::Success)
+        .user(user.user_id)
+        .client(ctx.ip(), ctx.rid())
+        .details(json!({"other_logins_signed_out": others}))
+        .write(&mut *tx)
+        .await?;
+    tx.commit().await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Refuses work that needs a real password while the account is still on a temporary
+/// one. Old clients do not show the change-password screen, so the server decides.
+pub async fn require_own_password(db: &PgPool, user: Uuid) -> ApiResult<()> {
+    let must: bool = sqlx::query_scalar("SELECT must_change_password FROM users WHERE id = $1")
+        .bind(user)
+        .fetch_one(db)
+        .await?;
+    if must {
+        return Err(ApiFailure::forbidden(
+            "password change required: choose your own password first",
+        ));
+    }
+    Ok(())
 }
 
 /// `GET /v1/me`

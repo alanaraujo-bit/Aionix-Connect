@@ -192,6 +192,13 @@ pub fn verify_domain(
 }
 
 /// Random bytes encoded as base64url, for nonces and opaque secrets.
+/// `n` bytes from the operating system's CSPRNG.
+pub fn random_bytes(n: usize) -> Zeroizing<Vec<u8>> {
+    let mut buf = Zeroizing::new(vec![0u8; n]);
+    rand::fill(&mut buf[..]);
+    buf
+}
+
 pub fn random_token(bytes: usize) -> String {
     let mut buf = Zeroizing::new(vec![0u8; bytes]);
     rand::fill(&mut buf[..]);

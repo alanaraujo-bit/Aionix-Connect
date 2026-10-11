@@ -47,6 +47,12 @@ pub mod action {
     pub const SIGNALING_REFUSED: &str = "signaling.refused";
     pub const USER_CREATED: &str = "user.created";
     pub const USER_DISABLED: &str = "user.disabled";
+    pub const USER_ENABLED: &str = "user.enabled";
+    pub const USER_SIGNED_OUT: &str = "user.signed_out";
+    pub const USER_PASSWORD_RESET: &str = "user.password_reset";
+    pub const USER_EMAIL_CHANGED: &str = "user.email_changed";
+    pub const PASSWORD_CHANGED: &str = "auth.password_changed";
+    pub const SESSION_TERMINATED: &str = "session.terminated";
     pub const ORG_CREATED: &str = "org.created";
 }
 

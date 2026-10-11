@@ -1,5 +1,6 @@
 //! REST API (`/v1/...`). Bodies are the DTOs of `aionix_control_api::rest`.
 
+mod admin;
 mod auth;
 mod devices;
 mod orgs;
@@ -38,6 +39,7 @@ pub fn router(state: AppState) -> Router {
         .route("/auth/refresh", post(auth::refresh))
         .route("/auth/logout", post(auth::logout))
         .route("/auth/logout-all", post(auth::logout_all))
+        .route("/auth/password", post(auth::change_password))
         .route("/me", get(auth::me))
         .route("/devices/challenge", post(devices::challenge))
         .route("/devices/register", post(devices::register))
@@ -54,6 +56,19 @@ pub fn router(state: AppState) -> Router {
             get(orgs::members).put(orgs::upsert_member),
         )
         .route("/orgs/{org}/audit", get(orgs::audit))
+        .route("/orgs/{org}/accounts", post(admin::create_account))
+        .route(
+            "/orgs/{org}/members/{user}/reset-password",
+            post(admin::reset_password),
+        )
+        .route("/orgs/{org}/members/{user}/sign-out", post(admin::sign_out))
+        .route("/orgs/{org}/members/{user}/disable", post(admin::disable))
+        .route("/orgs/{org}/members/{user}/enable", post(admin::enable))
+        .route("/orgs/{org}/sessions", get(admin::sessions))
+        .route(
+            "/orgs/{org}/sessions/{id}/terminate",
+            post(admin::terminate),
+        )
         .route("/sessions", post(sessions::create).get(sessions::list))
         .route("/sessions/{id}/events", post(sessions::report_event));
     Router::new()

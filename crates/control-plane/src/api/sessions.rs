@@ -97,6 +97,8 @@ pub async fn create(
         ctx: &ctx,
         user: &user,
     };
+    // A temporary password must be replaced before the account can reach anyone.
+    super::auth::require_own_password(&state.db, user.user_id).await?;
 
     // 1. Technician workstation: proves which endpoint key will connect.
     let device_token = headers
@@ -487,7 +489,7 @@ pub async fn list(State(state): State<AppState>, user: AuthUser) -> ApiResult<Js
     }))
 }
 
-fn parse_transport(s: &str) -> Option<TransportKind> {
+pub(crate) fn parse_transport(s: &str) -> Option<TransportKind> {
     match s {
         "lan" => Some(TransportKind::Lan),
         "direct" => Some(TransportKind::Direct),

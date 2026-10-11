@@ -165,6 +165,71 @@ pub async fn insert_enrollment_token(
     Ok((id, token, expires_at))
 }
 
+/// Changes the sign-in e-mail of the account `from` to `to`.
+pub async fn set_email(db: &PgPool, from: &str, to: &str) -> Result<Uuid, AdminError> {
+    let user = user_id_by_email(db, from).await?;
+    let normalized = normalize_email(to);
+    if !normalized.contains('@') || normalized.len() > 320 {
+        return Err(AdminError::Invalid("invalid e-mail".into()));
+    }
+    let mut tx = db.begin().await?;
+    let r = sqlx::query(
+        "UPDATE users SET email = $2, email_normalized = $3, updated_at = now() WHERE id = $1",
+    )
+    .bind(user)
+    .bind(to.trim())
+    .bind(&normalized)
+    .execute(&mut *tx)
+    .await;
+    if let Err(e) = r {
+        return Err(if crate::db::is_unique_violation(&e, None) {
+            AdminError::DuplicateEmail
+        } else {
+            e.into()
+        });
+    }
+    AuditRecord::new(action::USER_EMAIL_CHANGED, Outcome::Success)
+        .target_user(user)
+        .details(json!({"via": "aionix-admin"}))
+        .write(&mut *tx)
+        .await?;
+    tx.commit().await?;
+    Ok(user)
+}
+
+/// New temporary password for `email` (returned once); the account must replace it at
+/// the next sign-in and every login of it is signed out.
+pub async fn reset_password(db: &PgPool, email: &str) -> Result<String, AdminError> {
+    let user = user_id_by_email(db, email).await?;
+    let temporary = password::temporary();
+    let hash = password::hash(temporary.clone()).await;
+    let mut tx = db.begin().await?;
+    sqlx::query(
+        "UPDATE users SET password_hash = $2, must_change_password = true,
+             failed_login_count = 0, locked_until = NULL, updated_at = now()
+         WHERE id = $1",
+    )
+    .bind(user)
+    .bind(hash)
+    .execute(&mut *tx)
+    .await?;
+    let n = sqlx::query(
+        "UPDATE auth_sessions SET revoked_at = now(), revoked_reason = 'password_reset'
+         WHERE user_id = $1 AND revoked_at IS NULL",
+    )
+    .bind(user)
+    .execute(&mut *tx)
+    .await?
+    .rows_affected();
+    AuditRecord::new(action::USER_PASSWORD_RESET, Outcome::Success)
+        .target_user(user)
+        .details(json!({"revoked_logins": n, "via": "aionix-admin"}))
+        .write(&mut *tx)
+        .await?;
+    tx.commit().await?;
+    Ok(temporary)
+}
+
 /// Disables an account and revokes all of its logins.
 pub async fn disable_user(db: &PgPool, user: Uuid) -> Result<u64, sqlx::Error> {
     let mut tx = db.begin().await?;
