@@ -1,14 +1,13 @@
 {
   "product": "app",
-  "version": "0.2.7",
-  "published_at": "2026-10-11T16:12:31.1223801Z",
+  "version": "0.2.8",
+  "published_at": "2026-10-11T16:19:56.9073106Z",
   "notes": [
-    "Atualizações instaladas mesmo com o app minimizado",
-    "Entrada na conta concluída com o app minimizado"
+    "O aplicativo abre normalmente pela barra de tarefas depois de iniciar com o Windows"
   ],
   "installer": {
-    "url": "https://aionixconnect.aionixdev.com/releases/0.2.7/Aionix-Connect-Setup-0.2.7.exe",
+    "url": "https://aionixconnect.aionixdev.com/releases/0.2.8/Aionix-Connect-Setup-0.2.8.exe",
     "size": 35279360,
-    "sha256": "e2d993bc73a9b4d07f51baaed4df5c458b82cc690015472fa9ac46630d2b62fc"
+    "sha256": "946c554a85eba33992f266552417250d151d96f98b16282d10966d80da04bafc"
   }
 }
