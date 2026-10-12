@@ -27,6 +27,8 @@ pub mod limits {
     pub const ADMIN_PER_USER: Limit = Limit::per_minute(30);
     /// Own password changes (each one verifies the current password).
     pub const PASSWORD_CHANGE_PER_USER: Limit = Limit::per_minute(5);
+    /// Unattended-access password guesses against one device (all technicians together).
+    pub const UNATTENDED_PASSWORD_PER_DEVICE: Limit = Limit::per_minute(10);
 }
 
 const INCR: &str = r#"

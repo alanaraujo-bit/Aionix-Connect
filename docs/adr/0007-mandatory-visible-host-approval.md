@@ -26,7 +26,8 @@ that a technician is asking for access and must actively allow it.
   the enabled button counts.
 - No auto-approving implementation exists in the product code; the approval doubles live
   in the test suite.
-- Unattended access is out of scope: tickets with mode `unattended` are refused.
+- Unattended access was out of scope here. ADR-0015 adds it as an explicit, per-computer
+  opt-in by the owner; assisted sessions keep the visible approval above unchanged.
 
 ## Consequences
 

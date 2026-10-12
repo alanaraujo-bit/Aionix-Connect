@@ -209,12 +209,28 @@ pub struct DeviceSummary {
     pub online: bool,
     #[serde(default)]
     pub presence: PresenceState,
+    /// The device owner allowed unattended access on this computer right now (live
+    /// presence from the host app; never stored).
     pub unattended_enabled: bool,
+    /// An unattended-access password is set (the password itself is never returned).
+    #[serde(default)]
+    pub unattended_password_set: bool,
     pub favorite: bool,
+    #[serde(default)]
+    pub description: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub customer_id: Option<Uuid>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub customer_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group_name: Option<String>,
+    /// Technician responsible for the device.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assigned_user_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assigned_user_name: Option<String>,
     #[serde(default, with = "time::serde::rfc3339::option")]
     pub last_seen_at: Option<OffsetDateTime>,
     #[serde(default, with = "time::serde::rfc3339::option")]
@@ -231,14 +247,63 @@ pub struct DeviceList {
 pub struct Customer {
     pub id: Uuid,
     pub name: String,
+    #[serde(default)]
+    pub notes: String,
     pub device_count: i64,
     pub online_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerList {
+    pub customers: Vec<Customer>,
 }
 
 /// `POST /v1/orgs/{org}/customers`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateCustomerRequest {
     pub name: String,
+    #[serde(default)]
+    pub notes: String,
+}
+
+/// `PATCH /v1/orgs/{org}/customers/{id}` — absent fields are left unchanged.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct UpdateCustomerRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notes: Option<String>,
+}
+
+/// A folder of devices inside an organization.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceGroup {
+    pub id: Uuid,
+    pub name: String,
+    pub device_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupList {
+    pub groups: Vec<DeviceGroup>,
+}
+
+/// `POST /v1/orgs/{org}/groups`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateGroupRequest {
+    pub name: String,
+}
+
+/// `PATCH /v1/orgs/{org}/groups/{id}`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateGroupRequest {
+    pub name: String,
+}
+
+/// `PUT /v1/orgs/{org}/devices/{id}/unattended-password`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SetUnattendedPasswordRequest {
+    pub password: String,
 }
 
 /// `POST /v1/orgs/{org}/enrollment-tokens`
@@ -262,14 +327,22 @@ pub struct EnrollmentToken {
     pub max_uses: i32,
 }
 
-/// `PATCH /v1/devices/{id}` (org admin) — organize a device.
+/// `PATCH /v1/orgs/{org}/devices/{id}` — organize a device. Absent fields are left
+/// unchanged; `Some(None)` clears a link (customer, group or technician).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct UpdateDeviceRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
-    /// `Some(None)` clears the customer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub customer_id: Option<Option<Uuid>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group_id: Option<Option<Uuid>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assigned_user_id: Option<Option<Uuid>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub favorite: Option<bool>,
 }
 
 /// `GET /v1/devices/lookup/{friendly_id}`
@@ -298,6 +371,10 @@ pub struct CreateSessionRequest {
     /// allows; omitted = everything the role allows. `view` is always required.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub permissions: Option<Vec<SessionPermission>>,
+    /// Unattended access: the device's unattended-access password. Present = the session
+    /// is requested in `unattended` mode, which the device owner must have enabled live.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unattended_password: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

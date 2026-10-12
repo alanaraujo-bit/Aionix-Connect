@@ -33,7 +33,8 @@ Future: a commercial product for support professionals.
 ## Product Purpose
 
 Remote access and support for Windows: the technician sees and controls the client's
-screen after the client explicitly allows it. Success: a technician sends one link, the
+screen after the client explicitly allows it, or after the client has turned on
+unattended access on that computer. Success: a technician sends one link, the
 client installs in seconds, and the session is fluid and trustworthy; the apps keep
 themselves up to date without anyone sending files again.
 
@@ -86,7 +87,9 @@ testimonials, pricing or benchmarks beyond the measurements above — none may b
 
 ## Product Principles
 
-1. Consent is visible: nothing happens on a client's computer without them allowing it.
+1. Consent is visible and revocable: nothing reaches a client's computer without their
+   click, or without their explicit opt-in on that computer (unattended access, ADR-0015).
+   The owner sees every session and can end it at any time.
 2. Trust is earned with mechanisms (encryption, signatures), not adjectives.
 3. One app, zero confusion: the same download receives and gives support.
 4. Updating should never require sending a file again.

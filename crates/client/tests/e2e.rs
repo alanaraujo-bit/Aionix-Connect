@@ -212,6 +212,7 @@ async fn enrollment_presence_ticket_restart_and_revocation() {
         target: DeviceLookup::Friendly(reg.friendly_id),
         mode: AccessMode::Assisted,
         permissions: vec![SessionPermission::View, SessionPermission::Control],
+        unattended_password: None,
     };
     let grant = authority.request_session(request.clone()).await.unwrap();
     assert_eq!(grant.host_device_id, reg.device_id);

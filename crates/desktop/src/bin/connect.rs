@@ -382,6 +382,8 @@ mod app {
             }
             self.tech.login_sheet(&ctx);
             self.tech.password_sheet(&ctx);
+            self.tech.unattended_sheet(&ctx);
+            self.tech.management_sheets(&ctx);
             if let Some(h) = &admin {
                 self.admin.sheets(&ctx, h);
             }

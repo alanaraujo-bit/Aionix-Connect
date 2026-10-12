@@ -54,6 +54,11 @@ pub mod action {
     pub const PASSWORD_CHANGED: &str = "auth.password_changed";
     pub const SESSION_TERMINATED: &str = "session.terminated";
     pub const ORG_CREATED: &str = "org.created";
+    pub const DEVICE_UPDATED: &str = "device.updated";
+    pub const DEVICE_UNATTENDED_PASSWORD_SET: &str = "device.unattended_password_set";
+    pub const DEVICE_UNATTENDED_PASSWORD_CLEARED: &str = "device.unattended_password_cleared";
+    pub const CUSTOMER_CHANGED: &str = "customer.changed";
+    pub const GROUP_CHANGED: &str = "group.changed";
 }
 
 #[derive(Debug, Clone)]

@@ -2,6 +2,10 @@
 
 use std::time::Duration;
 
+use aionix_control_api::rest::{
+    CreateCustomerRequest, CreateGroupRequest, Customer, CustomerList, DeviceGroup, DeviceSummary,
+    GroupList, SetUnattendedPasswordRequest, UpdateDeviceRequest,
+};
 use aionix_control_api::{
     ApiError, DEVICE_TOKEN_HEADER, ErrorCode,
     rest::{
@@ -224,6 +228,132 @@ impl ApiClient {
     pub async fn org_devices(&self, access: &str, org: Uuid) -> Result<DeviceList, ClientError> {
         self.call(
             self.req(Method::GET, &format!("/v1/orgs/{org}/devices"))
+                .bearer_auth(access),
+        )
+        .await
+    }
+
+    /// `PATCH /v1/orgs/{org}/devices/{id}`: organize a computer (absent fields unchanged).
+    pub async fn update_device(
+        &self,
+        access: &str,
+        org: Uuid,
+        device: Uuid,
+        req: &UpdateDeviceRequest,
+    ) -> Result<DeviceSummary, ClientError> {
+        self.call(
+            self.req(Method::PATCH, &format!("/v1/orgs/{org}/devices/{device}"))
+                .bearer_auth(access)
+                .json(req),
+        )
+        .await
+    }
+
+    /// `PUT /v1/orgs/{org}/devices/{id}/unattended-password`
+    pub async fn set_unattended_password(
+        &self,
+        access: &str,
+        org: Uuid,
+        device: Uuid,
+        password: &str,
+    ) -> Result<(), ClientError> {
+        self.call(
+            self.req(
+                Method::PUT,
+                &format!("/v1/orgs/{org}/devices/{device}/unattended-password"),
+            )
+            .bearer_auth(access)
+            .json(&SetUnattendedPasswordRequest {
+                password: password.to_owned(),
+            }),
+        )
+        .await
+    }
+
+    /// `DELETE /v1/orgs/{org}/devices/{id}/unattended-password`
+    pub async fn clear_unattended_password(
+        &self,
+        access: &str,
+        org: Uuid,
+        device: Uuid,
+    ) -> Result<(), ClientError> {
+        self.call(
+            self.req(
+                Method::DELETE,
+                &format!("/v1/orgs/{org}/devices/{device}/unattended-password"),
+            )
+            .bearer_auth(access),
+        )
+        .await
+    }
+
+    pub async fn customers(&self, access: &str, org: Uuid) -> Result<CustomerList, ClientError> {
+        self.get_auth(&format!("/v1/orgs/{org}/customers"), access)
+            .await
+    }
+
+    pub async fn create_customer(
+        &self,
+        access: &str,
+        org: Uuid,
+        name: &str,
+    ) -> Result<Customer, ClientError> {
+        self.post(
+            &format!("/v1/orgs/{org}/customers"),
+            &CreateCustomerRequest {
+                name: name.to_owned(),
+                notes: String::new(),
+            },
+            Some(access),
+        )
+        .await
+    }
+
+    pub async fn delete_customer(
+        &self,
+        access: &str,
+        org: Uuid,
+        customer: Uuid,
+    ) -> Result<(), ClientError> {
+        self.call(
+            self.req(
+                Method::DELETE,
+                &format!("/v1/orgs/{org}/customers/{customer}"),
+            )
+            .bearer_auth(access),
+        )
+        .await
+    }
+
+    pub async fn groups(&self, access: &str, org: Uuid) -> Result<GroupList, ClientError> {
+        self.get_auth(&format!("/v1/orgs/{org}/groups"), access)
+            .await
+    }
+
+    pub async fn create_group(
+        &self,
+        access: &str,
+        org: Uuid,
+        name: &str,
+    ) -> Result<DeviceGroup, ClientError> {
+        self.post(
+            &format!("/v1/orgs/{org}/groups"),
+            &CreateGroupRequest {
+                name: name.to_owned(),
+            },
+            Some(access),
+        )
+        .await
+    }
+
+    pub async fn delete_group(
+        &self,
+        access: &str,
+        org: Uuid,
+        group: Uuid,
+    ) -> Result<(), ClientError> {
+        self.call(
+            self.req(Method::DELETE, &format!("/v1/orgs/{org}/groups/{group}"))
                 .bearer_auth(access),
         )
         .await

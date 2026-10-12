@@ -40,6 +40,7 @@ use crate::{
     bus::DeviceBusMessage,
     devices::{self, DeviceRow},
     error::{ApiFailure, ApiResult},
+    password,
     ratelimit::limits,
     sessions::{self, EventOutcome, Reporter},
     state::AppState,
@@ -264,6 +265,57 @@ pub async fn create(
             .await);
     }
 
+    // 5b. Access mode. Unattended access needs two grants, both required (ADR-0015): the
+    //     device owner's consent, reported live by the host app, and the device password
+    //     set by an administrator. Without the password the request is assisted.
+    let mode = match req.unattended_password.as_deref() {
+        None => AccessMode::Assisted,
+        Some(password) => {
+            if !presence.unattended_enabled {
+                return Err(d
+                    .deny(
+                        Some(&target),
+                        Some(org_id),
+                        "unattended_not_enabled",
+                        ApiFailure::forbidden(
+                            "o dono deste computador não ativou o acesso sem aceitação",
+                        ),
+                    )
+                    .await);
+            }
+            let Some(hash) = devices::unattended_hash(&state.db, target.id).await? else {
+                return Err(d
+                    .deny(
+                        Some(&target),
+                        Some(org_id),
+                        "unattended_password_not_set",
+                        ApiFailure::forbidden(
+                            "nenhuma senha de acesso sem aceitação foi definida para este computador",
+                        ),
+                    )
+                    .await);
+            };
+            limit(
+                &state,
+                "unattended-password",
+                &target.id.to_string(),
+                limits::UNATTENDED_PASSWORD_PER_DEVICE,
+            )
+            .await?;
+            if !password::verify(password.to_owned(), Some(hash)).await {
+                return Err(d
+                    .deny(
+                        Some(&target),
+                        Some(org_id),
+                        "wrong_unattended_password",
+                        ApiFailure::forbidden("senha de acesso sem aceitação incorreta"),
+                    )
+                    .await);
+            }
+            AccessMode::Unattended
+        }
+    };
+
     // 6. Ticket.
     let sid = Uuid::new_v4();
     let claims = SessionTicketClaims {
@@ -280,7 +332,7 @@ pub async fn create(
             email: user.email.clone(),
             org_name: Some(org_name.clone()),
         },
-        mode: AccessMode::Assisted,
+        mode,
         perms: perms.clone(),
     };
     let issued = state.tokens.session_ticket(&claims);
@@ -289,13 +341,14 @@ pub async fn create(
     sqlx::query(
         "INSERT INTO sessions (id, host_device_id, technician_user_id, technician_device_id, org_id,
              mode, permissions, status, ticket_jti_hash, ticket_expires_at)
-         VALUES ($1, $2, $3, $4, $5, 'assisted', $6, 'offered', $7, $8)",
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'offered', $8, $9)",
     )
     .bind(sid)
     .bind(target.id)
     .bind(user.user_id)
     .bind(workstation.id)
     .bind(org_id)
+    .bind(mode.as_str())
     .bind(&perm_strs)
     .bind(sha256_hex(issued.jti.as_bytes()))
     .bind(issued.expires_at)
@@ -319,7 +372,7 @@ pub async fn create(
         .client(ctx.ip(), ctx.rid())
         .details(json!({
             "permissions": perm_strs,
-            "mode": "assisted",
+            "mode": mode.as_str(),
             "expires_at": issued.expires_at.unix_timestamp(),
         }))
         .write(&mut *tx)
@@ -333,7 +386,7 @@ pub async fn create(
         message: ServerMessage::SessionOffer {
             session_id: sid,
             ticket: issued.token.clone(),
-            mode: AccessMode::Assisted,
+            mode,
             viewer: Box::new(OfferViewer {
                 display_name: user.display_name.clone(),
                 email: user.email.clone(),
@@ -387,7 +440,7 @@ pub async fn create(
             Ok(Json(CreateSessionResponse {
                 session_id: sid,
                 ticket: issued.token,
-                mode: AccessMode::Assisted,
+                mode,
                 host: HostEndpoint {
                     device_id: target.id,
                     key: host_key,

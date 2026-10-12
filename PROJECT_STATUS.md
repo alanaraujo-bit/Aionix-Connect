@@ -1,6 +1,6 @@
 # Project status
 
-Last updated: 2026-10-07 — milestone "Control Plane + Server foundation" (branch
+Last updated: 2026-10-12 — unattended access and organization (see below); previous milestone 2026-10-07 — "Control Plane + Server foundation" (branch
 `milestone/control-plane-server`, built on "Remote Session Foundation").
 
 Legend: **IMPLEMENTED** = code exists and is wired; **TESTED** = covered by automated
@@ -12,6 +12,57 @@ Environment: one Windows 11 workstation. Docker Desktop/WSL2, PostgreSQL and Red
 **not installed yet**, so nothing that needs a database or a container has been
 executed. The dedicated Ubuntu server is temporarily unavailable; the workstation is the
 intended development/staging server once Docker Desktop is installed.
+
+## Update 2026-10-12 — unattended access, clients and groups
+
+Decision: ADR-0015 (unattended access with explicit owner opt-in and a device password).
+Amends ADR-0007; PRODUCT.md principle 1 now reads "visible and revocable".
+
+Implemented:
+
+- Control Plane: migration `20261012000001_device_management` (device groups, customer
+  notes, device description/favorite/technician, unattended-password hash; drops the
+  never-written `devices.unattended_enabled`). Endpoints for customers, groups, device
+  organization (`PATCH /v1/orgs/{org}/devices/{id}`) and the unattended password
+  (`PUT`/`DELETE .../unattended-password`, permission `device.unattended`, admin/owner).
+- Session creation with `unattended_password`: refused unless the owner's live consent is
+  on in presence, a password is set, and the password matches (Argon2id, 10 tries/min per
+  device). Ticket and session mode are `unattended`; the host and the audit log record it.
+- Host (desktop): "Permitir acesso sem aceitação" in "Este computador" (managed computers,
+  default off, kept in `host-settings.json`). While on, unattended offers and tickets are
+  accepted; the consent prompt is skipped only for unattended tickets; a banner with
+  "Encerrar acesso" shows the session; turning the setting off ends a running unattended
+  session.
+- Technician app: connecting to a computer with unattended access available asks for the
+  device password ("Pedir permissão" keeps the normal request).
+- Admin: "Editar computador" (context menu on the list) for customer, group, technician,
+  description, favorite, and the unattended password; "Clientes e grupos" to create and
+  delete (deleting unlinks computers, it never deletes them).
+- Installer: "Iniciar com o Windows" was already on by default, so managed computers are
+  reachable after a restart.
+
+Verified (ran):
+
+- `AIONIX_REQUIRE_INTEGRATION=1 cargo test --workspace --no-fail-fast` against PostgreSQL
+  17.5 and Redis 3.0 (local, `.devtools/`): **164 passed, 0 failed**. Includes the new
+  `tests/inventory.rs` (3 tests: customers/groups/organization; organization boundaries and
+  permissions; the full unattended flow, each refusal, and clearing the password).
+- `cargo fmt --check` and `cargo clippy --all-targets -- -D warnings` clean on the changed
+  crates; `cargo check --workspace --all-targets` clean.
+- UI previews (`ui_preview`) rendered and reviewed in the light theme: device edit (two
+  columns, fits without scrolling), clients and groups, owner banner and switch. Dark
+  theme not reviewed.
+
+Not verified:
+
+- Two real computers on two networks with unattended access. The host consent path runs
+  only on Windows with a display.
+- `direct_connection_is_used_on_lan` (transport) is environment-dependent: it failed once
+  and passed once in the same run set, because the machine also has a VPN address that
+  the path selection can classify as direct. The transport crate is untouched by this
+  change.
+- Tray indicator and Windows notification for unattended sessions are not built yet
+  (ADR-0015 consequences).
 
 ## Update 2026-10-08 — first running, user-testable build
 
@@ -162,5 +213,5 @@ To verify: install Docker Desktop, then `docker compose up -d` and
 
 - Technician/host applications using `aionix-client` + `aionix-remote-core`.
 - MFA/SSO, admin web interface, persistent host replay guard, key re-pinning, QAD on the
-  relay, customer management, unattended access (explicitly out of scope), billing (not
+  relay, tray indicator for unattended sessions, billing (not
   started, by decision).

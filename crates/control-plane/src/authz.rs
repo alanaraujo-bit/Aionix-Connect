@@ -9,6 +9,7 @@ use uuid::Uuid;
 pub enum Permission {
     DeviceView,
     DeviceManage,
+    DeviceUnattended,
     DeviceRevoke,
     EnrollmentCreate,
     SessionRequest,
@@ -26,6 +27,7 @@ impl Permission {
         match self {
             Self::DeviceView => "device.view",
             Self::DeviceManage => "device.manage",
+            Self::DeviceUnattended => "device.unattended",
             Self::DeviceRevoke => "device.revoke",
             Self::EnrollmentCreate => "enrollment.create",
             Self::SessionRequest => "session.request",

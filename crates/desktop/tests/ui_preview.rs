@@ -16,6 +16,7 @@ use aionix_desktop::{
 };
 use egui::{Theme, Vec2};
 use egui_kittest::Harness;
+use uuid::Uuid;
 
 fn out_dir() -> std::path::PathBuf {
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.impeccable/review");
@@ -135,6 +136,8 @@ fn host(status: HostStatus) -> HostModel {
         inbound: None,
         last_outcome: None,
         copied: false,
+        managed: true,
+        unattended_enabled: false,
     }
 }
 
@@ -398,6 +401,21 @@ fn preview() {
             UpdateModel::UpToDate
         });
 
+        // Unattended access (ADR-0015): the owner's switch is on and the session is shown.
+        let mut h = host(HostStatus::Online);
+        h.status_text = "Em sessão".into();
+        h.unattended_enabled = true;
+        h.inbound = Some(InboundModel {
+            name: "Técnica Ana".into(),
+            email: None,
+            permissions: "ver a tela e usar mouse e teclado".into(),
+            duration: Some("02:10".into()),
+            state: None,
+            can_end: true,
+            unattended: true,
+        });
+        home("unattended", mode, h, false, || UpdateModel::Idle);
+
         let mut h = host(HostStatus::Online);
         h.status_text = "Em sessão".into();
         h.inbound = Some(InboundModel {
@@ -407,6 +425,7 @@ fn preview() {
             duration: Some("12:03".into()),
             state: None,
             can_end: true,
+            unattended: false,
         });
         home("inbound", mode, h, false, || UpdateModel::Ready {
             version: "0.2.4",
@@ -438,10 +457,57 @@ fn preview() {
                 loaded: true,
                 has_org: true,
                 error: None,
+                can_manage: true,
             };
             views::shell(ui, &side(Page::Computers, true, UpdateModel::Idle), |ui| {
                 views::computers_page(ui, &m, &mut filter);
             });
+        });
+
+        // Editar computador and Clientes e grupos (managers, ADR-0015).
+        let customers = vec![
+            (Uuid::from_u128(1), "Clínica Sul".to_owned()),
+            (Uuid::from_u128(2), "Mercado Norte".to_owned()),
+        ];
+        let groups = vec![(Uuid::from_u128(3), "Servidores".to_owned())];
+        let members = vec![(Uuid::from_u128(4), "Técnica Ana".to_owned())];
+        let mut fields = views::DeviceFields {
+            name: "Servidor 01".into(),
+            description: "Arquivos e backup".into(),
+            customer: Some(Uuid::from_u128(1)),
+            group: None,
+            assignee: Some(Uuid::from_u128(4)),
+            favorite: true,
+            password: String::new(),
+        };
+        shot("device-edit", mode, WINDOW, move |ui| {
+            let m = views::DeviceEditModel {
+                id_text: "845 948 277",
+                customers: &customers,
+                groups: &groups,
+                members: &members,
+                password_set: true,
+                unattended_enabled: true,
+                working: None,
+                error: None,
+                notice: Some("Alterações salvas."),
+            };
+            views::device_edit_sheet(ui.ctx(), &m, &mut fields);
+        });
+        let org_customers = vec![
+            (Uuid::from_u128(1), "Clínica Sul".to_owned(), 3),
+            (Uuid::from_u128(2), "Mercado Norte".to_owned(), 0),
+        ];
+        let org_groups = vec![(Uuid::from_u128(3), "Servidores".to_owned(), 1)];
+        let (mut new_customer, mut new_group) = (String::new(), String::new());
+        shot("organize", mode, WINDOW, move |ui| {
+            let m = views::OrganizeModel {
+                customers: &org_customers,
+                groups: &org_groups,
+                working: None,
+                error: None,
+            };
+            views::organize_sheet(ui.ctx(), &m, &mut new_customer, &mut new_group);
         });
 
         // Sign-in sheet over Início.

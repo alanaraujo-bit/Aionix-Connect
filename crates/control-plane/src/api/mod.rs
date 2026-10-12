@@ -3,6 +3,7 @@
 mod admin;
 mod auth;
 mod devices;
+mod inventory;
 mod orgs;
 mod server;
 mod sessions;
@@ -20,7 +21,7 @@ use axum::{
     http::{HeaderMap, request::Parts},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{get, patch, post, put},
 };
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -56,6 +57,27 @@ pub fn router(state: AppState) -> Router {
             get(orgs::members).put(orgs::upsert_member),
         )
         .route("/orgs/{org}/audit", get(orgs::audit))
+        .route(
+            "/orgs/{org}/customers",
+            get(inventory::customers_list).post(inventory::customers_create),
+        )
+        .route(
+            "/orgs/{org}/customers/{id}",
+            patch(inventory::customers_update).delete(inventory::customers_delete),
+        )
+        .route(
+            "/orgs/{org}/groups",
+            get(inventory::groups_list).post(inventory::groups_create),
+        )
+        .route(
+            "/orgs/{org}/groups/{id}",
+            patch(inventory::groups_update).delete(inventory::groups_delete),
+        )
+        .route("/orgs/{org}/devices/{id}", patch(inventory::device_update))
+        .route(
+            "/orgs/{org}/devices/{id}/unattended-password",
+            put(inventory::unattended_password_set).delete(inventory::unattended_password_clear),
+        )
         .route("/orgs/{org}/accounts", post(admin::create_account))
         .route(
             "/orgs/{org}/members/{user}/reset-password",

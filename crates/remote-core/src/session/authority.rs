@@ -38,12 +38,34 @@ pub enum DeviceLookup {
     Friendly(FriendlyId),
 }
 
+/// A password typed by the person using the app. Never printed: `Debug` redacts it.
+#[derive(Clone, PartialEq, Eq)]
+pub struct Password(String);
+
+impl Password {
+    pub fn new(value: impl Into<String>) -> Self {
+        Self(value.into())
+    }
+
+    pub fn expose(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Debug for Password {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Password(<redacted>)")
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SessionRequest {
     pub technician: TechnicianIdentity,
     pub target: DeviceLookup,
     pub mode: AccessMode,
     pub permissions: Vec<SessionPermission>,
+    /// Required for `AccessMode::Unattended` (ADR-0015) and absent otherwise.
+    pub unattended_password: Option<Password>,
 }
 
 /// A granted request: everything needed to contact the host.

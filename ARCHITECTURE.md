@@ -1,9 +1,12 @@
 # Aionix Connect — Architecture
 
 Consent-based remote support. A technician can see and control a computer only after the
-authority authorized the session **and** the person at that computer clicked "Permitir"
-in a visible prompt. The product does not implement stealth access, hidden persistence,
-concealed control, credential harvesting or security-software bypass.
+authority authorized the session **and** either the person at that computer clicked
+"Permitir" in a visible prompt, or the owner of that computer turned on unattended access
+there and the technician supplied the device password (ADR-0015). Either way the session is
+visible on the computer and the owner can end it. The product does not implement stealth
+access, hidden persistence, concealed control, credential harvesting or security-software
+bypass.
 
 Current state per component: [PROJECT_STATUS.md](PROJECT_STATUS.md). Decisions:
 [docs/adr](docs/adr). Wire protocol: [docs/PROTOCOL.md](docs/PROTOCOL.md).

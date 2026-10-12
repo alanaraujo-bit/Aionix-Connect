@@ -32,13 +32,14 @@ use aionix_client::{
 use aionix_control_api::{
     claims::SessionPermission,
     rest::{
-        DeviceInfo, DeviceSummary, PresenceState, SessionEventKind, SessionEventReport, UserProfile,
+        Customer, DeviceGroup, DeviceInfo, DeviceSummary, Member, OrgRole, PresenceState,
+        SessionEventKind, SessionEventReport, UpdateDeviceRequest, UserProfile,
     },
 };
 use aionix_protocol::pb;
 use aionix_remote_core::session::{
-    DeviceLookup, TechnicianConfig, TechnicianEvent, TechnicianIdentity, TechnicianServices,
-    TechnicianSession, TechnicianSessionHandle,
+    DeviceLookup, Password, TechnicianConfig, TechnicianEvent, TechnicianIdentity,
+    TechnicianServices, TechnicianSession, TechnicianSessionHandle,
     state::SessionState,
     windows_media::{MfDecoderFactory, SystemClipboard},
 };
@@ -162,10 +163,29 @@ pub struct TechSide {
     /// The temporary password just typed, used as the current one for the change.
     change_current: String,
     password_sheet: Option<PasswordSheet>,
+    /// The device password being asked for before an unattended connection (ADR-0015).
+    unattended: Option<UnattendedPrompt>,
+    /// Customers, groups and technicians for the management sheets.
+    catalog: Arc<Mutex<Catalog>>,
+    /// "Editar computador", while open.
+    device_edit: Option<DeviceEdit>,
+    /// "Clientes e grupos" is open (it replaces the computer sheet while shown).
+    organize_open: bool,
+    organize_work: Arc<Mutex<Work>>,
+    new_customer: String,
+    new_group: String,
     password_form: PasswordForm,
     password_task: Arc<Mutex<PasswordTask>>,
     /// Stops the background retries of the stored login (manual sign-in, sign-out).
     resume_cancel: Arc<AtomicBool>,
+}
+
+/// A computer whose owner allowed unattended access, waiting for the device password.
+struct UnattendedPrompt {
+    id: FriendlyId,
+    name: String,
+    hostname: String,
+    password: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -205,6 +225,13 @@ impl TechSide {
             pending_change: Arc::default(),
             change_current: String::new(),
             password_sheet: None,
+            unattended: None,
+            catalog: Arc::default(),
+            device_edit: None,
+            organize_open: false,
+            organize_work: Arc::default(),
+            new_customer: String::new(),
+            new_group: String::new(),
             password_form: PasswordForm::default(),
             password_task: Arc::new(Mutex::new(PasswordTask::Idle)),
             resume_cancel: Arc::new(AtomicBool::new(false)),
@@ -387,6 +414,18 @@ impl TechSide {
         name: String,
         hostname: &str,
     ) {
+        self.start_session_with(ctx, target, name, hostname, None);
+    }
+
+    /// `unattended`: the device password, for a connection without the owner's click.
+    fn start_session_with(
+        &mut self,
+        ctx: &egui::Context,
+        target: FriendlyId,
+        name: String,
+        hostname: &str,
+        unattended: Option<Password>,
+    ) {
         let Some(ws) = self.ws.clone() else { return };
         let frames = FrameSlot::new(ctx.clone());
         let identity = TechnicianIdentity {
@@ -403,6 +442,7 @@ impl TechSide {
             SessionPermission::Control,
             SessionPermission::Clipboard,
         ];
+        config.unattended_password = unattended;
         let authority = Arc::new(ControlPlaneAuthority::new(
             ws.user.clone(),
             ws.workstation.clone(),
@@ -697,7 +737,7 @@ impl TechSide {
                 if let Some(d) = quick_src.get(i) {
                     self.connect_error = None;
                     let (id, name, host) = (d.friendly_id, device_name(d), d.hostname.clone());
-                    self.start_session(ui.ctx(), id, name, &host);
+                    self.request_device(ui.ctx(), id, name, host, unattended_ready(d));
                 }
             }
             Some(views::ConnectAction::ShowAll) => return Some(views::Page::Computers),
@@ -709,6 +749,7 @@ impl TechSide {
     /// "Computadores": the organization's computers with live presence.
     pub fn computers_page(&mut self, ui: &mut egui::Ui) {
         let Some(ws) = self.ws.clone() else { return };
+        let can_manage = self.can_manage();
         let picked = {
             let st = ws.devices.lock().unwrap();
             let filter = self.filter.trim().to_lowercase();
@@ -741,14 +782,86 @@ impl TechSide {
                 loaded: st.loaded,
                 has_org: ws.org.is_some(),
                 error: st.error.as_deref(),
+                can_manage,
             };
-            views::computers_page(ui, &m, &mut self.filter)
-                .and_then(|i| shown.get(i))
-                .map(|d| (d.friendly_id, device_name(d), d.hostname.clone()))
+            views::computers_page(ui, &m, &mut self.filter).and_then(|a| match a {
+                views::ComputersAction::Connect(i) => shown.get(i).map(|d| {
+                    Pick::Connect(
+                        d.friendly_id,
+                        device_name(d),
+                        d.hostname.clone(),
+                        unattended_ready(d),
+                    )
+                }),
+                views::ComputersAction::Edit(i) => {
+                    shown.get(i).map(|d| Pick::Edit(Box::new((*d).clone())))
+                }
+                views::ComputersAction::Organize => Some(Pick::Organize),
+            })
         };
-        if let Some((id, name, hostname)) = picked {
-            self.connect_error = None;
-            self.start_session(ui.ctx(), id, name, &hostname);
+        match picked {
+            Some(Pick::Connect(id, name, hostname, unattended)) => {
+                self.connect_error = None;
+                self.request_device(ui.ctx(), id, name, hostname, unattended);
+            }
+            Some(Pick::Edit(d)) => self.open_device_edit(ui.ctx(), &d),
+            Some(Pick::Organize) => self.open_organize(ui.ctx()),
+            None => {}
+        }
+    }
+
+    /// Connects to a computer, asking for its unattended-access password first when the
+    /// owner has allowed unattended access there.
+    fn request_device(
+        &mut self,
+        ctx: &egui::Context,
+        id: FriendlyId,
+        name: String,
+        hostname: String,
+        unattended: bool,
+    ) {
+        if unattended {
+            self.unattended = Some(UnattendedPrompt {
+                id,
+                name,
+                hostname,
+                password: String::new(),
+            });
+        } else {
+            self.start_session(ctx, id, name, &hostname);
+        }
+    }
+
+    /// The unattended-access password sheet, while it is open.
+    pub fn unattended_sheet(&mut self, ctx: &egui::Context) {
+        let Some(prompt) = self.unattended.as_mut() else {
+            views::reset_unattended_sheet(ctx);
+            return;
+        };
+        let m = views::UnattendedModel {
+            name: &prompt.name,
+            error: None,
+        };
+        let action = views::unattended_sheet(ctx, &m, &mut prompt.password);
+        let Some(action) = action else { return };
+        let Some(prompt) = self.unattended.take() else {
+            return;
+        };
+        match action {
+            views::UnattendedAction::Connect => {
+                let password = Password::new(prompt.password);
+                self.start_session_with(
+                    ctx,
+                    prompt.id,
+                    prompt.name,
+                    &prompt.hostname,
+                    Some(password),
+                );
+            }
+            views::UnattendedAction::AskPermission => {
+                self.start_session(ctx, prompt.id, prompt.name, &prompt.hostname);
+            }
+            views::UnattendedAction::Cancel => {}
         }
     }
 
@@ -1633,6 +1746,12 @@ fn device_name(d: &DeviceSummary) -> String {
     }
 }
 
+/// Whether the owner allows unattended access right now and a password is set, so the
+/// technician can connect without the person at the computer clicking "Permitir".
+fn unattended_ready(d: &DeviceSummary) -> bool {
+    d.unattended_enabled && d.unattended_password_set
+}
+
 fn device_model(d: &DeviceSummary, local_host: &str) -> views::DeviceModel {
     views::DeviceModel {
         id: d.friendly_id.to_string(),
@@ -1683,4 +1802,433 @@ fn session_tone(s: SessionState) -> views::Tone {
         SessionState::Ended | SessionState::Ending => views::Tone::Neutral,
         _ => views::Tone::Accent,
     }
+}
+
+// ---------------------------------------------- organize computers (ADR-0015)
+
+impl TechSide {
+    /// Whether this account may organize computers and set their unattended password.
+    fn can_manage(&self) -> bool {
+        let (Some(ws), Some((org, _))) = (
+            self.ws.as_ref(),
+            self.ws.as_ref().and_then(|w| w.org.clone()),
+        ) else {
+            return false;
+        };
+        ws.profile
+            .memberships
+            .iter()
+            .any(|m| m.org_id == org && matches!(m.role, OrgRole::Admin | OrgRole::Owner))
+    }
+
+    /// Loads customers, groups and technicians for the management sheets.
+    fn refresh_catalog(&self, ctx: &egui::Context) {
+        let Some(ws) = self.ws.clone() else { return };
+        let Some((org, _)) = ws.org.clone() else {
+            return;
+        };
+        let catalog = self.catalog.clone();
+        let ctx = ctx.clone();
+        self.rt.spawn(async move {
+            let loaded = load_catalog(&ws, org).await;
+            store_catalog(&catalog, loaded);
+            ctx.request_repaint();
+        });
+    }
+
+    /// "Editar computador" for one computer, starting from its current values.
+    fn open_device_edit(&mut self, ctx: &egui::Context, d: &DeviceSummary) {
+        self.device_edit = Some(DeviceEdit {
+            device: d.id,
+            id_text: common::friendly(d.friendly_id),
+            fields: views::DeviceFields {
+                name: d.display_name.clone(),
+                description: d.description.clone(),
+                customer: d.customer_id,
+                group: d.group_id,
+                assignee: d.assigned_user_id,
+                favorite: d.favorite,
+                password: String::new(),
+            },
+            work: Arc::new(Mutex::new(Work::Idle)),
+        });
+        self.refresh_catalog(ctx);
+        ctx.request_repaint();
+    }
+
+    fn open_organize(&mut self, ctx: &egui::Context) {
+        self.organize_open = true;
+        *self.organize_work.lock().unwrap() = Work::Idle;
+        self.refresh_catalog(ctx);
+    }
+
+    /// The management sheets: "Clientes e grupos" when open, otherwise "Editar computador".
+    pub fn management_sheets(&mut self, ctx: &egui::Context) {
+        if self.organize_open {
+            self.organize_sheet(ctx);
+            return;
+        }
+        self.device_sheet(ctx);
+    }
+
+    fn device_sheet(&mut self, ctx: &egui::Context) {
+        let Some(ws) = self.ws.clone() else { return };
+        let Some(edit) = self.device_edit.as_mut() else {
+            views::reset_device_edit_sheet(ctx);
+            return;
+        };
+        // Consent and password status come from the live device list.
+        let live = ws
+            .devices
+            .lock()
+            .unwrap()
+            .devices
+            .iter()
+            .find(|d| d.id == edit.device)
+            .cloned();
+        let Some(live) = live else {
+            self.device_edit = None;
+            views::reset_device_edit_sheet(ctx);
+            return;
+        };
+        let (customers, groups, members) = {
+            let c = self.catalog.lock().unwrap();
+            (
+                c.customers
+                    .iter()
+                    .map(|c| (c.id, c.name.clone()))
+                    .collect::<Vec<_>>(),
+                c.groups
+                    .iter()
+                    .map(|g| (g.id, g.name.clone()))
+                    .collect::<Vec<_>>(),
+                c.members
+                    .iter()
+                    .filter(|m| !m.disabled)
+                    .map(|m| (m.user_id, m.display_name.clone()))
+                    .collect::<Vec<_>>(),
+            )
+        };
+        let work = edit.work.lock().unwrap().clone();
+        let (working, error, notice) = work.texts();
+        let m = views::DeviceEditModel {
+            id_text: &edit.id_text,
+            customers: &customers,
+            groups: &groups,
+            members: &members,
+            password_set: live.unattended_password_set,
+            unattended_enabled: live.unattended_enabled,
+            working,
+            error,
+            notice,
+        };
+        let action = views::device_edit_sheet(ctx, &m, &mut edit.fields);
+        match action {
+            Some(views::DeviceEditAction::Save) => self.save_device(ctx),
+            Some(views::DeviceEditAction::SetPassword) => self.device_password(ctx, true),
+            Some(views::DeviceEditAction::ClearPassword) => self.device_password(ctx, false),
+            Some(views::DeviceEditAction::Organize) => self.organize_open = true,
+            Some(views::DeviceEditAction::Close) => {
+                self.device_edit = None;
+                views::reset_device_edit_sheet(ctx);
+            }
+            None => {}
+        }
+    }
+
+    fn save_device(&mut self, ctx: &egui::Context) {
+        let (Some(ws), Some(edit)) = (self.ws.clone(), self.device_edit.as_ref()) else {
+            return;
+        };
+        let Some((org, _)) = ws.org.clone() else {
+            return;
+        };
+        let req = UpdateDeviceRequest {
+            display_name: Some(edit.fields.name.trim().to_owned()),
+            description: Some(edit.fields.description.trim().to_owned()),
+            customer_id: Some(edit.fields.customer),
+            group_id: Some(edit.fields.group),
+            assigned_user_id: Some(edit.fields.assignee),
+            favorite: Some(edit.fields.favorite),
+        };
+        let (device, work) = (edit.device, edit.work.clone());
+        *work.lock().unwrap() = Work::Working("Salvando…");
+        let ctx = ctx.clone();
+        self.rt.spawn(async move {
+            let result = match ws.user.access_token().await {
+                Ok(access) => ws.api.update_device(&access, org, device, &req).await,
+                Err(e) => Err(e),
+            };
+            *work.lock().unwrap() = match result {
+                Ok(summary) => {
+                    replace_device(&ws, summary);
+                    Work::Done("Alterações salvas.")
+                }
+                Err(e) => Work::Failed(common::client_error_text(&e)),
+            };
+            ctx.request_repaint();
+        });
+    }
+
+    /// Sets (`set`) or removes the unattended-access password of the open computer.
+    fn device_password(&mut self, ctx: &egui::Context, set: bool) {
+        let (Some(ws), Some(edit)) = (self.ws.clone(), self.device_edit.as_mut()) else {
+            return;
+        };
+        let Some((org, _)) = ws.org.clone() else {
+            return;
+        };
+        let password = std::mem::take(&mut edit.fields.password);
+        let (device, work) = (edit.device, edit.work.clone());
+        *work.lock().unwrap() = Work::Working(if set {
+            "Definindo senha…"
+        } else {
+            "Removendo senha…"
+        });
+        let ctx = ctx.clone();
+        self.rt.spawn(async move {
+            let result = match ws.user.access_token().await {
+                Ok(access) if set => {
+                    ws.api
+                        .set_unattended_password(&access, org, device, &password)
+                        .await
+                }
+                Ok(access) => ws.api.clear_unattended_password(&access, org, device).await,
+                Err(e) => Err(e),
+            };
+            *work.lock().unwrap() = match result {
+                Ok(()) => {
+                    set_password_flag(&ws, device, set);
+                    Work::Done(if set {
+                        "Senha definida. Ela vale enquanto o dono permitir o acesso."
+                    } else {
+                        "Senha removida. O acesso sem aceitação foi desligado."
+                    })
+                }
+                Err(e) => Work::Failed(common::client_error_text(&e)),
+            };
+            ctx.request_repaint();
+        });
+    }
+
+    /// "Clientes e grupos": create and delete customers and groups.
+    fn organize_sheet(&mut self, ctx: &egui::Context) {
+        let Some(ws) = self.ws.clone() else { return };
+        let (customers, groups) = {
+            let c = self.catalog.lock().unwrap();
+            (
+                c.customers
+                    .iter()
+                    .map(|c| (c.id, c.name.clone(), c.device_count))
+                    .collect::<Vec<_>>(),
+                c.groups
+                    .iter()
+                    .map(|g| (g.id, g.name.clone(), g.device_count))
+                    .collect::<Vec<_>>(),
+            )
+        };
+        let work = self.organize_work.lock().unwrap().clone();
+        let (working, error, _) = work.texts();
+        let m = views::OrganizeModel {
+            customers: &customers,
+            groups: &groups,
+            working,
+            error,
+        };
+        let action = views::organize_sheet(ctx, &m, &mut self.new_customer, &mut self.new_group);
+        let Some(action) = action else { return };
+        let op = match action {
+            views::OrganizeAction::AddCustomer => {
+                let name = std::mem::take(&mut self.new_customer).trim().to_owned();
+                if name.is_empty() {
+                    return;
+                }
+                OrgOp::CreateCustomer(name)
+            }
+            views::OrganizeAction::AddGroup => {
+                let name = std::mem::take(&mut self.new_group).trim().to_owned();
+                if name.is_empty() {
+                    return;
+                }
+                OrgOp::CreateGroup(name)
+            }
+            views::OrganizeAction::DeleteCustomer(id) => OrgOp::DeleteCustomer(id),
+            views::OrganizeAction::DeleteGroup(id) => OrgOp::DeleteGroup(id),
+            views::OrganizeAction::Close => {
+                self.organize_open = false;
+                views::reset_organize_sheet(ctx);
+                return;
+            }
+        };
+        self.organize_task(ctx, ws, op);
+    }
+
+    /// Runs one customer/group change, then reloads the catalog and the computer list.
+    fn organize_task(&self, ctx: &egui::Context, ws: Arc<Workspace>, op: OrgOp) {
+        let Some((org, _)) = ws.org.clone() else {
+            return;
+        };
+        let (work, catalog) = (self.organize_work.clone(), self.catalog.clone());
+        *work.lock().unwrap() = Work::Working(op.label());
+        let ctx = ctx.clone();
+        self.rt.spawn(async move {
+            let result = run_org_op(&ws, org, &op).await;
+            *work.lock().unwrap() = match result {
+                Ok(done) => {
+                    op.unlink_devices(&ws);
+                    Work::Done(done)
+                }
+                Err(e) => Work::Failed(common::client_error_text(&e)),
+            };
+            store_catalog(&catalog, load_catalog(&ws, org).await);
+            ctx.request_repaint();
+        });
+    }
+}
+
+/// A customer or group change from the "Clientes e grupos" sheet.
+enum OrgOp {
+    CreateCustomer(String),
+    CreateGroup(String),
+    DeleteCustomer(Uuid),
+    DeleteGroup(Uuid),
+}
+
+impl OrgOp {
+    fn label(&self) -> &'static str {
+        match self {
+            Self::CreateCustomer(_) => "Cadastrando cliente…",
+            Self::CreateGroup(_) => "Criando grupo…",
+            Self::DeleteCustomer(_) => "Excluindo cliente…",
+            Self::DeleteGroup(_) => "Excluindo grupo…",
+        }
+    }
+
+    /// After a delete, the computers of that customer or group are shown without it.
+    fn unlink_devices(&self, ws: &Workspace) {
+        let mut st = ws.devices.lock().unwrap();
+        for d in st.devices.iter_mut() {
+            match self {
+                Self::DeleteCustomer(id) if d.customer_id == Some(*id) => {
+                    d.customer_id = None;
+                    d.customer_name = None;
+                }
+                Self::DeleteGroup(id) if d.group_id == Some(*id) => {
+                    d.group_id = None;
+                    d.group_name = None;
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+async fn run_org_op(ws: &Workspace, org: Uuid, op: &OrgOp) -> Result<&'static str, ClientError> {
+    let access = ws.user.access_token().await?;
+    match op {
+        OrgOp::CreateCustomer(name) => {
+            ws.api.create_customer(&access, org, name).await?;
+            Ok("Cliente cadastrado.")
+        }
+        OrgOp::CreateGroup(name) => {
+            ws.api.create_group(&access, org, name).await?;
+            Ok("Grupo criado.")
+        }
+        OrgOp::DeleteCustomer(id) => {
+            ws.api.delete_customer(&access, org, *id).await?;
+            Ok("Cliente excluído. Os computadores continuam cadastrados.")
+        }
+        OrgOp::DeleteGroup(id) => {
+            ws.api.delete_group(&access, org, *id).await?;
+            Ok("Grupo excluído. Os computadores continuam cadastrados.")
+        }
+    }
+}
+
+/// Organization data for the management sheets, loaded from the Control Plane.
+#[derive(Default)]
+struct Catalog {
+    customers: Vec<Customer>,
+    groups: Vec<DeviceGroup>,
+    members: Vec<Member>,
+    error: Option<String>,
+}
+
+/// The last change requested from an open sheet.
+#[derive(Default, Clone)]
+enum Work {
+    #[default]
+    Idle,
+    Working(&'static str),
+    Failed(String),
+    Done(&'static str),
+}
+
+impl Work {
+    /// (working line, error, notice) for the sheet's footer.
+    fn texts(&self) -> (Option<&str>, Option<&str>, Option<&str>) {
+        match self {
+            Self::Idle => (None, None, None),
+            Self::Working(s) => (Some(s), None, None),
+            Self::Failed(e) => (None, Some(e.as_str()), None),
+            Self::Done(s) => (None, None, Some(s)),
+        }
+    }
+}
+
+/// "Editar computador" for one computer.
+struct DeviceEdit {
+    device: Uuid,
+    id_text: String,
+    fields: views::DeviceFields,
+    work: Arc<Mutex<Work>>,
+}
+
+/// Customers, groups and technicians of an organization.
+type Loaded = (Vec<Customer>, Vec<DeviceGroup>, Vec<Member>);
+
+async fn load_catalog(ws: &Workspace, org: Uuid) -> Result<Loaded, ClientError> {
+    let access = ws.user.access_token().await?;
+    let customers = ws.api.customers(&access, org).await?.customers;
+    let groups = ws.api.groups(&access, org).await?.groups;
+    let members = ws.api.org_members(&access, org).await?.members;
+    Ok((customers, groups, members))
+}
+
+fn store_catalog(catalog: &Mutex<Catalog>, loaded: Result<Loaded, ClientError>) {
+    let mut c = catalog.lock().unwrap();
+    match loaded {
+        Ok((customers, groups, members)) => {
+            c.customers = customers;
+            c.groups = groups;
+            c.members = members;
+            c.error = None;
+        }
+        Err(e) => c.error = Some(common::client_error_text(&e)),
+    }
+}
+
+/// Puts a computer returned by the server in the list, in place of the old one.
+fn replace_device(ws: &Workspace, summary: DeviceSummary) {
+    let mut st = ws.devices.lock().unwrap();
+    if let Some(d) = st.devices.iter_mut().find(|d| d.id == summary.id) {
+        *d = summary;
+    }
+}
+
+fn set_password_flag(ws: &Workspace, device: Uuid, set: bool) {
+    let mut st = ws.devices.lock().unwrap();
+    if let Some(d) = st.devices.iter_mut().find(|d| d.id == device) {
+        d.unattended_password_set = set;
+        if !set {
+            d.unattended_enabled = false;
+        }
+    }
+}
+
+/// What a click on the computers list asks for.
+enum Pick {
+    Connect(FriendlyId, String, String, bool),
+    Edit(Box<DeviceSummary>),
+    Organize,
 }

@@ -3,8 +3,10 @@
 Aionix Connect is consent-based remote support software. It does not implement — and
 the server does not enable — stealth access, hidden persistence, credential collection,
 antivirus or security-product evasion, or unattended access without explicit consent.
-Every session still needs the visible "Permitir" click on the host (ADR-0007); the
-Control Plane adds authorization on top of that, it never replaces it.
+An assisted session needs the visible "Permitir" click on the host (ADR-0007). Unattended
+access needs the owner's opt-in on that computer, a device password set by an
+administrator, and a visible session with an end button (ADR-0015). The Control Plane adds
+authorization on top of these, it never replaces them.
 
 ## Identities and secrets
 
@@ -13,6 +15,7 @@ Control Plane adds authorization on top of that, it never replaces it.
 | Device Ed25519 private key | on the device (DPAPI-protected on Windows) | sent to the server, logged |
 | Control Plane signing key | `config/secrets/token-signing.key` (uid 65532, group aionix, 0440), Compose secret | in env vars, git, logs |
 | User passwords | Argon2id PHC hash in `users.password_hash` | stored or logged in clear; passed as CLI args |
+| Unattended-access password | Argon2id PHC hash in `devices.unattended_password_hash`; the technician types it per connection | returned by any API, stored by the app, written to audit details |
 | Refresh tokens | client; server keeps SHA-256 (current + previous) | stored in clear |
 | Enrollment tokens | shown once; server keeps SHA-256 | stored in clear |
 | Session tickets | technician → host; server keeps SHA-256 of the token id | stored |

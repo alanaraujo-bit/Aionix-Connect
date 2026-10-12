@@ -11,7 +11,8 @@
 //! * `host.key` is this device's key and `host.device_id` its device id;
 //! * `viewer.key` is the key the transport handshake authenticated for the peer;
 //! * `sid` is a proper id (and the expected one when the authority announced it);
-//! * the mode is allowed (assisted only, for now) and `view` is granted;
+//! * the mode is allowed: assisted always, unattended only while the local owner enabled
+//!   it ([`TicketValidator::set_unattended_allowed`], ADR-0015) and `view` is granted;
 //! * neither the token id nor the session id was consumed before (replay guard).
 //!
 //! Friendly 9-digit device ids play no role here: they are a lookup handle for humans
@@ -19,7 +20,10 @@
 
 use std::{
     collections::{HashMap, HashSet},
-    sync::Mutex,
+    sync::{
+        Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
 use aionix_control_api::claims::{SessionPermission, SessionTicketClaims, TicketViewer};
@@ -141,7 +145,8 @@ pub struct TicketValidator {
     verifier: TokenVerifier,
     host_device_id: Uuid,
     host_key: PublicKey,
-    allowed_modes: Vec<AccessMode>,
+    /// Off by default: unattended tickets are refused until the owner enables it.
+    unattended_allowed: AtomicBool,
     /// Session ids announced by the authority (session offers). Empty = no pinning.
     expected: Mutex<HashSet<Uuid>>,
     replay: Mutex<ReplayGuard>,
@@ -154,9 +159,26 @@ impl TicketValidator {
             verifier,
             host_device_id,
             host_key,
-            allowed_modes: vec![AccessMode::Assisted],
+            unattended_allowed: AtomicBool::new(false),
             expected: Mutex::new(HashSet::new()),
             replay: Mutex::new(ReplayGuard::default()),
+        }
+    }
+
+    /// Accepts (or refuses again) tickets for unattended access. The host app turns this
+    /// on only while the local owner has enabled unattended access on this computer.
+    pub fn set_unattended_allowed(&self, allowed: bool) {
+        self.unattended_allowed.store(allowed, Ordering::SeqCst);
+    }
+
+    pub fn unattended_allowed(&self) -> bool {
+        self.unattended_allowed.load(Ordering::SeqCst)
+    }
+
+    fn mode_allowed(&self, mode: AccessMode) -> bool {
+        match mode {
+            AccessMode::Assisted => true,
+            AccessMode::Unattended => self.unattended_allowed(),
         }
     }
 
@@ -208,7 +230,7 @@ impl TicketValidator {
                 return Err(TicketRejection::UnexpectedSession);
             }
         }
-        if !self.allowed_modes.contains(&claims.mode) {
+        if !self.mode_allowed(claims.mode) {
             return Err(TicketRejection::ModeNotAllowed(claims.mode));
         }
         let permissions = Permissions::from_claims(&claims.perms);
@@ -453,12 +475,29 @@ mod tests {
             f.validator.validate(&issue(&f, &c), &f.tech.public()),
             Err(TicketRejection::ModeNotAllowed(AccessMode::Unattended))
         );
+        // Still refused after the owner-side switch is turned off again.
+        f.validator.set_unattended_allowed(true);
+        f.validator.set_unattended_allowed(false);
+        assert_eq!(
+            f.validator.validate(&issue(&f, &c), &f.tech.public()),
+            Err(TicketRejection::ModeNotAllowed(AccessMode::Unattended))
+        );
         let mut c = claims(&f);
         c.perms = vec![SessionPermission::Control];
         assert_eq!(
             f.validator.validate(&issue(&f, &c), &f.tech.public()),
             Err(TicketRejection::MissingPermission)
         );
+    }
+
+    #[test]
+    fn unattended_tickets_are_accepted_only_while_the_owner_allows_them() {
+        let f = fixture();
+        let mut c = claims(&f);
+        c.mode = AccessMode::Unattended;
+        f.validator.set_unattended_allowed(true);
+        let ok = f.validator.validate(&issue(&f, &c), &f.tech.public());
+        assert_eq!(ok.map(|a| a.mode), Ok(AccessMode::Unattended));
     }
 
     #[test]

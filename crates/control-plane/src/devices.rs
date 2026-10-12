@@ -23,10 +23,29 @@ use crate::{
 /// Challenge lifetime.
 pub const CHALLENGE_TTL: Duration = Duration::seconds(60);
 
+/// Columns of `devices` alone. The password hash itself is never selected: only whether
+/// one is set.
 macro_rules! device_columns {
     () => {
         "id, friendly_id, public_key, kind, org_id, customer_id, owner_user_id, display_name,
-         hostname, os_name, os_version, app_version, unattended_enabled, last_seen_at, revoked_at"
+         hostname, os_name, os_version, app_version, last_seen_at, revoked_at, description,
+         favorite, group_id, assigned_user_id,
+         (unattended_password_hash IS NOT NULL) AS unattended_password_set"
+    };
+}
+
+/// The same columns qualified with `d.`, plus the names shown in the organization view.
+macro_rules! device_view_sql {
+    () => {
+        "SELECT d.id, d.friendly_id, d.public_key, d.kind, d.org_id,
+            d.customer_id, d.owner_user_id, d.display_name, d.hostname, d.os_name, d.os_version,
+            d.app_version, d.last_seen_at, d.revoked_at, d.description, d.favorite, d.group_id,
+            d.assigned_user_id, (d.unattended_password_hash IS NOT NULL) AS unattended_password_set,
+            c.name AS customer_name, g.name AS group_name, u.display_name AS assigned_user_name
+         FROM devices d
+         LEFT JOIN customers c ON c.id = d.customer_id
+         LEFT JOIN device_groups g ON g.id = d.group_id
+         LEFT JOIN users u ON u.id = d.assigned_user_id"
     };
 }
 
@@ -44,9 +63,20 @@ pub struct DeviceRow {
     pub os_name: String,
     pub os_version: String,
     pub app_version: String,
-    pub unattended_enabled: bool,
     pub last_seen_at: Option<OffsetDateTime>,
     pub revoked_at: Option<OffsetDateTime>,
+    pub description: String,
+    pub favorite: bool,
+    pub group_id: Option<Uuid>,
+    pub assigned_user_id: Option<Uuid>,
+    pub unattended_password_set: bool,
+    /// Only filled by the organization view (`DEVICE_VIEW_SQL`).
+    #[sqlx(default)]
+    pub customer_name: Option<String>,
+    #[sqlx(default)]
+    pub group_name: Option<String>,
+    #[sqlx(default)]
+    pub assigned_user_name: Option<String>,
 }
 
 impl DeviceRow {
@@ -86,10 +116,18 @@ impl DeviceRow {
             os_version: self.os_version.clone(),
             online: state == PresenceState::Online,
             presence: state,
-            unattended_enabled: self.unattended_enabled,
-            favorite: false,
+            // Live consent from the host app: a device that is not online cannot be
+            // reached in unattended mode anyway.
+            unattended_enabled: presence.is_some_and(|p| p.unattended_enabled),
+            unattended_password_set: self.unattended_password_set,
+            favorite: self.favorite,
+            description: self.description.clone(),
             customer_id: self.customer_id,
-            customer_name: None,
+            customer_name: self.customer_name.clone(),
+            group_id: self.group_id,
+            group_name: self.group_name.clone(),
+            assigned_user_id: self.assigned_user_id,
+            assigned_user_name: self.assigned_user_name.clone(),
             last_seen_at: self.last_seen_at,
             last_session_at: None,
         }
@@ -131,13 +169,31 @@ pub async fn by_key(db: &PgPool, key: &PublicKey) -> Result<Option<DeviceRow>, s
 
 pub async fn by_org(db: &PgPool, org: Uuid) -> Result<Vec<DeviceRow>, sqlx::Error> {
     sqlx::query_as(concat!(
-        "SELECT ",
-        device_columns!(),
-        " FROM devices WHERE org_id = $1 AND revoked_at IS NULL ORDER BY display_name, hostname, id"
+        device_view_sql!(),
+        " WHERE d.org_id = $1 AND d.revoked_at IS NULL
+          ORDER BY d.display_name, d.hostname, d.id"
     ))
     .bind(org)
     .fetch_all(db)
     .await
+}
+
+/// One device with the organization view's names (customer, group, technician).
+pub async fn view_by_id(db: &PgPool, id: Uuid) -> Result<Option<DeviceRow>, sqlx::Error> {
+    sqlx::query_as(concat!(device_view_sql!(), " WHERE d.id = $1"))
+        .bind(id)
+        .fetch_optional(db)
+        .await
+}
+
+/// The Argon2id hash of the unattended-access password, if one is set.
+pub async fn unattended_hash(db: &PgPool, id: Uuid) -> Result<Option<String>, sqlx::Error> {
+    let hash: Option<Option<String>> =
+        sqlx::query_scalar("SELECT unattended_password_hash FROM devices WHERE id = $1")
+            .bind(id)
+            .fetch_optional(db)
+            .await?;
+    Ok(hash.flatten())
 }
 
 pub async fn mark_seen(db: &PgPool, id: Uuid) -> Result<(), sqlx::Error> {

@@ -27,8 +27,8 @@ use tracing::{debug, info, warn};
 use super::{
     StateCell,
     authority::{
-        AuthorityError, AuthorizationProvider, DeviceLookup, SessionGrant, SessionRequest,
-        TechnicianIdentity,
+        AuthorityError, AuthorizationProvider, DeviceLookup, Password, SessionGrant,
+        SessionRequest, TechnicianIdentity,
     },
     diagnostics::{LossMeter, Metric, Resolution, SessionDiagnostics, SessionRole, Unavailable},
     link::{
@@ -50,6 +50,9 @@ pub struct TechnicianConfig {
     pub target: DeviceLookup,
     /// Requested permissions; the ticket may grant fewer.
     pub permissions: Vec<SessionPermission>,
+    /// Set for unattended access (ADR-0015): the device password. Without it the
+    /// session is assisted and the person at the computer must click "Permitir".
+    pub unattended_password: Option<Password>,
     pub reconnect: ReconnectPolicy,
     pub connect_timeout: Duration,
     /// Longest wait for the host user's answer (the host refuses on its own earlier).
@@ -67,6 +70,7 @@ impl TechnicianConfig {
             identity,
             target,
             permissions: Permissions::all().to_claims(),
+            unattended_password: None,
             reconnect: ReconnectPolicy::default(),
             connect_timeout: Duration::from_secs(20),
             approval_wait: Duration::from_secs(150),
@@ -373,8 +377,13 @@ impl Tech {
         let request = SessionRequest {
             technician: self.config.identity.clone(),
             target: self.config.target,
-            mode: AccessMode::Assisted,
+            mode: if self.config.unattended_password.is_some() {
+                AccessMode::Unattended
+            } else {
+                AccessMode::Assisted
+            },
             permissions: self.config.permissions.clone(),
+            unattended_password: self.config.unattended_password.clone(),
         };
         let authority = self.authority.clone();
         let grant = tokio::select! {

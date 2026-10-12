@@ -41,5 +41,5 @@ existing `AuthorizationProvider` trait. `DevelopmentAuthority` stays behind the
 - No host-side change was needed: the host keeps validating tickets exactly as before,
   plus the session id pinning it already supported (`expect_session`), now fed by
   signaling offers (`HostOfferHandler`).
-- Unattended access remains impossible: tickets are assisted-only and the host refuses
-  other modes.
+- Unattended tickets exist only with the device password and the owner's live consent
+  (ADR-0015); the host refuses them unless its own setting allows them.

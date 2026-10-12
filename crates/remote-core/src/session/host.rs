@@ -26,7 +26,7 @@ use aionix_protocol::{
     framing::{read_frame, write_frame},
     limits, pb,
 };
-use aionix_shared::QualityMode;
+use aionix_shared::{AccessMode, QualityMode};
 use aionix_transport::{Incoming, PeerConnection, RecvStream, SendStream, Transport};
 use tokio::{
     sync::{mpsc, watch},
@@ -718,6 +718,7 @@ impl HostSession {
             permissions: auth.permissions,
             timeout: self.shared.config.approval_timeout,
         };
+        let unattended = auth.mode == AccessMode::Unattended;
         self.auth = Some(auth);
         self.send(H::HelloAck(pb::HelloAck {
             protocol_version: PROTOCOL_VERSION,
@@ -731,7 +732,16 @@ impl HostSession {
         // 2. Visible local approval, cancelled if the technician gives up.
         self.cell.apply(SessionEvent::AwaitApproval);
         let prompt = self.shared.services.approval.clone();
-        let approval = async move { request_approval(&*prompt, &request).await };
+        // Unattended (ADR-0015): the ticket was accepted only because the owner enabled it
+        // here, so there is no question to ask, but the prompt still shows the session.
+        let approval = async move {
+            if unattended {
+                prompt.unattended_started(&request);
+                ApprovalDecision::Approved
+            } else {
+                request_approval(&*prompt, &request).await
+            }
+        };
         tokio::pin!(approval);
         let decision = loop {
             tokio::select! {

@@ -2,8 +2,9 @@
 //!
 //! Accepting an offer only announces the session id to the host's `TicketValidator`
 //! (which then refuses any other session id) and returns the current address. The
-//! ticket is still fully validated when the technician connects, and the local user
-//! must still click "Permitir" (ADR-0007). Nothing here grants access.
+//! ticket is still fully validated when the technician connects. Assisted sessions still
+//! need the local user to click "Permitir" (ADR-0007); unattended sessions are offered
+//! only while the local owner enabled them (ADR-0015). Nothing here grants access.
 
 use std::sync::Arc;
 
@@ -53,7 +54,12 @@ impl SignalHandler for HostOfferHandler {
                 addr: p.addr,
             };
         }
-        if offer.mode != AccessMode::Assisted {
+        // Unattended offers only while the local owner enabled unattended access (ADR-0015).
+        let mode_allowed = match offer.mode {
+            AccessMode::Assisted => true,
+            AccessMode::Unattended => p.unattended_enabled,
+        };
+        if !mode_allowed {
             return OfferDecision {
                 accept: false,
                 reason: Some(OfferRejectReason::Policy),

@@ -39,7 +39,7 @@ use state::{SessionEvent, SessionState, SessionStatus, StateMachine};
 
 pub use approval::{ApprovalDecision, ApprovalPrompt, ApprovalRequest};
 pub use authority::{
-    AuthorityError, AuthorizationProvider, DeviceLookup, SessionGrant, SessionRequest,
+    AuthorityError, AuthorizationProvider, DeviceLookup, Password, SessionGrant, SessionRequest,
     TechnicianIdentity,
 };
 pub use host::{HostConfig, HostService, HostServices, HostSessionHandle};

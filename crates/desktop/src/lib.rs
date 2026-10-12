@@ -15,6 +15,7 @@
 pub mod admin_side;
 pub mod admin_views;
 pub mod common;
+pub mod host_settings;
 #[cfg(windows)]
 pub mod host_side;
 pub mod icon;

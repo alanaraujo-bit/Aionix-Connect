@@ -11,7 +11,11 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{common, theme, views};
+use crate::{
+    common,
+    host_settings::{self, HostSettings},
+    theme, views,
+};
 use aionix_client::{
     ApiClient,
     enroll::{DeviceSession, Enrollment, ensure_enrolled},
@@ -65,6 +69,28 @@ struct Technician {
     organization: Option<String>,
     control: bool,
     clipboard: bool,
+    /// Connected without the owner's confirmation (ADR-0015).
+    unattended: bool,
+}
+
+impl Technician {
+    fn from_request(request: &ApprovalRequest, unattended: bool) -> Self {
+        Self {
+            name: request.technician_name.clone(),
+            email: request.technician_email.clone(),
+            organization: request.organization.clone(),
+            control: request.permissions.control,
+            clipboard: request.permissions.clipboard,
+            unattended,
+        }
+    }
+}
+
+/// What the window needs to change the owner's unattended-access choice at runtime.
+struct Consent {
+    validator: Arc<TicketValidator>,
+    presence: watch::Sender<PresenceInfo>,
+    dir: PathBuf,
 }
 
 struct HostUi {
@@ -77,6 +103,10 @@ struct HostUi {
     last_outcome: Option<String>,
     log_path: PathBuf,
     addr: String,
+    /// Enrolled as a managed computer (unattended access is offered only then).
+    managed: bool,
+    unattended_enabled: bool,
+    consent: Option<Consent>,
 }
 
 type Shared = Arc<Mutex<HostUi>>;
@@ -95,13 +125,7 @@ struct ObservedPrompt {
 #[async_trait]
 impl ApprovalPrompt for ObservedPrompt {
     async fn ask(&self, request: &ApprovalRequest) -> ApprovalDecision {
-        let tech = Technician {
-            name: request.technician_name.clone(),
-            email: request.technician_email.clone(),
-            organization: request.organization.clone(),
-            control: request.permissions.control,
-            clipboard: request.permissions.clipboard,
-        };
+        let tech = Technician::from_request(request, false);
         self.ui.lock().unwrap().pending = Some(tech.clone());
         self.ctx.request_repaint();
         let decision = self.inner.ask(request).await;
@@ -116,6 +140,20 @@ impl ApprovalPrompt for ObservedPrompt {
         }
         self.ctx.request_repaint();
         decision
+    }
+
+    fn unattended_started(&self, request: &ApprovalRequest) {
+        info!(session = %request.session_id, technician = %request.technician_name,
+            "unattended session authorized by the owner's setting");
+        if let Some((_, t)) = self.ui.lock().unwrap().session.as_mut() {
+            *t = Some(Technician::from_request(request, true));
+        }
+        // Visible without taking focus: the taskbar button flashes and the banner shows.
+        self.ctx
+            .send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
+                egui::UserAttentionType::Informational,
+            ));
+        self.ctx.request_repaint();
     }
 }
 
@@ -184,6 +222,9 @@ async fn run(args: HostOptions, ui: Shared, runtime: Arc<Mutex<Runtime>>, ctx: e
         reg.device_id,
         session.key().public(),
     ));
+    // The owner's choices, as last set on this computer. Missing means off (ADR-0015).
+    let settings = host_settings::load(&dir);
+    validator.set_unattended_allowed(settings.unattended_access);
     let display_id = aionix_capture::windows::enumerate_displays()
         .ok()
         .and_then(|d| d.into_iter().find(|d| d.primary).map(|d| d.id))
@@ -213,9 +254,19 @@ async fn run(args: HostOptions, ui: Shared, runtime: Arc<Mutex<Runtime>>, ctx: e
     let (presence_tx, presence_rx) = watch::channel(PresenceInfo {
         addr: transport.addr(),
         busy: false,
-        unattended_enabled: false,
+        unattended_enabled: settings.unattended_access,
     });
     ui.lock().unwrap().addr = describe_addr(&transport.addr());
+    {
+        let mut u = ui.lock().unwrap();
+        u.managed = reg.kind == aionix_shared::DeviceKind::Agent;
+        u.unattended_enabled = settings.unattended_access;
+        u.consent = Some(Consent {
+            validator: validator.clone(),
+            presence: presence_tx.clone(),
+            dir: dir.clone(),
+        });
+    }
     {
         let (tx, t, ui, ctx) = (
             presence_tx.clone(),
@@ -426,6 +477,9 @@ impl HostSide {
             last_outcome: None,
             log_path,
             addr: String::new(),
+            managed: false,
+            unattended_enabled: false,
+            consent: None,
         }));
         let runtime = Arc::new(Mutex::new(Runtime { signaling: None }));
         rt.spawn(run(opts, ui.clone(), runtime.clone(), ctx));
@@ -528,6 +582,7 @@ impl HostSide {
                 )
             });
             views::InboundModel {
+                unattended: tech.as_ref().is_some_and(|t| t.unattended),
                 email: tech
                     .as_ref()
                     .map(|t| t.email.clone())
@@ -553,6 +608,8 @@ impl HostSide {
             copied: self
                 .copied_at
                 .is_some_and(|t| t.elapsed() < Duration::from_secs(2)),
+            managed: u.managed,
+            unattended_enabled: u.unattended_enabled,
         }
     }
 
@@ -571,6 +628,45 @@ impl HostSide {
                     handle.end();
                 }
             }
+            views::HostAction::SetUnattended(on) => self.set_unattended(on),
+        }
+    }
+
+    /// The owner switches unattended access in this computer's own window. It applies to
+    /// the next offer and ticket, is reported to the server through presence, and is kept
+    /// across restarts. Turning it off also ends an unattended session that is running.
+    fn set_unattended(&self, on: bool) {
+        let (validator, presence, dir, session) = {
+            let u = self.ui.lock().unwrap();
+            let Some(c) = u.consent.as_ref() else {
+                return;
+            };
+            (
+                c.validator.clone(),
+                c.presence.clone(),
+                c.dir.clone(),
+                u.session.clone(),
+            )
+        };
+        validator.set_unattended_allowed(on);
+        presence.send_modify(|p| p.unattended_enabled = on);
+        if let Err(e) = host_settings::save(
+            &dir,
+            &HostSettings {
+                unattended_access: on,
+            },
+        ) {
+            // Still applied for this run: the owner's choice is not lost, only not kept.
+            warn!(error = %e, "could not save the unattended-access setting");
+        }
+        self.ui.lock().unwrap().unattended_enabled = on;
+        info!(enabled = on, "unattended access set by the owner");
+        if let Some((handle, Some(tech))) = session
+            && !on
+            && tech.unattended
+        {
+            info!("ending the unattended session: the owner turned the setting off");
+            handle.end();
         }
     }
 

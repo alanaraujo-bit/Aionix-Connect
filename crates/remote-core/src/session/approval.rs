@@ -42,6 +42,11 @@ pub enum ApprovalDecision {
 pub trait ApprovalPrompt: Send + Sync {
     /// Shows the request and waits for the local user's answer.
     async fn ask(&self, request: &ApprovalRequest) -> ApprovalDecision;
+
+    /// An unattended session (ADR-0015) was authorized without asking: the owner enabled
+    /// that on this computer. Implementations must make the session visible locally
+    /// (the host never hides it). Default: nothing.
+    fn unattended_started(&self, _request: &ApprovalRequest) {}
 }
 
 /// Grace added to the prompt's own countdown before the coordinator gives up on it.

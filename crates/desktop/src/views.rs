@@ -11,6 +11,8 @@ use egui::{
 use crate::icons::{self, Icon};
 use crate::theme::{self, Kind, Palette};
 
+use uuid::Uuid;
+
 // ------------------------------------------------------------------ shared bits
 
 /// Meaning of a status color; views pick the palette entry.
@@ -601,6 +603,8 @@ pub struct InboundModel {
     /// Session state in words when it is not simply "connected".
     pub state: Option<(String, Tone)>,
     pub can_end: bool,
+    /// Connected without the owner's confirmation (unattended access, ADR-0015).
+    pub unattended: bool,
 }
 
 pub struct HostModel {
@@ -614,12 +618,16 @@ pub struct HostModel {
     pub inbound: Option<InboundModel>,
     pub last_outcome: Option<String>,
     pub copied: bool,
+    /// Enrolled as a managed computer: unattended access is available here.
+    pub managed: bool,
+    pub unattended_enabled: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HostAction {
     Copy(String),
     EndInbound,
+    SetUnattended(bool),
 }
 
 /// Banners for someone asking for, or using, this computer. Drawn at the top of Início.
@@ -676,10 +684,12 @@ pub fn inbound_banner(ui: &mut Ui, m: &HostModel) -> Option<HostAction> {
                     theme::status_dot(ui, dot, pulse);
                     ui.vertical(|ui| {
                         ui.spacing_mut().item_spacing.y = 1.0;
-                        let who = ui.label(theme::title(
-                            format!("{} está acessando este computador", s.name),
-                            14.0,
-                        ));
+                        let headline = if s.unattended {
+                            format!("Acesso sem aceitação: {} está conectado", s.name)
+                        } else {
+                            format!("{} está acessando este computador", s.name)
+                        };
+                        let who = ui.label(theme::title(headline, 14.0));
                         if let Some(e) = &s.email {
                             who.on_hover_text(e);
                         }
@@ -772,11 +782,25 @@ pub fn this_computer(ui: &mut Ui, m: &HostModel) -> Option<HostAction> {
         }
     });
     ui.add_space(14.0);
-    ui.label(
-        RichText::new("Passe este ID para quem vai te ajudar. Ninguém acessa este computador sem a sua permissão.")
-            .size(13.5)
-            .color(p.muted),
-    );
+    let promise = if m.unattended_enabled {
+        "Passe este ID para quem vai te ajudar. O acesso sem aceitação está ligado: você pode desligá-lo a qualquer momento."
+    } else {
+        "Passe este ID para quem vai te ajudar. Ninguém acessa este computador sem a sua permissão."
+    };
+    ui.label(RichText::new(promise).size(13.5).color(p.muted));
+    if m.managed {
+        ui.add_space(18.0);
+        let mut on = m.unattended_enabled;
+        if theme::toggle_chip(ui, &mut on, "Permitir acesso sem aceitação", true).clicked() {
+            action = Some(HostAction::SetUnattended(on));
+        }
+        let explain = if m.unattended_enabled {
+            "Técnicos autorizados pela sua empresa podem conectar com a senha de acesso, sem clicar em Permitir. Enquanto houver uma sessão, ela aparece nesta janela."
+        } else {
+            "Desligado: cada acesso precisa da sua confirmação em Permitir."
+        };
+        ui.label(RichText::new(explain).size(13.0).color(p.muted));
+    }
     if let Some(o) = &m.last_outcome
         && m.inbound.is_none()
         && m.pending.is_none()
@@ -953,7 +977,7 @@ pub fn connect_section(
         ui.add_space(4.0);
         theme::hairline(ui);
         for (i, d) in m.quick.iter().enumerate() {
-            if device_row(ui, d, false, m.stale) {
+            if device_row(ui, d, false, m.stale, false) == RowAction::Connect {
                 action = Some(ConnectAction::Device(i));
             }
         }
@@ -970,10 +994,30 @@ pub struct ComputersModel<'a> {
     pub loaded: bool,
     pub has_org: bool,
     pub error: Option<&'a str>,
+    /// Owners and admins organize computers, clients and groups here.
+    pub can_manage: bool,
 }
 
-/// The organization's computers as a list; returns the index of the one to connect to.
-pub fn computers_page(ui: &mut Ui, m: &ComputersModel<'_>, filter: &mut String) -> Option<usize> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RowAction {
+    None,
+    Connect,
+    Edit,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComputersAction {
+    Connect(usize),
+    Edit(usize),
+    Organize,
+}
+
+/// The organization's computers as a list.
+pub fn computers_page(
+    ui: &mut Ui,
+    m: &ComputersModel<'_>,
+    filter: &mut String,
+) -> Option<ComputersAction> {
     let p = theme::palette(ui);
     let mut pick = None;
     ui.horizontal(|ui| {
@@ -998,6 +1042,12 @@ pub fn computers_page(ui: &mut Ui, m: &ComputersModel<'_>, filter: &mut String) 
         });
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             search_field(ui, filter);
+            if m.can_manage
+                && theme::button(ui, Kind::Secondary, None, "Clientes e grupos", true, None)
+                    .clicked()
+            {
+                pick = Some(ComputersAction::Organize);
+            }
         });
     });
     ui.add_space(18.0);
@@ -1053,8 +1103,10 @@ pub fn computers_page(ui: &mut Ui, m: &ComputersModel<'_>, filter: &mut String) 
         .auto_shrink([false, false])
         .show(ui, |ui| {
             for (i, d) in m.devices.iter().enumerate() {
-                if device_row(ui, d, true, m.error.is_some()) {
-                    pick = Some(i);
+                match device_row(ui, d, true, m.error.is_some(), m.can_manage) {
+                    RowAction::Connect => pick = Some(ComputersAction::Connect(i)),
+                    RowAction::Edit => pick = Some(ComputersAction::Edit(i)),
+                    RowAction::None => {}
                 }
             }
         });
@@ -1106,7 +1158,13 @@ fn column_header(ui: &mut Ui) {
 /// compact Início row. Returns true when the user asks to connect.
 /// `stale`: the list could not be refreshed (no server); presence is not shown as
 /// current and connecting is not offered.
-fn device_row(ui: &mut Ui, d: &DeviceModel, columns: bool, stale: bool) -> bool {
+fn device_row(
+    ui: &mut Ui,
+    d: &DeviceModel,
+    columns: bool,
+    stale: bool,
+    can_edit: bool,
+) -> RowAction {
     let p = theme::palette(ui);
     let online = d.presence == Presence::Online && !stale;
     let height = if columns { 52.0 } else { 46.0 };
@@ -1250,10 +1308,27 @@ fn device_row(ui: &mut Ui, d: &DeviceModel, columns: bool, stale: bool) -> bool 
     if online && response.double_clicked() {
         clicked = true;
     }
-    if online {
-        response.on_hover_cursor(egui::CursorIcon::PointingHand);
-    }
-    clicked
+    let response = if online {
+        response.on_hover_cursor(egui::CursorIcon::PointingHand)
+    } else {
+        response
+    };
+    let mut action = if clicked {
+        RowAction::Connect
+    } else {
+        RowAction::None
+    };
+    response.context_menu(|ui| {
+        if online && ui.button("Conectar").clicked() {
+            action = RowAction::Connect;
+            ui.close();
+        }
+        if can_edit && ui.button("Editar computador…").clicked() {
+            action = RowAction::Edit;
+            ui.close();
+        }
+    });
+    action
 }
 
 fn empty_state(ui: &mut Ui, title: &str, detail: &str) {
@@ -1377,6 +1452,534 @@ pub fn login_sheet(
 /// Call when the sheet is not shown, so it animates in again next time.
 pub fn reset_login_sheet(ctx: &egui::Context) {
     ctx.data_mut(|d| d.remove::<f64>(Id::new("login-sheet")));
+}
+
+// ------------------------------------------------- unattended access (ADR-0015)
+
+pub struct UnattendedModel<'a> {
+    /// The computer's name, as the sheet's text refers to it.
+    pub name: &'a str,
+    pub error: Option<&'a str>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnattendedAction {
+    /// Connect with the device password: nobody at the computer is asked.
+    Connect,
+    /// Connect the usual way: the person at the computer clicks "Permitir".
+    AskPermission,
+    Cancel,
+}
+
+/// Asks for the device's unattended-access password before connecting. The technician
+/// may also choose the usual request, which keeps the person in control.
+pub fn unattended_sheet(
+    ctx: &egui::Context,
+    m: &UnattendedModel<'_>,
+    password: &mut String,
+) -> Option<UnattendedAction> {
+    let mut action = None;
+    let id = Id::new("unattended-sheet");
+    let t = sheet_progress(ctx, id);
+    let dark = ctx.global_style().visuals.dark_mode;
+    let p = if dark { theme::DARK } else { theme::LIGHT };
+    let backdrop = Color32::from_black_alpha((if dark { 140.0 } else { 80.0 } * t) as u8);
+    let area = egui::Modal::default_area(id.with("area"))
+        .anchor(Align2::CENTER_CENTER, vec2(0.0, (1.0 - t) * 14.0));
+    let response = egui::Modal::new(id.with("modal"))
+        .area(area)
+        .backdrop_color(backdrop)
+        .frame(theme::sheet(&p).inner_margin(Margin::same(28)))
+        .show(ctx, |ui| {
+            ui.multiply_opacity(t);
+            ui.set_width(360.0);
+            ui.spacing_mut().item_spacing.y = 6.0;
+            ui.label(theme::title("Conectar sem aceitação", theme::SIZE_TITLE));
+            ui.label(
+                RichText::new(format!(
+                    "Digite a senha de acesso de {}. A conexão acontece sem que ninguém precise clicar em Permitir. O computador mostra o aviso enquanto você estiver conectado.",
+                    m.name
+                ))
+                .size(13.5)
+                .color(p.muted),
+            );
+            ui.add_space(14.0);
+            ui.label(RichText::new("Senha de acesso").size(theme::SIZE_SMALL).color(p.muted));
+            let (pw, enter) = field(ui, password, "", 360.0, true, true);
+            if !pw.has_focus() && password.is_empty() {
+                pw.request_focus();
+            }
+            if let Some(err) = m.error {
+                ui.add_space(2.0);
+                ui.label(RichText::new(err).size(13.0).color(p.danger));
+            }
+            ui.add_space(16.0);
+            let can = !password.is_empty();
+            ui.horizontal(|ui| {
+                if theme::button(ui, Kind::Ghost, None, "Pedir permissão", true, None)
+                    .on_hover_text("A pessoa do computador precisa clicar em Permitir")
+                    .clicked()
+                {
+                    action = Some(UnattendedAction::AskPermission);
+                }
+            });
+            ui.add_space(6.0);
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                ui.spacing_mut().item_spacing.x = 8.0;
+                if theme::button(ui, Kind::Primary, None, "Conectar", can, Some(120.0)).clicked()
+                    || (enter && can)
+                {
+                    action = Some(UnattendedAction::Connect);
+                }
+                if theme::button(ui, Kind::Ghost, None, "Cancelar", true, None).clicked() {
+                    action = Some(UnattendedAction::Cancel);
+                }
+            });
+        });
+    if response.should_close() {
+        action = Some(UnattendedAction::Cancel);
+    }
+    if action.is_some() {
+        ctx.data_mut(|d| d.remove::<f64>(id));
+    }
+    action
+}
+
+/// Call when the sheet is not shown, so it animates in again next time.
+pub fn reset_unattended_sheet(ctx: &egui::Context) {
+    ctx.data_mut(|d| d.remove::<f64>(Id::new("unattended-sheet")));
+}
+
+/// 0→1 entrance progress of a sheet, measured from the first frame it was shown.
+fn sheet_progress(ctx: &egui::Context, id: Id) -> f32 {
+    if theme::reduced_motion() {
+        return 1.0;
+    }
+    let now = ctx.input(|i| i.time);
+    let start = ctx.data_mut(|d| *d.get_temp_mut_or_insert_with(id, || now));
+    let t = ((now - start) as f32 / 0.28).clamp(0.0, 1.0);
+    if t < 1.0 {
+        ctx.request_repaint();
+    }
+    theme::ease_out(t)
+}
+
+// --------------------------------------------- organize computers (ADR-0015)
+
+/// The editable fields of "Editar computador".
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DeviceFields {
+    pub name: String,
+    pub description: String,
+    pub customer: Option<Uuid>,
+    pub group: Option<Uuid>,
+    pub assignee: Option<Uuid>,
+    pub favorite: bool,
+    /// The unattended-access password being typed; emptied once it is set.
+    pub password: String,
+}
+
+/// An entry of a dropdown: its id and the name shown.
+pub type Choice = (Uuid, String);
+
+pub struct DeviceEditModel<'a> {
+    /// "845 948 277" for the header.
+    pub id_text: &'a str,
+    pub customers: &'a [Choice],
+    pub groups: &'a [Choice],
+    pub members: &'a [Choice],
+    pub password_set: bool,
+    /// The owner allowed unattended access on the computer right now.
+    pub unattended_enabled: bool,
+    pub working: Option<&'a str>,
+    pub error: Option<&'a str>,
+    pub notice: Option<&'a str>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DeviceEditAction {
+    Save,
+    SetPassword,
+    ClearPassword,
+    Organize,
+    Close,
+}
+
+/// Shows a centered sheet: `body` scrolls when it is taller than the window, `footer`
+/// (the actions) always stays visible. Returns the first action asked for, and whether
+/// the user asked to close the sheet (Escape or a click outside).
+fn show_sheet<T>(
+    ctx: &egui::Context,
+    id: Id,
+    width: f32,
+    body: impl FnOnce(&mut Ui, &theme::Palette) -> Option<T>,
+    footer: impl FnOnce(&mut Ui, &theme::Palette) -> Option<T>,
+) -> (Option<T>, bool) {
+    let t = sheet_progress(ctx, id);
+    let dark = ctx.global_style().visuals.dark_mode;
+    let p = if dark { theme::DARK } else { theme::LIGHT };
+    let backdrop = Color32::from_black_alpha((if dark { 140.0 } else { 80.0 } * t) as u8);
+    let area = egui::Modal::default_area(id.with("area"))
+        .anchor(Align2::CENTER_CENTER, vec2(0.0, (1.0 - t) * 14.0));
+    // Leaves room for the frame, the footer and the window's edges.
+    let max_body = (ctx.content_rect().height() - 190.0).max(200.0);
+    let (mut from_body, mut from_footer) = (None, None);
+    let response = egui::Modal::new(id.with("modal"))
+        .area(area)
+        .backdrop_color(backdrop)
+        .frame(theme::sheet(&p).inner_margin(Margin::same(24)))
+        .show(ctx, |ui| {
+            ui.multiply_opacity(t);
+            ui.set_width(width);
+            ui.spacing_mut().item_spacing.y = 6.0;
+            from_body = egui::ScrollArea::vertical()
+                .max_height(max_body)
+                .auto_shrink([false, true])
+                .show(ui, |ui| body(ui, &p))
+                .inner;
+            ui.add_space(8.0);
+            from_footer = footer(ui, &p);
+        });
+    (from_body.or(from_footer), response.should_close())
+}
+
+/// A dropdown over `choices`, with `none` for "no choice".
+fn choice_box(
+    ui: &mut Ui,
+    salt: &str,
+    current: &mut Option<Uuid>,
+    none: &str,
+    choices: &[Choice],
+    width: f32,
+) {
+    let selected = current
+        .and_then(|c| choices.iter().find(|(id, _)| *id == c))
+        .map(|(_, name)| name.as_str())
+        .unwrap_or(none);
+    egui::ComboBox::from_id_salt(salt)
+        .width(width)
+        .selected_text(selected)
+        .show_ui(ui, |ui| {
+            ui.selectable_value(current, None, none);
+            for (id, name) in choices {
+                ui.selectable_value(current, Some(*id), name);
+            }
+        });
+}
+
+fn field_label(ui: &mut Ui, p: &theme::Palette, text: &str) {
+    ui.label(RichText::new(text).size(theme::SIZE_SMALL).color(p.muted));
+}
+
+/// "Editar computador": two columns. Left: how the computer is organized. Right: its
+/// unattended access (the owner's consent and the device password).
+pub fn device_edit_sheet(
+    ctx: &egui::Context,
+    m: &DeviceEditModel<'_>,
+    f: &mut DeviceFields,
+) -> Option<DeviceEditAction> {
+    let id = Id::new("device-edit-sheet");
+    let busy = m.working.is_some();
+    let save_ok = !busy && !f.name.trim().is_empty();
+    let column = 286.0;
+    let (action, close) = show_sheet(
+        ctx,
+        id,
+        620.0,
+        |ui, p| {
+            let mut action = None;
+            ui.label(theme::title("Editar computador", theme::SIZE_TITLE));
+            ui.label(RichText::new(m.id_text).size(13.5).color(p.muted));
+            ui.add_space(12.0);
+            ui.horizontal_top(|ui| {
+                ui.spacing_mut().item_spacing.x = 28.0;
+                ui.vertical(|ui| {
+                    ui.set_width(column);
+                    field_label(ui, p, "Nome");
+                    field(ui, &mut f.name, "Nome do computador", column, false, !busy);
+                    field_label(ui, p, "Descrição");
+                    field(ui, &mut f.description, "Ex.: servidor de arquivos", column, false, !busy);
+                    field_label(ui, p, "Cliente");
+                    ui.add_enabled_ui(!busy, |ui| {
+                        choice_box(ui, "device-customer", &mut f.customer, "Sem cliente", m.customers, column);
+                    });
+                    field_label(ui, p, "Grupo");
+                    ui.add_enabled_ui(!busy, |ui| {
+                        choice_box(ui, "device-group", &mut f.group, "Sem grupo", m.groups, column);
+                    });
+                    field_label(ui, p, "Técnico responsável");
+                    ui.add_enabled_ui(!busy, |ui| {
+                        choice_box(ui, "device-assignee", &mut f.assignee, "Ninguém", m.members, column);
+                    });
+                    ui.add_space(6.0);
+                    ui.horizontal(|ui| {
+                        theme::toggle_chip(ui, &mut f.favorite, "Favorito", !busy);
+                        if theme::button(ui, Kind::Ghost, None, "Clientes e grupos…", !busy, None)
+                            .clicked()
+                        {
+                            action = Some(DeviceEditAction::Organize);
+                        }
+                    });
+                });
+                ui.vertical(|ui| {
+                    ui.set_width(column);
+                    ui.label(theme::title("Acesso sem aceitação", theme::SIZE_HEADING));
+                    let (line, tone) = match (m.password_set, m.unattended_enabled) {
+                        (true, true) => (
+                            "Pronto: o dono deste computador permitiu e a senha está definida.",
+                            p.success,
+                        ),
+                        (true, false) => (
+                            "Senha definida. O dono ainda não permitiu o acesso sem aceitação neste computador.",
+                            p.muted,
+                        ),
+                        (false, _) => ("Nenhuma senha definida.", p.muted),
+                    };
+                    ui.label(RichText::new(line).size(13.0).color(tone));
+                    ui.add_space(8.0);
+                    field_label(ui, p, "Nova senha (mínimo de 12 caracteres)");
+                    let (_, enter) = field(ui, &mut f.password, "", column, true, !busy);
+                    ui.add_space(4.0);
+                    ui.horizontal(|ui| {
+                        let set_ok = f.password.chars().count() >= 12 && !busy;
+                        let set_clicked =
+                            theme::button(ui, Kind::Secondary, None, "Definir senha", set_ok, None)
+                                .clicked();
+                        if set_clicked || (enter && set_ok) {
+                            action = Some(DeviceEditAction::SetPassword);
+                        }
+                        if theme::button(
+                            ui,
+                            Kind::Ghost,
+                            None,
+                            "Remover senha",
+                            m.password_set && !busy,
+                            None,
+                        )
+                        .clicked()
+                        {
+                            action = Some(DeviceEditAction::ClearPassword);
+                        }
+                    });
+                    ui.add_space(10.0);
+                    ui.label(
+                        RichText::new("O computador só aceita a senha enquanto o dono mantiver o acesso sem aceitação ligado.")
+                            .size(12.5)
+                            .color(p.faint),
+                    );
+                });
+            });
+            action
+        },
+        |ui, p| {
+            let mut action = None;
+            if let Some(e) = m.error {
+                ui.label(RichText::new(e).size(13.0).color(p.danger));
+            } else if let Some(n) = m.notice {
+                ui.label(RichText::new(n).size(13.0).color(p.success));
+            } else if let Some(w) = m.working {
+                ui.label(RichText::new(w).size(13.0).color(p.muted));
+            }
+            ui.add_space(6.0);
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                ui.spacing_mut().item_spacing.x = 8.0;
+                if theme::button(ui, Kind::Primary, None, "Salvar", save_ok, Some(104.0)).clicked()
+                {
+                    action = Some(DeviceEditAction::Save);
+                }
+                if theme::button(ui, Kind::Ghost, None, "Fechar", !busy, None).clicked() {
+                    action = Some(DeviceEditAction::Close);
+                }
+            });
+            action
+        },
+    );
+    let action = match action {
+        Some(a) => Some(a),
+        None if close && !busy => Some(DeviceEditAction::Close),
+        None => None,
+    };
+    if action == Some(DeviceEditAction::Close) {
+        ctx.data_mut(|d| d.remove::<f64>(id));
+    }
+    action
+}
+
+/// Call when the device sheet is not shown, so it animates in again next time.
+pub fn reset_device_edit_sheet(ctx: &egui::Context) {
+    ctx.data_mut(|d| d.remove::<f64>(Id::new("device-edit-sheet")));
+}
+
+pub struct OrganizeModel<'a> {
+    /// (id, name, number of computers).
+    pub customers: &'a [(Uuid, String, i64)],
+    pub groups: &'a [(Uuid, String, i64)],
+    pub working: Option<&'a str>,
+    pub error: Option<&'a str>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OrganizeAction {
+    AddCustomer,
+    AddGroup,
+    DeleteCustomer(Uuid),
+    DeleteGroup(Uuid),
+    Close,
+}
+
+/// One list of the organize sheet: customers or groups.
+struct OrganizeSection<'a> {
+    title: &'a str,
+    rows: &'a [(Uuid, String, i64)],
+    new: &'a mut String,
+    hint: &'a str,
+    add: OrganizeAction,
+    del: fn(Uuid) -> OrganizeAction,
+}
+
+/// "Clientes e grupos": the organization's customers and device groups.
+pub fn organize_sheet(
+    ctx: &egui::Context,
+    m: &OrganizeModel<'_>,
+    new_customer: &mut String,
+    new_group: &mut String,
+) -> Option<OrganizeAction> {
+    let id = Id::new("organize-sheet");
+    let armed_id = Id::new("organize-armed");
+    let busy = m.working.is_some();
+    // The row whose delete waits for a second click (deleting unlinks its computers).
+    let armed: Option<Uuid> = ctx.data(|d| d.get_temp::<Option<Uuid>>(armed_id)).flatten();
+    let mut arm: Option<Option<Uuid>> = None;
+    let (action, close) = show_sheet(
+        ctx,
+        id,
+        420.0,
+        |ui, p| {
+            let mut action = None;
+            ui.label(theme::title("Clientes e grupos", theme::SIZE_TITLE));
+            ui.label(
+                RichText::new(
+                    "Clientes são quem você atende. Grupos organizam os computadores em pastas.",
+                )
+                .size(13.0)
+                .color(p.muted),
+            );
+            let sections = [
+                OrganizeSection {
+                    title: "Clientes",
+                    rows: m.customers,
+                    new: &mut *new_customer,
+                    hint: "Nome do cliente",
+                    add: OrganizeAction::AddCustomer,
+                    del: OrganizeAction::DeleteCustomer,
+                },
+                OrganizeSection {
+                    title: "Grupos",
+                    rows: m.groups,
+                    new: &mut *new_group,
+                    hint: "Nome do grupo",
+                    add: OrganizeAction::AddGroup,
+                    del: OrganizeAction::DeleteGroup,
+                },
+            ];
+            for OrganizeSection {
+                title,
+                rows,
+                new,
+                hint,
+                add,
+                del,
+            } in sections
+            {
+                ui.add_space(10.0);
+                ui.label(theme::title(title, theme::SIZE_HEADING));
+                if rows.is_empty() {
+                    ui.label(
+                        RichText::new("Nenhum cadastrado ainda.")
+                            .size(13.0)
+                            .color(p.faint),
+                    );
+                }
+                for (rid, name, count) in rows {
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new(name).size(14.0).color(p.text));
+                        ui.label(
+                            RichText::new(format!("{count} computador(es)"))
+                                .size(12.5)
+                                .color(p.faint),
+                        );
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            let armed_here = armed == Some(*rid);
+                            let label = if armed_here {
+                                "Confirmar exclusão"
+                            } else {
+                                "Excluir"
+                            };
+                            let btn = theme::button(ui, Kind::Ghost, None, label, !busy, None)
+                                .on_hover_text(
+                                    "Os computadores continuam cadastrados, sem este vínculo.",
+                                );
+                            if btn.clicked() {
+                                if armed_here {
+                                    action = Some(del(*rid));
+                                } else {
+                                    arm = Some(Some(*rid));
+                                }
+                            }
+                        });
+                    });
+                }
+                ui.add_space(4.0);
+                ui.horizontal(|ui| {
+                    let (_, enter) = field(ui, new, hint, 280.0, false, !busy);
+                    let ok = !new.trim().is_empty() && !busy;
+                    if theme::button(ui, Kind::Secondary, None, "Adicionar", ok, None).clicked()
+                        || (enter && ok)
+                    {
+                        action = Some(add);
+                    }
+                });
+            }
+            action
+        },
+        |ui, p| {
+            if let Some(e) = m.error {
+                ui.label(RichText::new(e).size(13.0).color(p.danger));
+            } else if let Some(w) = m.working {
+                ui.label(RichText::new(w).size(13.0).color(p.muted));
+            }
+            let mut action = None;
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                if theme::button(ui, Kind::Ghost, None, "Fechar", !busy, None).clicked() {
+                    action = Some(OrganizeAction::Close);
+                }
+            });
+            action
+        },
+    );
+    if let Some(a) = arm {
+        ctx.data_mut(|d| d.insert_temp(armed_id, a));
+    }
+    if matches!(
+        action,
+        Some(OrganizeAction::DeleteCustomer(_) | OrganizeAction::DeleteGroup(_))
+    ) {
+        ctx.data_mut(|d| d.insert_temp::<Option<Uuid>>(armed_id, None));
+    }
+    let action = match action {
+        Some(a) => Some(a),
+        None if close && !busy => Some(OrganizeAction::Close),
+        None => None,
+    };
+    if action == Some(OrganizeAction::Close) {
+        ctx.data_mut(|d| d.remove::<f64>(id));
+    }
+    action
+}
+
+/// Call when the organize sheet is not shown, so it animates in again next time.
+pub fn reset_organize_sheet(ctx: &egui::Context) {
+    ctx.data_mut(|d| d.remove::<f64>(Id::new("organize-sheet")));
 }
 
 // ------------------------------------------------------------------ session

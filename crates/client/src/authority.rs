@@ -146,10 +146,19 @@ impl AuthorizationProvider for ControlPlaneAuthority {
                 "technician key does not belong to this workstation".into(),
             ));
         }
-        if request.mode != AccessMode::Assisted {
-            return Err(AuthorityError::Forbidden(
-                "only assisted sessions are supported".into(),
-            ));
+        // Unattended access needs the device password, and only that mode takes one.
+        match (request.mode, request.unattended_password.is_some()) {
+            (AccessMode::Unattended, false) => {
+                return Err(AuthorityError::Forbidden(
+                    "unattended access needs the device password".into(),
+                ));
+            }
+            (AccessMode::Assisted, true) => {
+                return Err(AuthorityError::Forbidden(
+                    "a password is only used for unattended access".into(),
+                ));
+            }
+            _ => {}
         }
         let target = match request.target {
             DeviceLookup::Friendly(f) => f,
@@ -170,10 +179,22 @@ impl AuthorizationProvider for ControlPlaneAuthority {
                 &CreateSessionRequest {
                     target,
                     permissions: Some(request.permissions.clone()),
+                    unattended_password: request
+                        .unattended_password
+                        .as_ref()
+                        .map(|p| p.expose().to_owned()),
                 },
             )
             .await
             .map_err(map_error)?;
+        // Fail closed: the server must have granted the mode that was asked for.
+        if resp.mode != request.mode {
+            return Err(AuthorityError::Forbidden(format!(
+                "the server granted {} access, not {}",
+                resp.mode.as_str(),
+                request.mode.as_str()
+            )));
+        }
         Ok(SessionGrant {
             session_id: resp.session_id,
             ticket: resp.ticket,
