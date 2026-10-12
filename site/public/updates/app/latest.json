@@ -1,13 +1,15 @@
 {
   "product": "app",
-  "version": "0.2.8",
-  "published_at": "2026-10-11T16:19:56.9073106Z",
+  "version": "0.2.9",
+  "published_at": "2026-10-12T22:01:38.771271Z",
   "notes": [
-    "O aplicativo abre normalmente pela barra de tarefas depois de iniciar com o Windows"
+    "Acesso sem aceitação com autorização do dono do computador (senha de acesso definida pelo administrador)",
+    "Clientes, grupos e edição de computadores no painel",
+    "Técnico informa a senha ao conectar em computador com acesso sem aceitação"
   ],
   "installer": {
-    "url": "https://aionixconnect.aionixdev.com/releases/0.2.8/Aionix-Connect-Setup-0.2.8.exe",
-    "size": 35279360,
-    "sha256": "946c554a85eba33992f266552417250d151d96f98b16282d10966d80da04bafc"
+    "url": "https://aionixconnect.aionixdev.com/releases/0.2.9/Aionix-Connect-Setup-0.2.9.exe",
+    "size": 35475456,
+    "sha256": "62f29eda937e1f6dd0f94cfbb3e8f11ad790753bf191fc18c87f582f2126b0be"
   }
 }
